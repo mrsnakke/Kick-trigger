@@ -169,17 +169,19 @@ app.all('/webhook/kick', async (req, res) => {
   console.log('[WH] rawBody length:', rawBody.length, 'rawBody:', rawBody.slice(0, 100));
 
   try {
-    const v = crypto.createVerify('sha256');
+    const sigBuf = Buffer.from(sig, 'base64');
+    const keyObj = crypto.createPublicKey(kickPublicKey);
+    const v = crypto.createVerify('RSA-SHA256');
     v.update(`${msgId}.${ts}.${rawBody}`);
-    const isValid = v.verify(kickPublicKey, sig, 'base64');
+    const isValid = v.verify(keyObj, sigBuf);
     if (!isValid) {
       console.log('[WH] FIRMA INVÁLIDA');
-      // intentar refrescar la clave pública por si cambió
       await fetchPublicKey();
       return res.status(401).send('Firma inválida');
     }
   } catch (err) {
     console.log('[WH] Error verificación:', err.message);
+    await fetchPublicKey();
     return res.status(500).send('Error verificación');
   }
 
