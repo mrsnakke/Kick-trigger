@@ -217,6 +217,13 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// -- Debug: listar suscripciones activas --
+app.get('/api/events/subscriptions', async (req, res) => {
+  if (!tokens) return res.status(401).json({ error: 'No autenticado' });
+  const subs = await listSubscriptions();
+  res.json(subs);
+});
+
 // -- Suscripción manual a eventos --
 app.post('/api/events/subscribe', async (req, res) => {
   if (!tokens) return res.status(401).json({ error: 'No autenticado' });
