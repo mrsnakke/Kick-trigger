@@ -299,29 +299,43 @@ async function fetchChannelInfo() {
 async function subscribeToEvents() {
   if (!broadcasterUserId) await fetchChannelInfo();
   const results = [];
-  for (const name of ['chat.message.sent', 'channel.subscription.new', 'channel.reward.redemption.updated']) {
-    try {
-      await ensureValidToken();
-      // ponytail: omitimos broadcaster_user_id, el user token lo infiere
-      const resp = await fetch('https://api.kick.com/public/v1/events/subscriptions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name, version: 1 })
+  await ensureValidToken();
+  try {
+    const resp = await fetch('https://api.kick.com/public/v1/events/subscriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        events: [
+          { name: 'chat.message.sent', version: 1 },
+          { name: 'channel.subscription.new', version: 1 },
+          { name: 'channel.reward.redemption.updated', version: 1 }
+        ],
+        method: 'webhook'
+      })
+    });
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    const ok = resp.ok && (resp.status === 200 || resp.status === 201 || resp.status === 204);
+    console.log(`[SUB] ${resp.status} — ${ok ? 'OK' : text}`);
+    if (data.data) {
+      data.data.forEach(sub => {
+        const s = sub.status || sub.error || 'active';
+        console.log(`  ${sub.name || sub.event}: ${sub.subscription_id || s}`);
+        broadcast({ type: 'subscription', event: sub.name || sub.event, status: sub.error ? 'error' : 'active', subscriptionId: sub.subscription_id });
+        results.push({ name: sub.name || sub.event, ok: !sub.error, subscriptionId: sub.subscription_id, error: sub.error });
       });
-      const text = await resp.text();
-      let data;
-      try { data = JSON.parse(text); } catch { data = { raw: text }; }
-      const ok = resp.ok && (resp.status === 200 || resp.status === 201 || resp.status === 204);
-      console.log(`[SUB] ${name}: ${resp.status} — ${ok ? 'OK' : text}`);
-      broadcast({ type: 'subscription', event: name, status: ok ? 'active' : 'error', statusCode: resp.status, message: data.message || data.error || text });
-      results.push({ name, ok, status: resp.status, body: data });
-    } catch (err) {
-      console.error(`[SUB] ${name}: ${err.message}`);
-      results.push({ name, ok: false, error: err.message });
+    } else {
+      broadcast({ type: 'subscription', event: 'all', status: 'error', statusCode: resp.status, message: data.message || data.error || text });
+      results.push({ name: 'all', ok: false, status: resp.status, body: data });
     }
+  } catch (err) {
+    console.error(`[SUB] ${err.message}`);
+    broadcast({ type: 'subscription', event: 'all', status: 'error', message: err.message });
+    results.push({ name: 'all', ok: false, error: err.message });
   }
   return results;
 }
