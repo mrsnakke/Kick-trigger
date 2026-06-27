@@ -21,6 +21,7 @@ function handle(req, res) {
     channelSlug: state.channelSlug,
     eventsCounter: state.eventsCounter
   })}\n\n`)
+  eventBus.emit('tts:request_status')
   req.on('close', () => {
     const i = state.sseClients.indexOf(client)
     if (i !== -1) state.sseClients.splice(i, 1)

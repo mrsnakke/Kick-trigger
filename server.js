@@ -9,6 +9,7 @@ const tunnel = require('./modules/tunnel')
 const sse = require('./modules/sse')
 const events = require('./modules/events')
 const forwarder = require('./lib/forwarder')
+const ttsTrigger = require('./modules/triggers/tts')
 
 const app = express()
 
@@ -52,6 +53,14 @@ app.post('/api/events/subscribe', events.subscribeHandler)
 app.post('/api/tunnel/start', tunnel.startHandler)
 app.post('/api/tunnel/stop', tunnel.stopHandler)
 
+// -- TTS --
+app.get('/api/tts/config', ttsTrigger.handleGetConfig)
+app.post('/api/tts/config', express.json(), ttsTrigger.handleSaveConfig)
+app.get('/api/tts/user-aliases', ttsTrigger.handleGetUserAliases)
+app.post('/api/tts/user-alias/delete', express.json(), ttsTrigger.handleDeleteUserAlias)
+app.post('/api/tts/toggle', express.json(), ttsTrigger.handleToggleBot)
+app.get('/api/tts/status', ttsTrigger.handleGetStatus)
+
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true })
@@ -67,8 +76,7 @@ async function heartbeat() {
   try {
     await auth.ensureValidToken()
     if (!state.tunnelUrl || !tunnel.getTunnelProcess()) {
-      const r = await tunnel.startTunnel()
-      if (r.url) setTimeout(() => events.subscribeToEvents(), 3000)
+      await tunnel.startTunnel()
       return
     }
     const subs = await events.listSubscriptions()

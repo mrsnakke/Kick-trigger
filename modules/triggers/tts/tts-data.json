@@ -1,0 +1,95 @@
+{
+  "config": {
+    "COMMAND": "!sp",
+    "VOICE_NAME": "Sabina",
+    "VOICE_ALIASES": {
+      "ava": "Ava",
+      "brian": "Brian",
+      "jorge": "Jorge",
+      "sabina": "Sabina"
+    },
+    "SPEAKERBOT_URL": "ws://127.0.0.1:7580/",
+    "MAX_TEXT_LENGTH": 600,
+    "KICKBONKS_URL": "http://localhost:3030"
+  },
+  "bannedWords": [
+    "cara de gato",
+    "Caradegato",
+    "puto",
+    "puta",
+    "maricon",
+    "pendejo"
+  ],
+  "userAliases": {
+    "mrsnakevt": {
+      "username": "MrSnakeVT",
+      "voice": "Ava",
+      "updatedAt": "2026-06-27T14:40:17.174Z"
+    },
+    "andreh26": {
+      "username": "AndreH26",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-24T06:57:19.553Z"
+    },
+    "z3dow": {
+      "username": "Z3dow",
+      "voice": "Jorge",
+      "updatedAt": "2026-06-11T05:01:26.997Z"
+    },
+    "aimikaih": {
+      "username": "Aimikaih",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-13T06:03:42.859Z"
+    },
+    "mistico777": {
+      "username": "Mistico777",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-10T01:45:58.547Z"
+    },
+    "geostav": {
+      "username": "Geostav",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-27T02:12:10.961Z"
+    },
+    "akashid1": {
+      "username": "Akashid1",
+      "voice": "Ava",
+      "updatedAt": "2026-06-17T02:59:37.329Z"
+    },
+    "niwde39": {
+      "username": "niwde39",
+      "voice": "Jorge",
+      "updatedAt": "2026-06-10T03:35:26.233Z"
+    },
+    "joseaguacate": {
+      "username": "JoseAguacate",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-15T03:23:35.343Z"
+    },
+    "zami_si": {
+      "username": "zami_si",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-07T06:03:52.707Z"
+    },
+    "thedarklist98": {
+      "username": "TheDarkList98",
+      "voice": "Ava",
+      "updatedAt": "2026-06-14T04:11:23.617Z"
+    },
+    "daiferdas02": {
+      "username": "Daiferdas02",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-08T05:23:25.440Z"
+    },
+    "yuan64": {
+      "username": "Yuan64",
+      "voice": "Sabina",
+      "updatedAt": "2026-06-10T03:35:23.632Z"
+    },
+    "losmandamientosdelgamer": {
+      "username": "losmandamientosdelgamer",
+      "voice": "Brian",
+      "updatedAt": "2026-06-15T08:59:33.031Z"
+    }
+  }
+}

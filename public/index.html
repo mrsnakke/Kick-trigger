@@ -8,23 +8,26 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-right: auto; }
-.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+header { background: #161b22; border-bottom: 1px solid #30363d; padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
 .badge-ok { background: #0d5e2e; color: #7ee787; }
 .badge-off { background: #3d1f1f; color: #f85149; }
-.badge-pending { background: #3d2e0f; color: #d29922; }
-.btn { padding: 6px 16px; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 13px; font-weight: 500; }
+.status-group { display: flex; gap: 4px; align-items: center; }
+.btn { padding: 5px 14px; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px; font-weight: 500; }
 .btn:hover { background: #30363d; }
 .btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
 .btn-primary:hover { background: #388bfd; }
 .btn-danger { border-color: #f85149; color: #f85149; }
 .btn-danger:hover { background: #3d1f1f; }
 .btn:disabled { opacity: .5; cursor: default; }
+.btn-sm { padding: 2px 8px; font-size: 11px; }
 
-#feed { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
-.event { padding: 10px 14px; border-radius: 8px; border-left: 4px solid #30363d; background: #161b22; font-size: 14px; line-height: 1.5; animation: fadeIn .15s ease; }
-.event .meta { font-size: 11px; color: #8b949e; margin-bottom: 2px; }
+#feed { flex: 1; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 3px; }
+.feed-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; background: #161b22; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e; }
+.feed-header span { font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.event { padding: 8px 12px; border-radius: 6px; border-left: 3px solid #30363d; background: #161b22; font-size: 13px; line-height: 1.5; animation: fadeIn .15s ease; }
+.event .meta { font-size: 10px; color: #8b949e; margin-bottom: 2px; }
 .event .user { font-weight: 600; }
 .event .content { word-break: break-word; }
 .event-chat { border-color: #58a6ff; }
@@ -38,81 +41,203 @@ header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-right: aut
 .event-offline { border-color: #f85149; }
 .event-ban { border-color: #f85149; }
 .event-kicks { border-color: #d2a8ff; }
-.event .emote { display: inline-block; vertical-align: middle; height: 28px; width: auto; margin: -2px 0; }
-.event .badge-img { display: inline-block; height: 18px; width: auto; vertical-align: middle; margin-right: 2px; }
-.event .badge-level { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 4px; background: #1f6feb; color: #fff; font-size: 11px; font-weight: 600; vertical-align: middle; margin-right: 2px; line-height: 1; }
+.event .emote { display: inline-block; vertical-align: middle; height: 26px; width: auto; margin: -2px 0; }
+.event .badge-img { display: inline-block; height: 16px; width: auto; vertical-align: middle; margin-right: 2px; }
+.event .badge-level { display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 3px; background: #1f6feb; color: #fff; font-size: 10px; font-weight: 600; vertical-align: middle; margin-right: 2px; line-height: 1; }
 
-#chat-box { border-top: 1px solid #30363d; padding: 12px 16px; background: #161b22; display: flex; gap: 8px; align-items: flex-end; }
-#chat-box textarea { flex: 1; resize: none; height: 40px; padding: 10px 12px; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; color: #c9d1d9; font-size: 14px; font-family: inherit; }
+#chat-box { border-top: 1px solid #30363d; padding: 10px 16px; background: #161b22; display: flex; gap: 8px; align-items: flex-end; }
+#chat-box textarea { flex: 1; resize: none; height: 36px; padding: 8px 12px; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; color: #c9d1d9; font-size: 13px; font-family: inherit; }
 #chat-box textarea:focus { outline: none; border-color: #58a6ff; }
-#reply-indicator { display: none; align-items: center; gap: 8px; padding: 6px 12px; background: #1c2333; border-radius: 6px; font-size: 12px; color: #8b949e; }
+#reply-indicator { display: none; align-items: center; gap: 8px; padding: 5px 10px; background: #1c2333; border-radius: 6px; font-size: 11px; color: #8b949e; margin: 0 16px; }
 #reply-indicator .cancel { cursor: pointer; color: #f85149; font-weight: bold; }
-#placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; color: #8b949e; text-align: center; padding: 40px; }
+#placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 10px; color: #8b949e; text-align: center; padding: 40px; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* -- Tabs -- */
+.tab-bar { display: flex; gap: 2px; margin-left: auto; }
+.tab-btn { padding: 5px 14px; border: 1px solid #30363d; border-radius: 6px 6px 0 0; background: #21262d; color: #8b949e; cursor: pointer; font-size: 12px; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab-btn:hover { color: #c9d1d9; background: #30363d; }
+.tab-btn.active { color: #58a6ff; border-bottom-color: #58a6ff; background: #0d1117; }
+.tab-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.tab-content.hidden { display: none; }
+
+/* -- TTS -- */
+#tab-tts { flex-direction: row; }
+#tab-tts .tts-left { width: 320px; min-width: 320px; border-right: 1px solid #30363d; display: flex; flex-direction: column; background: #161b22; }
+#tab-tts .tts-right { flex: 1; display: flex; flex-direction: column; background: #0d1117; overflow: hidden; }
+.tts-tabs { display: flex; border-bottom: 1px solid #30363d; background: #0d1117; }
+.tts-tab-btn { flex: 1; padding: 8px 6px; border: none; background: transparent; color: #8b949e; cursor: pointer; font-size: 11px; font-weight: 600; border-bottom: 2px solid transparent; }
+.tts-tab-btn:hover { color: #c9d1d9; }
+.tts-tab-btn.active { color: #53fc18; border-bottom-color: #53fc18; }
+.tts-panel { display: none; flex: 1; flex-direction: column; padding: 10px 12px; gap: 10px; overflow-y: auto; font-size: 12px; }
+.tts-panel.active { display: flex; }
+.tts-panel label { display: block; color: #8b949e; margin-bottom: 2px; font-weight: 500; font-size: 11px; }
+.tts-panel input, .tts-panel select, .tts-panel textarea { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 5px 8px; color: #c9d1d9; font-size: 12px; font-family: inherit; }
+.tts-panel input:focus, .tts-panel select:focus { outline: none; border-color: #58a6ff; }
+.tts-panel textarea { font-family: monospace; font-size: 11px; resize: none; }
+.tts-console { flex: 1; padding: 6px 12px; font-family: monospace; font-size: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.tts-console-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: #161b22; border-bottom: 1px solid #30363d; font-size: 11px; font-family: monospace; }
+.tts-status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 3px; }
+.tts-status-dot.green { background: #3fb950; }
+.tts-status-dot.yellow { background: #d29922; }
+.tts-status-dot.red { background: #f85149; }
+.tts-status-dot.gray { background: #484f58; }
+.tts-btn { padding: 6px 14px; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px; font-weight: 600; }
+.tts-btn:hover { background: #30363d; }
+.tts-btn:disabled { opacity: .5; cursor: default; }
+
+/* -- Status dots for feed clear, etc -- */
+.channel-name { font-size: 12px; color: #484f58; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>Kick Backend</h1>
-  <span id="badge-auth" class="badge badge-off">○ No autorizado</span>
-  <span id="badge-tunnel" class="badge badge-off">○ Sin túnel</span>
-  <span id="channel-name" style="font-size:13px;color:#8b949e"></span>
+  <div class="status-group">
+    <span id="badge-auth" class="badge badge-off">○ No autorizado</span>
+    <span id="badge-tunnel" class="badge badge-off">○ Sin túnel</span>
+    <span id="badge-sb" class="badge badge-off">○ SP.BOT</span>
+  </div>
+  <span id="channel-name" class="channel-name"></span>
   <button id="btn-auth" class="btn btn-primary" onclick="authorize()">Autorizar con Kick</button>
-  <button id="btn-sub" class="btn" onclick="subscribeEvents()" style="display:none">Suscribir a eventos</button>
-  <button id="btn-tunnel" class="btn" onclick="toggleTunnel()" style="display:none">Iniciar túnel</button>
+  <div class="tab-bar" id="tab-bar">
+    <button class="tab-btn active" data-tab="eventos">Eventos</button>
+    <button class="tab-btn" data-tab="tts">TTS</button>
+  </div>
 </header>
 
-<div id="feed">
-  <div id="placeholder">
-    <div style="font-size:40px">🎛️</div>
-    <div><strong>Esperando eventos</strong></div>
-    <div style="font-size:13px">Autoriza con Kick y configura el webhook para comenzar</div>
-    <div style="font-size:12px;margin-top:8px;background:#161b22;padding:12px 16px;border-radius:8px;text-align:left;max-width:520px">
-      <b>Pasos:</b><br>
-      1. Crea una app en kick.com/settings/developer<br>
-      2. Configura <code>KICK_CLIENT_ID</code> y <code>KICK_CLIENT_SECRET</code><br>
-      3. Haz clic en "Autorizar con Kick"<br>
-      4. Inicia el túnel → copia la URL generada<br>
-      5. Pega esa URL (+ /webhook/kick) en "Webhook URL" de tu app en dev.kick.com<br>
-      6. Haz clic en "Suscribir a eventos"
+<div id="tab-eventos" class="tab-content">
+  <div class="feed-header">
+    <span>Consola de Eventos</span>
+    <button class="btn btn-sm" onclick="clearFeed()">🗑 Limpiar</button>
+  </div>
+  <div id="feed">
+    <div id="placeholder">
+      <div style="font-size:36px">🎛️</div>
+      <div><strong>Esperando eventos</strong></div>
+      <div style="font-size:12px">Autoriza con Kick y configura el webhook para comenzar</div>
+      <div style="font-size:11px;margin-top:6px;background:#161b22;padding:10px 14px;border-radius:6px;text-align:left;max-width:480px">
+        <b>Pasos:</b><br>
+        1. Crea una app en kick.com/settings/developer<br>
+        2. Configura <code>KICK_CLIENT_ID</code> y <code>KICK_CLIENT_SECRET</code><br>
+        3. Haz clic en "Autorizar con Kick"<br>
+        4. Inicia el túnel → copia la URL generada<br>
+        5. Pega esa URL (+ /webhook/kick) en "Webhook URL" de tu app en dev.kick.com<br>
+        6. Los eventos aparecerán aquí automáticamente
+      </div>
     </div>
+  </div>
+
+  <div id="reply-indicator">
+    <span>↩ Respondiendo a <span id="reply-user"></span></span>
+    <span class="cancel" onclick="cancelReply()">✕</span>
+  </div>
+
+  <div id="chat-box">
+    <textarea id="msg-input" placeholder="Escribe un mensaje... (Enter para enviar, Shift+Enter salto de línea)" maxlength="500"></textarea>
+    <button class="btn btn-primary" onclick="sendMessage()" id="btn-send" disabled>Enviar</button>
   </div>
 </div>
 
-<div id="reply-indicator">
-  <span>↩ Respondiendo a <span id="reply-user"></span></span>
-  <span class="cancel" onclick="cancelReply()">✕</span>
-</div>
-
-<div id="chat-box">
-  <textarea id="msg-input" placeholder="Escribe un mensaje... (Enter para enviar, Shift+Enter salto de línea)" maxlength="500"></textarea>
-  <button class="btn btn-primary" onclick="sendMessage()" id="btn-send" disabled>Enviar</button>
+<div id="tab-tts" class="tab-content hidden">
+  <section class="tts-left">
+    <div class="tts-tabs">
+      <button class="tts-tab-btn active" onclick="switchTtsTab('tts-principal')" id="tts-btn-principal">Principal</button>
+      <button class="tts-tab-btn" onclick="switchTtsTab('tts-user-aliases')" id="tts-btn-user-aliases">Voces Usuarios</button>
+      <button class="tts-tab-btn" onclick="switchTtsTab('tts-avanzado')" id="tts-btn-avanzado">Avanzado</button>
+    </div>
+    <form id="tts-config-form" onsubmit="ttsSaveConfig(event)" class="flex-1 flex flex-col">
+      <div id="tts-principal" class="tts-panel active">
+        <div><label>Comando TTS</label><input type="text" id="tts-cmd" required></div>
+        <div><label>Voz Principal</label>
+          <select id="tts-voice" required>
+            <option>Andrés</option><option>Ava</option><option>Brian</option><option>Grim</option><option>Jorge</option><option>Sabina</option>
+          </select>
+        </div>
+        <div>
+          <label>Alias de Voces <span style="color:#484f58;font-weight:400">(config.json)</span></label>
+          <textarea id="tts-voice-aliases" readonly rows="4" style="color:#8b949e;cursor:not-allowed"></textarea>
+        </div>
+        <div>
+          <label>Filtro de Palabras Prohibidas</label>
+          <div style="display:flex;gap:4px">
+            <input type="text" id="tts-add-banned" placeholder="Añadir palabra..." onkeydown="if(event.key==='Enter'){event.preventDefault();ttsAddBanned()}">
+            <button type="button" class="tts-btn" onclick="ttsAddBanned()" id="tts-btn-add-banned" disabled style="padding:3px 8px">+</button>
+          </div>
+          <div style="margin-top:4px">
+            <button type="button" class="tts-btn" onclick="ttsToggleBannedDropdown()" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:5px 8px;font-size:11px">
+              <span>Palabras (<span id="tts-banned-count">0</span>)</span>
+              <span id="tts-banned-arrow">▼</span>
+            </button>
+            <div id="tts-banned-dropdown" style="display:none;max-height:100px;overflow-y:auto;border:1px solid #30363d;border-radius:4px;margin-top:2px;padding:4px;background:#0d1117"></div>
+          </div>
+        </div>
+      </div>
+      <div id="tts-user-aliases" class="tts-panel">
+        <div style="color:#8b949e;font-size:11px;margin-bottom:4px">Usuarios que han cambiado su voz con comandos (ej: <code style="color:#c9d1d9;background:#0d1117;padding:1px 4px;border-radius:2px">!sabina</code>).</div>
+        <div id="tts-user-list" style="flex:1;overflow-y:auto;border:1px solid #30363d;border-radius:4px;padding:8px;background:#0d1117">
+          <div style="color:#484f58;text-align:center;padding:12px;font-style:italic">No hay usuarios con voz personalizada</div>
+        </div>
+      </div>
+      <div id="tts-avanzado" class="tts-panel">
+        <div><label>URL de Speaker.bot</label><input type="text" id="tts-speakerbot-url" required></div>
+        <div><label>Máx. Caracteres <span style="color:#484f58;font-weight:400">(0 = sin límite)</span></label><input type="number" id="tts-max-len" min="0" required></div>
+      </div>
+      <div style="padding:8px 12px;border-top:1px solid #30363d;margin-top:auto">
+        <button type="submit" class="tts-btn" style="width:100%">💾 Guardar Configuración</button>
+      </div>
+    </form>
+  </section>
+  <section class="tts-right">
+    <div class="tts-console-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:#484f58">❯</span>
+        <span style="font-weight:700;color:#8b949e">TTS MONITOR</span>
+        <span id="tts-status-kick" style="display:flex;align-items:center;font-size:10px;color:#8b949e;background:#0d1117;padding:2px 8px;border-radius:10px;border:1px solid #30363d">
+          <span class="tts-status-dot red" id="tts-dot-kick"></span>KICK
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="tts-ping" style="color:#484f58;font-size:10px">-- ms</span>
+        <button class="tts-btn" onclick="ttsClearConsole()" title="Limpiar" style="padding:1px 6px;font-size:11px">🗑</button>
+      </div>
+    </div>
+    <div id="tts-console" class="tts-console">
+      <div style="color:#484f58;display:flex;align-items:start;gap:4px"><span style="color:#53fc18">›</span><span>Consola TTS lista</span></div>
+    </div>
+    <div style="border-top:1px solid #30363d;padding:2px 12px;display:flex;justify-content:space-between;font-size:10px;color:#484f58;font-family:monospace;background:#161b22">
+      <span id="tts-msg-count">Mensajes: 0</span>
+      <span id="tts-voice-count">Voz: 0</span>
+    </div>
+  </section>
 </div>
 
 <script>
+// -- State --
 let evtSource = null;
 let replyTo = null;
-let connected = false;
 let tunnelActive = false;
+
+// -- TTS State --
+let ttsLoaded = false;
+let ttsMsgCount = 0;
+let ttsVoiceCount = 0;
+let ttsBannedWords = [];
+let ttsUserAliases = {};
 
 // -- SSE --
 function connectSSE() {
   if (evtSource) evtSource.close();
   evtSource = new EventSource('/api/events');
   evtSource.onmessage = e => {
-    try {
-      const d = JSON.parse(e.data);
-      handleEvent(d);
-    } catch {}
-  };
-  evtSource.onerror = () => {
-    // reconecta automáticamente
+    try { handleEvent(JSON.parse(e.data)) } catch {}
   };
 }
 
 function handleEvent(d) {
+  if (d._source === 'tts') { handleTtsEvent(d); return }
   switch (d.type) {
     case 'status':
       updateStatus(d);
@@ -135,15 +260,12 @@ function handleEvent(d) {
     case 'tunnel':
       tunnelActive = d.status === 'open';
       setBadge('badge-tunnel', tunnelActive ? 'badge-ok' : 'badge-off', tunnelActive ? `● ${(d.url||'').replace('https://','')}` : '○ Sin túnel');
-      document.getElementById('btn-tunnel').style.display = 'none';
-      document.getElementById('btn-sub').style.display = 'none';
       if (tunnelActive && d.url) {
         addSystemMsg(`🌐 Túnel activo — subscribiendo eventos...`);
       } else if (d.error) {
         addSystemMsg(`⚠ cloudflared: ${d.error}`);
       } else if (d.exitCode !== undefined) {
-        const msg = d.exitCode ? `cloudflared terminó (código ${d.exitCode})` : 'cloudflared terminó inesperadamente';
-        addSystemMsg(`⚠ ${msg}${d.log ? ': ' + d.log : ''}`);
+        addSystemMsg(`⚠ cloudflared ${d.exitCode ? 'terminó (código '+d.exitCode+')' : 'terminó inesperadamente'}${d.log ? ': ' + d.log : ''}`);
       } else {
         addSystemMsg('🔌 Túnel cerrado');
       }
@@ -161,6 +283,171 @@ function handleEvent(d) {
   }
 }
 
+// -- Main Tab Switching (extensible: just add data-tab to .tab-btn) --
+function switchMainTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('hidden', c.id !== 'tab-' + tab));
+  if (tab === 'tts' && !ttsLoaded) ttsLoadConfig();
+}
+
+document.getElementById('tab-bar').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (btn) switchMainTab(btn.dataset.tab);
+});
+
+// -- TTS --
+function handleTtsEvent(d) {
+  if (d.type === 'tts:log') { ttsLog(d.message, d.logType, d.user); return }
+  if (d.type === 'tts:status') { ttsUpdateStatus(d); return }
+  if (d.type === 'tts:config') { ttsLoadConfigToUI(d.config, d.bannedWords); return }
+  if (d.type === 'tts:user_aliases') { ttsUserAliases = d.userAliases || {}; ttsRenderUserList(); return }
+}
+
+function ttsUpdateStatus(d) {
+  document.getElementById('tts-dot-kick').className = 'tts-status-dot ' + (d.botActive ? 'green' : 'red');
+  setBadge('badge-sb', d.speakerbotActive ? 'badge-ok' : 'badge-off', d.speakerbotActive ? '● SP.BOT' : '○ SP.BOT');
+}
+
+function ttsLoadConfig() {
+  ttsLoaded = true;
+  fetch('/api/tts/config').then(r => r.json()).then(d => ttsLoadConfigToUI(d.config, d.bannedWords)).catch(() => {});
+  fetch('/api/tts/user-aliases').then(r => r.json()).then(d => { ttsUserAliases = d.userAliases || {}; ttsRenderUserList() }).catch(() => {});
+  fetch('/api/tts/status').then(r => r.json()).then(d => ttsUpdateStatus(d)).catch(() => {});
+  ttsLog('Configuración cargada', 'system');
+}
+
+function ttsLoadConfigToUI(config, bannedWords) {
+  document.getElementById('tts-cmd').value = config.COMMAND || '!sp';
+  document.getElementById('tts-voice').value = config.VOICE_NAME || 'Sabina';
+  document.getElementById('tts-voice-aliases').value = JSON.stringify(config.VOICE_ALIASES || {}, null, 2);
+  document.getElementById('tts-speakerbot-url').value = config.SPEAKERBOT_URL || 'ws://127.0.0.1:7580/';
+  document.getElementById('tts-max-len').value = config.MAX_TEXT_LENGTH || 0;
+  ttsBannedWords = Array.isArray(bannedWords) ? bannedWords : [];
+  ttsRenderBannedWords();
+}
+
+function ttsSaveConfig(e) {
+  e.preventDefault();
+  fetch('/api/tts/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      config: {
+        COMMAND: document.getElementById('tts-cmd').value,
+        VOICE_NAME: document.getElementById('tts-voice').value,
+        SPEAKERBOT_URL: document.getElementById('tts-speakerbot-url').value,
+        MAX_TEXT_LENGTH: parseInt(document.getElementById('tts-max-len').value) || 0
+      },
+      bannedWords: ttsBannedWords
+    })
+  }).then(() => ttsLog('Configuración guardada', 'system')).catch(() => ttsLog('Error al guardar configuración', 'error'));
+}
+
+// -- TTS Banned Words --
+function ttsRenderBannedWords() {
+  document.getElementById('tts-banned-count').textContent = ttsBannedWords.length;
+  const list = document.getElementById('tts-banned-dropdown');
+  if (!ttsBannedWords.length) { list.innerHTML = '<div style="color:#484f58;padding:4px;font-size:11px">Sin palabras</div>'; return }
+  list.innerHTML = ttsBannedWords.map((w, i) =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;font-size:11px">' +
+    '<span>' + w + '</span>' +
+    '<button class="tts-btn" onclick="ttsRemoveBanned(' + i + ')" style="padding:0 4px;font-size:10px;color:#f85149">✕</button></div>'
+  ).join('');
+}
+
+function ttsToggleBannedDropdown() {
+  const dd = document.getElementById('tts-banned-dropdown');
+  const ar = document.getElementById('tts-banned-arrow');
+  if (dd.style.display === 'none') { dd.style.display = 'block'; ar.textContent = '▲' }
+  else { dd.style.display = 'none'; ar.textContent = '▼' }
+}
+
+function ttsAddBanned() {
+  const inp = document.getElementById('tts-add-banned');
+  const w = inp.value.trim();
+  if (!w || ttsBannedWords.includes(w)) return;
+  ttsBannedWords.push(w);
+  inp.value = '';
+  document.getElementById('tts-btn-add-banned').disabled = true;
+  ttsRenderBannedWords();
+}
+
+function ttsRemoveBanned(i) {
+  ttsBannedWords.splice(i, 1);
+  ttsRenderBannedWords();
+}
+
+document.getElementById('tts-add-banned').addEventListener('input', function() {
+  document.getElementById('tts-btn-add-banned').disabled = !this.value.trim();
+});
+
+// -- TTS User Aliases --
+function ttsRenderUserList() {
+  const container = document.getElementById('tts-user-list');
+  const entries = Object.entries(ttsUserAliases);
+  if (!entries.length) {
+    container.innerHTML = '<div style="color:#484f58;text-align:center;padding:12px;font-style:italic">No hay usuarios con voz personalizada</div>';
+    return;
+  }
+  entries.sort((a, b) => b[1].updatedAt?.localeCompare(a[1].updatedAt) || 0);
+  container.innerHTML = entries.map(([k, v]) =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #21262d">' +
+    '<div><div style="font-weight:600;font-size:12px">' + v.username + '</div><div style="color:#53fc18;font-size:11px">' + v.voice + '</div></div>' +
+    '<button class="tts-btn" onclick="ttsDeleteUserAlias(\'' + v.username + '\')" style="padding:2px 6px;font-size:10px;color:#f85149">✕</button></div>'
+  ).join('');
+}
+
+function ttsDeleteUserAlias(username) {
+  fetch('/api/tts/user-alias/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) })
+    .then(() => ttsLog('Voz de ' + username + ' restablecida', 'system'))
+    .catch(() => ttsLog('Error al eliminar alias', 'error'));
+}
+
+// -- TTS Console --
+function ttsLog(message, type, user) {
+  const console = document.getElementById('tts-console');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:start;gap:4px;padding:1px 0;border-left:2px solid;padding-left:6px';
+  const time = '<span style="color:#484f58;flex-shrink:0">[' + new Date().toLocaleTimeString() + ']</span>';
+
+  if (type === 'system') {
+    row.style.borderColor = '#58a6ff'; row.style.color = '#58a6ff';
+    row.innerHTML = time + '<span style="font-weight:600;margin-right:4px">[SYS]</span><span>' + message + '</span>';
+  } else if (type === 'error') {
+    row.style.borderColor = '#f85149'; row.style.color = '#f85149';
+    row.innerHTML = time + '<span style="font-weight:600;margin-right:4px">[ERR]</span><span>' + message + '</span>';
+  } else if (type === 'success') {
+    row.style.borderColor = '#3fb950'; row.style.color = '#3fb950';
+    row.innerHTML = time + '<span style="font-weight:600;margin-right:4px">[OK]</span><span>' + message + '</span>';
+  } else if (type === 'chat_tts_kick') {
+    row.style.borderColor = '#53fc18'; row.style.color = '#c9d1d9';
+    ttsVoiceCount++;
+    document.getElementById('tts-voice-count').textContent = 'Voz: ' + ttsVoiceCount;
+    row.innerHTML = time + '<span style="color:#53fc18;font-weight:600;margin-right:4px">🔊 ' + (user || '') + ':</span><span>' + message + '</span>';
+  } else {
+    row.style.borderColor = '#30363d'; row.style.color = '#8b949e';
+    row.innerHTML = time + '<span>' + message + '</span>';
+  }
+
+  console.appendChild(row);
+  console.scrollTop = console.scrollHeight;
+}
+
+function ttsClearConsole() {
+  document.getElementById('tts-console').innerHTML = '';
+  ttsMsgCount = 0; ttsVoiceCount = 0;
+  document.getElementById('tts-msg-count').textContent = 'Mensajes: 0';
+  document.getElementById('tts-voice-count').textContent = 'Voz: 0';
+}
+
+// -- TTS Tabs --
+function switchTtsTab(tabId) {
+  document.querySelectorAll('.tts-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tts-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tts-btn-' + tabId.replace('tts-', '')).classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// -- Status --
 function updateStatus(d) {
   if (d.authenticated) {
     setBadge('badge-auth', 'badge-ok', `● ${d.channelSlug || 'Conectado'}`);
@@ -173,9 +460,7 @@ function updateStatus(d) {
   if (d.tunnelUrl) {
     tunnelActive = true;
     setBadge('badge-tunnel', 'badge-ok', `● ${d.tunnelUrl.replace('https://','')}`);
-    document.getElementById('btn-tunnel').style.display = 'none';
   }
-  connected = true;
 }
 
 function setBadge(id, cls, text) {
@@ -184,7 +469,11 @@ function setBadge(id, cls, text) {
   el.textContent = text;
 }
 
-// -- Eventos en feed --
+// -- Feed --
+function clearFeed() {
+  document.getElementById('feed').innerHTML = '';
+}
+
 function addEvent(d) {
   removePlaceholder();
   const el = document.createElement('div');
@@ -199,32 +488,26 @@ function addEvent(d) {
       const color = p.sender?.identity?.username_color || '';
       const badges = p.sender?.identity?.badges || [];
       const style = color ? `style="color:${color}"` : '';
-      const badgeImg = (type, count) => {
-        const tiered = count ? `/${count || 1}` : '';
-        const map = {
-          broadcaster:   '/images/badges/broadcaster.svg',
-          moderator:     '/images/badges/moderator.svg',
-          staff:         '/images/badges/staff.svg',
-          verified:      '/images/badges/verified.svg',
-          subscriber:    `/images/badges/subscriber${tiered}.png`,
-          sub_gifter:    `/images/badges/sub_gifter${tiered}.svg`,
-          vip:           '/images/badges/vip.svg',
-          og:            '/images/badges/og.svg',
-          founder:       '/images/badges/founder.svg',
-        };
-        return map[type] || '';
-      };
       const badgeHtml = badges.map(b => {
-        if (b.type === 'level_badge') {
-          return `<span class="badge badge-level">Lv${b.count || 1}</span>`;
-        }
-        const src = badgeImg(b.type, b.count);
+        if (b.type === 'level_badge') return `<span class="badge badge-level">Lv${b.count || 1}</span>`;
+        const map = {
+          broadcaster: '/images/badges/broadcaster.svg',
+          moderator: '/images/badges/moderator.svg',
+          staff: '/images/badges/staff.svg',
+          verified: '/images/badges/verified.svg',
+          subscriber: '/images/badges/subscriber' + (b.count ? '/' + b.count : '') + '.png',
+          sub_gifter: '/images/badges/sub_gifter' + (b.count ? '/' + b.count : '') + '.svg',
+          vip: '/images/badges/vip.svg',
+          og: '/images/badges/og.svg',
+          founder: '/images/badges/founder.svg',
+        };
+        const src = map[b.type];
         return src ? `<img class="badge-img" src="${src}" alt="${b.text}" title="${b.text}">` : '';
       }).join('');
       let contentHtml = renderContent(p.content || '', p.emotes);
       if (p.replies_to?.content) {
         const replyUser = p.replies_to.sender?.username || 'alguien';
-        contentHtml = `<div style="font-size:12px;color:#8b949e;border-left:2px solid #30363d;padding-left:8px;margin-bottom:4px">↩ ${escapeHtml(replyUser)}: ${escapeHtml(p.replies_to.content.slice(0, 80))}</div>${contentHtml}`;
+        contentHtml = `<div style="font-size:11px;color:#8b949e;border-left:2px solid #30363d;padding-left:8px;margin-bottom:4px">↩ ${escapeHtml(replyUser)}: ${escapeHtml(p.replies_to.content.slice(0, 80))}</div>${contentHtml}`;
       }
       el.innerHTML = `<div class="meta">${ts} · 💬 chat</div><div class="user">${badgeHtml}<span ${style}>${escapeHtml(user)}</span>:</div><div class="content">${contentHtml}</div>`;
       el.onclick = () => startReply(p.message_id, user);
@@ -234,9 +517,7 @@ function addEvent(d) {
     }
     case 'channel.followed': {
       el.classList.add('event-follow');
-      const p = d.payload;
-      const follower = p.follower?.username || 'alguien';
-      el.innerHTML = `<div class="meta">${ts} · ♥ follow</div><div class="content"><strong>${escapeHtml(follower)}</strong> siguió al canal!</div>`;
+      el.innerHTML = `<div class="meta">${ts} · ♥ follow</div><div class="content"><strong>${escapeHtml(d.payload?.follower?.username || 'alguien')}</strong> siguió al canal!</div>`;
       break;
     }
     case 'channel.subscription.new': {
@@ -267,10 +548,7 @@ function addEvent(d) {
     case 'channel.reward.redemption.updated': {
       el.classList.add('event-redeem');
       const p = d.payload;
-      const user = p.redeemer?.username || 'alguien';
-      const reward = p.reward?.title || 'recompensa';
-      const cost = p.reward?.cost || 0;
-      el.innerHTML = `<div class="meta">${ts} · 🎯 canje de puntos</div><div class="content"><strong>${escapeHtml(user)}</strong> canjeó <strong>${escapeHtml(reward)}</strong> (${cost} pts) — ${p.status}${p.user_input ? ': ' + escapeHtml(p.user_input) : ''}</div>`;
+      el.innerHTML = `<div class="meta">${ts} · 🎯 canje de puntos</div><div class="content"><strong>${escapeHtml(p.redeemer?.username || 'alguien')}</strong> canjeó <strong>${escapeHtml(p.reward?.title || 'recompensa')}</strong> (${p.reward?.cost || 0} pts) — ${p.status}${p.user_input ? ': ' + escapeHtml(p.user_input) : ''}</div>`;
       break;
     }
     case 'livestream.status.updated': {
@@ -317,8 +595,7 @@ function addSentMessage(d) {
   removePlaceholder();
   const el = document.createElement('div');
   el.className = 'event event-sent';
-  const ts = new Date().toLocaleTimeString();
-  el.innerHTML = `<div class="meta">${ts} · 🚀 enviado</div><div class="content">${escapeHtml(d.content)}</div>`;
+  el.innerHTML = `<div class="meta">${new Date().toLocaleTimeString()} · 🚀 enviado</div><div class="content">${escapeHtml(d.content)}</div>`;
   document.getElementById('feed').appendChild(el);
   el.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
@@ -368,8 +645,7 @@ function sendMessage() {
 
 function startReply(msgId, username) {
   replyTo = { id: msgId, user: username };
-  const ri = document.getElementById('reply-indicator');
-  ri.style.display = 'flex';
+  document.getElementById('reply-indicator').style.display = 'flex';
   document.getElementById('reply-user').textContent = username;
   document.getElementById('msg-input').focus();
 }
@@ -382,9 +658,7 @@ function cancelReply() {
 // -- OAuth --
 function authorize() {
   const w = window.open('/auth/login', 'kick-auth', 'width=600,height=700');
-  const timer = setInterval(() => {
-    if (w.closed) { clearInterval(timer); }
-  }, 500);
+  setInterval(() => { if (w.closed) {} }, 500);
 }
 
 window.addEventListener('message', e => {
@@ -394,24 +668,6 @@ window.addEventListener('message', e => {
     addSystemMsg(`⚠ Error de autorización: ${e.data.error}`);
   }
 });
-
-// -- Suscripción manual --
-function subscribeEvents() {
-  document.getElementById('btn-sub').disabled = true;
-  document.getElementById('btn-sub').textContent = 'Suscribiendo...';
-  fetch('/api/events/subscribe', { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      d.results.forEach(r => {
-        addSystemMsg(`📡 ${r.name}: ${r.ok ? '✔ suscrito' : `✖ HTTP ${r.status} — ${JSON.stringify(r.body)}`}`);
-      });
-    })
-    .catch(err => addSystemMsg(`⚠ Error: ${err.message}`))
-    .finally(() => {
-      document.getElementById('btn-sub').disabled = false;
-      document.getElementById('btn-sub').textContent = 'Suscribir a eventos';
-    });
-}
 
 // -- Tunnel --
 function toggleTunnel() {
@@ -431,10 +687,7 @@ function toggleTunnel() {
 
 // -- Keybindings --
 document.getElementById('msg-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
 // -- Helpers --
@@ -446,16 +699,11 @@ function escapeHtml(s) {
 
 function renderContent(content, emotes) {
   if (!emotes || !emotes.length) return escapeHtml(content);
-  // ponytail: ordenar posiciones de derecha a izquierda para no romper índices
+  const positions = [];
+  emotes.forEach(em => (em.positions || []).forEach(pos => positions.push({ s: pos.s, e: pos.e, id: em.emote_id })));
+  positions.sort((a, b) => a.s - b.s);
   const parts = [];
   let last = 0;
-  const positions = [];
-  emotes.forEach(em => {
-    (em.positions || []).forEach(pos => {
-      positions.push({ s: pos.s, e: pos.e, id: em.emote_id });
-    });
-  });
-  positions.sort((a, b) => a.s - b.s);
   positions.forEach(p => {
     if (p.s < last) return;
     parts.push(escapeHtml(content.slice(last, p.s)));
@@ -466,24 +714,11 @@ function renderContent(content, emotes) {
   return parts.join('');
 }
 
-function addBoxMsg(label, text, copyValue) {
-  removePlaceholder();
-  const el = document.createElement('div');
-  el.className = 'event';
-  el.style.borderColor = '#58a6ff';
-  el.style.background = '#1c2333';
-  el.style.fontSize = '13px';
-  el.innerHTML = `<div class="meta">${label}</div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
-      <code style="flex:1;padding:8px 10px;background:#0d1117;border-radius:4px;font-size:13px;word-break:break-all">${escapeHtml(text)}</code>
-      <button class="btn" onclick="navigator.clipboard.writeText('${escapeHtml(copyValue)}');this.textContent='✓';setTimeout(()=>this.textContent='Copiar',2000)" style="flex-shrink:0">Copiar</button>
-    </div>`;
-  document.getElementById('feed').appendChild(el);
-  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-}
-
 // -- Init --
 connectSSE();
+fetch('/api/tts/status').then(r => r.json()).then(d => {
+  setBadge('badge-sb', d.speakerbotActive ? 'badge-ok' : 'badge-off', d.speakerbotActive ? '● SP.BOT' : '○ SP.BOT');
+}).catch(() => {});
 window.addEventListener('beforeunload', () => {
   fetch('/api/shutdown', { method: 'POST', keepalive: true });
 });

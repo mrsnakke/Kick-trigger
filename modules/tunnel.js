@@ -40,6 +40,7 @@ async function tunnelAlreadyRunning() {
     const t = JSON.parse(out)
     if (t.conns && t.conns.length > 0) {
       state.tunnelUrl = `https://${config.CF_DOMAIN}`
+      eventBus.emit('tunnel:open', { url: state.tunnelUrl })
       sse.broadcast({ type: 'tunnel', status: 'open', url: state.tunnelUrl })
       return true
     }
@@ -62,21 +63,24 @@ ingress:
   - service: http://localhost:${config.PORT}
 `
   fs.writeFileSync(config.CF_CONFIG, yml)
-  state.tunnelUrl = `https://${config.CF_DOMAIN}`
 
   tunnelProcess = spawn(config.CF_BIN, ['tunnel', '--config', config.CF_CONFIG, 'run', config.CF_TUNNEL_NAME], {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
   })
 
-  eventBus.emit('tunnel:open', { url: state.tunnelUrl })
-  sse.broadcast({ type: 'tunnel', status: 'open', url: state.tunnelUrl })
-
   let errLog = ''
+  let connected = false
   tunnelProcess.stderr.on('data', d => {
     errLog += d.toString()
     const line = d.toString().trim()
     if (line) console.log('[CF]', line)
+    if (!connected && line && (line.includes('Registered') || line.includes('connection') || line.includes('+'))) {
+      connected = true
+      state.tunnelUrl = `https://${config.CF_DOMAIN}`
+      eventBus.emit('tunnel:open', { url: state.tunnelUrl })
+      sse.broadcast({ type: 'tunnel', status: 'open', url: state.tunnelUrl })
+    }
   })
   tunnelProcess.on('error', err => {
     tunnelProcess = null
@@ -94,13 +98,7 @@ ingress:
     sse.broadcast({ type: 'tunnel', status: 'closed', exitCode: code, log: errLog.slice(0, 1000) })
     if (!wasIntentional && state.tokens) {
       sse.broadcast({ type: 'subscription', event: 'tunnel', status: 'reconnecting' })
-      setTimeout(async () => {
-        const r = await startTunnel()
-        if (r.url) setTimeout(() => {
-          const events = require('./events')
-          events.subscribeToEvents()
-        }, 3000)
-      }, 10000)
+      setTimeout(startTunnel, 10000)
     }
   })
 

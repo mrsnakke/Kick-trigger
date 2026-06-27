@@ -52,7 +52,7 @@ async function subscribeToEvents() {
     try { data = JSON.parse(text) } catch { data = { raw: text } }
     const ok = resp.ok && (resp.status === 200 || resp.status === 201 || resp.status === 204)
     console.log(`[SUB] ${resp.status} — ${ok ? 'OK' : text}`)
-    if (data.data) {
+    if (Array.isArray(data.data)) {
       data.data.forEach(sub => {
         const s = sub.status || sub.error || 'active'
         console.log(`  ${sub.name || sub.event}: ${sub.subscription_id || s}`)
@@ -83,5 +83,7 @@ async function subscribeHandler(req, res) {
   const allOk = results.every(r => r.ok)
   res.json({ ok: allOk, results })
 }
+
+eventBus.on('tunnel:open', () => subscribeToEvents())
 
 module.exports = { listSubscriptions, subscribeToEvents, listHandler, subscribeHandler }
