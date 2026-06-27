@@ -126,7 +126,8 @@ function handleEvent(d) {
       document.getElementById('btn-sub').style.display = tunnelActive ? 'inline-block' : 'none';
       if (tunnelActive && d.url) {
         addSystemMsg(`🌐 Túnel activo: ${d.url}/webhook/kick`);
-        addSystemMsg(`📋 Copia esa URL + /webhook/kick al "Webhook URL" de tu app en dev.kick.com, luego haz clic en "Suscribir a eventos"`);
+        if (d.fallback) addSystemMsg(`⚠ El subdominio fijo no estaba disponible, la URL es aleatoria. Para cambiarlo edita TUNNEL_SUBDOMAIN en .env`);
+        addSystemMsg(`📋 Copia esa URL al "Webhook URL" de tu app en dev.kick.com, luego click "Suscribir a eventos"`);
       } else {
         addSystemMsg('🔌 Túnel cerrado');
       }

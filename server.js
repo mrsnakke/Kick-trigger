@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.KICK_CLIENT_ID;
 const CLIENT_SECRET = process.env.KICK_CLIENT_SECRET;
 const REDIRECT_URI = process.env.KICK_REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
+const TUNNEL_SUBDOMAIN = process.env.TUNNEL_SUBDOMAIN || 'kick-backend';
 
 let tokens = null;
 let oauthSession = null;
@@ -221,8 +222,11 @@ app.post('/api/events/subscribe', async (req, res) => {
 // -- Tunnel --
 app.post('/api/tunnel/start', async (req, res) => {
   if (tunnelInstance) return res.json({ url: tunnelUrl });
+  // ponytail: intenta con subdominio fijo, falla a random
+  const opts = { port: PORT };
+  if (TUNNEL_SUBDOMAIN) opts.subdomain = TUNNEL_SUBDOMAIN;
   try {
-    tunnelInstance = await localtunnel({ port: PORT });
+    tunnelInstance = await localtunnel(opts);
     tunnelUrl = tunnelInstance.url;
     tunnelInstance.on('close', () => {
       tunnelInstance = null;
@@ -232,6 +236,19 @@ app.post('/api/tunnel/start', async (req, res) => {
     broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
     res.json({ url: tunnelUrl });
   } catch (err) {
+    if (opts.subdomain) {
+      console.warn(`[TUNNEL] Subdominio "${TUNNEL_SUBDOMAIN}" ocupado, usando random`);
+      delete opts.subdomain;
+      try {
+        tunnelInstance = await localtunnel(opts);
+        tunnelUrl = tunnelInstance.url;
+        tunnelInstance.on('close', () => { tunnelInstance = null; tunnelUrl = null; broadcast({ type: 'tunnel', status: 'closed' }); });
+        broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl, fallback: true });
+        return res.json({ url: tunnelUrl, fallback: true });
+      } catch (err2) {
+        return res.status(500).json({ error: err2.message });
+      }
+    }
     res.status(500).json({ error: err.message });
   }
 });
