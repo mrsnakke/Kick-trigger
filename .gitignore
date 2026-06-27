@@ -1,2 +1,5 @@
 node_modules/
 .env
+cloudflared.yml
+stdout.txt
+stderr.txt

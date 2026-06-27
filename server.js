@@ -241,7 +241,7 @@ async function findTunnelCredentials() {
   const all = fs.readdirSync(CF_CREDENTIALS_DIR).filter(f => f.endsWith('.json') && f !== 'cert.pem');
   if (!all.length) return null;
   try {
-    const list = await cfExec('tunnel list --output json');
+    const list = await cfExec('tunnel --output json list');
     const tunnels = JSON.parse(list);
     const t = tunnels.find(t => t.name === CF_TUNNEL_NAME);
     if (t) {
@@ -253,11 +253,10 @@ async function findTunnelCredentials() {
 }
 
 async function tunnelAlreadyRunning() {
-  // ponytail: si el túnel ya tiene conexiones activas, usarlo
   try {
-    const out = await cfExec(`tunnel info ${CF_TUNNEL_NAME} --output json`);
+    const out = await cfExec(`tunnel --output json info ${CF_TUNNEL_NAME}`);
     const t = JSON.parse(out);
-    if (t.connections && t.connections.length > 0) {
+    if (t.conns && t.conns.length > 0) {
       tunnelUrl = `https://${CF_DOMAIN}`;
       broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
       return true;
@@ -292,7 +291,7 @@ ingress:
   fs.writeFileSync(CF_CONFIG, yml);
   tunnelUrl = `https://${CF_DOMAIN}`;
 
-  tunnelProcess = spawn(CF_BIN, ['tunnel', 'run', '--config', CF_CONFIG], {
+  tunnelProcess = spawn(CF_BIN, ['tunnel', '--config', CF_CONFIG, 'run', CF_TUNNEL_NAME], {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
   });
@@ -312,8 +311,8 @@ ingress:
   });
   tunnelProcess.on('exit', code => {
     tunnelProcess = null; tunnelUrl = null;
-    broadcast({ type: 'tunnel', status: 'closed', exitCode: code });
-    if (code !== 0) console.error('[CF] Exit code:', code, errLog);
+    if (errLog) console.error('[CF] Exit:', code, errLog.slice(0, 2000));
+    broadcast({ type: 'tunnel', status: 'closed', exitCode: code, log: errLog.slice(0, 1000) });
   });
 });
 

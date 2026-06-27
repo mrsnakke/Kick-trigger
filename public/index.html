@@ -131,8 +131,9 @@ function handleEvent(d) {
         addBoxMsg('📋 WEBHOOK URL — Copiala exactamente a dev.kick.com:', webhookUrl, webhookUrl);
       } else if (d.error) {
         addSystemMsg(`⚠ cloudflared: ${d.error}`);
-      } else if (d.exitCode) {
-        addSystemMsg(`⚠ cloudflared terminó (código ${d.exitCode}). Ejecutá "cloudflared tunnel login" si no lo hiciste`);
+      } else if (d.exitCode !== undefined) {
+        const msg = d.exitCode ? `cloudflared terminó (código ${d.exitCode})` : 'cloudflared terminó inesperadamente';
+        addSystemMsg(`⚠ ${msg}${d.log ? ': ' + d.log : ''}`);
       } else {
         addSystemMsg('🔌 Túnel cerrado');
       }
