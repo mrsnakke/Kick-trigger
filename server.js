@@ -20,10 +20,10 @@ const CLIENT_SECRET = process.env.KICK_CLIENT_SECRET;
 const REDIRECT_URI = process.env.KICK_REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
 
 // -- Cloudflare Tunnel --
-const CF_TUNNEL_NAME = process.env.CF_TUNNEL_NAME;           // ej: kick-backend
-const CF_DOMAIN = process.env.CF_DOMAIN;                     // ej: webhook.midominio.com
-const CF_CREDENTIALS = process.env.CF_CREDENTIALS ||           // ej: ~/.cloudflared/credentials.json
-  path.join(process.env.USERPROFILE || process.env.HOME, '.cloudflared', `${CF_TUNNEL_NAME || 'tunnel'}.json`);
+const CF_TUNNEL_NAME = process.env.CF_TUNNEL_NAME;
+const CF_DOMAIN = process.env.CF_DOMAIN;
+const CF_BIN = path.join(process.env.LOCALAPPDATA || '', 'cloudflared', 'cloudflared.exe');
+const CF_CREDENTIALS_DIR = path.join(process.env.USERPROFILE || process.env.HOME, '.cloudflared');
 const CF_CONFIG = path.join(__dirname, 'cloudflared.yml');
 
 let tokens = null;
@@ -225,40 +225,78 @@ app.post('/api/events/subscribe', async (req, res) => {
   res.json({ ok: allOk, results });
 });
 
-// -- Tunnel (Cloudflare) --
-function writeCloudflaredConfig() {
+
+
+function cfExec(args) {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(CF_BIN)) return reject('cloudflared no instalado');
+    exec(`"${CF_BIN}" ${args}`, (err, stdout) => {
+      if (err) reject(err.message); else resolve(stdout);
+    });
+  });
+}
+
+async function findTunnelCredentials() {
+  if (!fs.existsSync(CF_CREDENTIALS_DIR)) return null;
+  const all = fs.readdirSync(CF_CREDENTIALS_DIR).filter(f => f.endsWith('.json') && f !== 'cert.pem');
+  if (!all.length) return null;
+  try {
+    const list = await cfExec('tunnel list --output json');
+    const tunnels = JSON.parse(list);
+    const t = tunnels.find(t => t.name === CF_TUNNEL_NAME);
+    if (t) {
+      const f = all.find(f => f.startsWith(t.id));
+      if (f) return path.join(CF_CREDENTIALS_DIR, f);
+    }
+  } catch {}
+  return path.join(CF_CREDENTIALS_DIR, all[0]);
+}
+
+async function tunnelAlreadyRunning() {
+  // ponytail: si el túnel ya tiene conexiones activas, usarlo
+  try {
+    const out = await cfExec(`tunnel info ${CF_TUNNEL_NAME} --output json`);
+    const t = JSON.parse(out);
+    if (t.connections && t.connections.length > 0) {
+      tunnelUrl = `https://${CF_DOMAIN}`;
+      broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+app.post('/api/tunnel/start', async (req, res) => {
+  if (tunnelProcess) return res.json({ url: tunnelUrl });
+  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return res.status(400).json({ error: 'Falta CF_TUNNEL_NAME o CF_DOMAIN en .env' });
+
+  if (!fs.existsSync(CF_BIN))
+    return res.status(400).json({ error: 'cloudflared no instalado', guide: 'winget install cloudflare.cloudflared' });
+
+  // si ya está corriendo, solo anunciar la URL
+  if (await tunnelAlreadyRunning())
+    return res.json({ url: tunnelUrl });
+
+  const credsFile = await findTunnelCredentials();
+  if (!credsFile)
+    return res.status(400).json({
+      error: `No hay credenciales para el túnel ${CF_TUNNEL_NAME}`,
+      guide: `Ejecutá:\n  cloudflared tunnel login\n  cloudflared tunnel create ${CF_TUNNEL_NAME}\n  cloudflared tunnel route dns ${CF_TUNNEL_NAME} ${CF_DOMAIN}`
+    });
+
   const yml = `tunnel: ${CF_TUNNEL_NAME}
-credentials-file: ${CF_CREDENTIALS.replace(/\\/g, '/')}
+credentials-file: ${credsFile.replace(/\\/g, '/')}
 ingress:
   - service: http://localhost:${PORT}
 `;
   fs.writeFileSync(CF_CONFIG, yml);
-}
-
-app.post('/api/tunnel/start', (req, res) => {
-  if (tunnelProcess) return res.json({ url: tunnelUrl });
-  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return res.status(400).json({ error: 'Falta CF_TUNNEL_NAME o CF_DOMAIN en .env' });
-
-  // ponytail: verificar cloudflared instalado
-  try { exec('cloudflared version', { stdio: 'ignore' }); }
-  catch { return res.status(400).json({ error: 'cloudflared no está instalado', guide: 'winget install cloudflare.cloudflared' }); }
-
-  if (!fs.existsSync(CF_CREDENTIALS)) {
-    return res.status(400).json({
-      error: `Falta archivo de credenciales: ${CF_CREDENTIALS}`,
-      guide: `Ejecutá:\n  cloudflared tunnel login\n  cloudflared tunnel create ${CF_TUNNEL_NAME}\n  cloudflared tunnel route dns ${CF_TUNNEL_NAME} ${CF_DOMAIN}`
-    });
-  }
-
-  writeCloudflaredConfig();
   tunnelUrl = `https://${CF_DOMAIN}`;
 
-  tunnelProcess = spawn('cloudflared', ['tunnel', 'run', '--config', CF_CONFIG], {
+  tunnelProcess = spawn(CF_BIN, ['tunnel', 'run', '--config', CF_CONFIG], {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
   });
 
-  // ponytail: respondemos al toque con la URL, monitoreamos en background
   broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
   res.json({ url: tunnelUrl });
 
@@ -269,18 +307,13 @@ app.post('/api/tunnel/start', (req, res) => {
     if (line) console.log('[CF]', line);
   });
   tunnelProcess.on('error', err => {
-    console.error('[CF] Error:', err.message);
-    tunnelProcess = null;
-    tunnelUrl = null;
+    tunnelProcess = null; tunnelUrl = null;
     broadcast({ type: 'tunnel', status: 'closed', error: err.message });
   });
   tunnelProcess.on('exit', code => {
-    tunnelProcess = null;
-    tunnelUrl = null;
+    tunnelProcess = null; tunnelUrl = null;
     broadcast({ type: 'tunnel', status: 'closed', exitCode: code });
-    if (code !== 0) {
-      console.error('[CF] Exit code:', code, errLog);
-    }
+    if (code !== 0) console.error('[CF] Exit code:', code, errLog);
   });
 });
 
