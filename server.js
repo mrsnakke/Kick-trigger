@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const localtunnel = require('localtunnel');
+const { spawn } = require('child_process');
 
 // ponytail: cargar .env manual sin dotenv
 try {
@@ -18,13 +18,17 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.KICK_CLIENT_ID;
 const CLIENT_SECRET = process.env.KICK_CLIENT_SECRET;
 const REDIRECT_URI = process.env.KICK_REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
-// ponytail: subdominio único hash-based para que no cambie entre reinicios
-const TUNNEL_SUBDOMAIN = process.env.TUNNEL_SUBDOMAIN ||
-  'kb-' + crypto.createHash('md5').update(CLIENT_ID || '').digest('base64url').slice(0, 10).toLowerCase();
+
+// -- Cloudflare Tunnel --
+const CF_TUNNEL_NAME = process.env.CF_TUNNEL_NAME;           // ej: kick-backend
+const CF_DOMAIN = process.env.CF_DOMAIN;                     // ej: webhook.midominio.com
+const CF_CREDENTIALS = process.env.CF_CREDENTIALS ||           // ej: ~/.cloudflared/credentials.json
+  path.join(process.env.USERPROFILE || process.env.HOME, '.cloudflared', `${CF_TUNNEL_NAME || 'tunnel'}.json`);
+const CF_CONFIG = path.join(__dirname, 'cloudflared.yml');
 
 let tokens = null;
 let oauthSession = null;
-let tunnelInstance = null;
+let tunnelProcess = null;
 let tunnelUrl = null;
 let broadcasterUserId = null;
 let channelSlug = null;
@@ -221,41 +225,67 @@ app.post('/api/events/subscribe', async (req, res) => {
   res.json({ ok: allOk, results });
 });
 
-// -- Tunnel --
-app.post('/api/tunnel/start', async (req, res) => {
-  if (tunnelInstance) return res.json({ url: tunnelUrl });
-  // ponytail: intenta con subdominio fijo, falla a random
-  const opts = { port: PORT };
-  if (TUNNEL_SUBDOMAIN) opts.subdomain = TUNNEL_SUBDOMAIN;
-  try {
-    tunnelInstance = await localtunnel(opts);
-    tunnelUrl = tunnelInstance.url;
-    tunnelInstance.on('close', () => {
-      tunnelInstance = null;
-      tunnelUrl = null;
-      broadcast({ type: 'tunnel', status: 'closed' });
+// -- Tunnel (Cloudflare) --
+function writeCloudflaredConfig() {
+  const yml = `tunnel: ${CF_TUNNEL_NAME}
+credentials-file: ${CF_CREDENTIALS.replace(/\\/g, '/')}
+ingress:
+  - service: http://localhost:${PORT}
+`;
+  fs.writeFileSync(CF_CONFIG, yml);
+}
+
+app.post('/api/tunnel/start', (req, res) => {
+  if (tunnelProcess) return res.json({ url: tunnelUrl });
+  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return res.status(400).json({ error: 'Configurá CF_TUNNEL_NAME y CF_DOMAIN en .env' });
+
+  if (!fs.existsSync(CF_CREDENTIALS)) {
+    return res.status(400).json({
+      error: `No se encontró ${CF_CREDENTIALS}`,
+      guide: 'cloudflared tunnel login && cloudflared tunnel create ' + CF_TUNNEL_NAME
     });
-    broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
-    res.json({ url: tunnelUrl });
-  } catch (err) {
-    if (opts.subdomain) {
-      console.warn(`[TUNNEL] Subdominio "${TUNNEL_SUBDOMAIN}" ocupado, usando random`);
-      delete opts.subdomain;
-      try {
-        tunnelInstance = await localtunnel(opts);
-        tunnelUrl = tunnelInstance.url;
-        tunnelInstance.on('close', () => { tunnelInstance = null; tunnelUrl = null; broadcast({ type: 'tunnel', status: 'closed' }); });
-        broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl, fallback: true });
-        return res.json({ url: tunnelUrl, fallback: true });
-      } catch (err2) {
-        return res.status(500).json({ error: err2.message });
-      }
-    }
-    res.status(500).json({ error: err.message });
   }
+
+  writeCloudflaredConfig();
+  tunnelUrl = `https://${CF_DOMAIN}`;
+
+  tunnelProcess = spawn('cloudflared', ['tunnel', 'run', '--config', CF_CONFIG], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
+  });
+
+  let started = false;
+  tunnelProcess.stdout.on('data', d => {
+    const line = d.toString();
+    console.log('[CF]', line.trim());
+    if (!started && (line.includes('Connected') || line.includes('Registered') || line.includes('warp-runtime'))) {
+      started = true;
+      broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
+      res.json({ url: tunnelUrl });
+    }
+  });
+  tunnelProcess.stderr.on('data', d => {
+    const line = d.toString();
+    console.log('[CF]', line.trim());
+    if (!started && (line.includes('Connected') || line.includes('Registered') || line.includes('Connection')) ) {
+      started = true;
+      broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
+      res.json({ url: tunnelUrl });
+    }
+  });
+  tunnelProcess.on('error', err => {
+    if (!started) { started = true; res.status(500).json({ error: err.message }); }
+  });
+  tunnelProcess.on('exit', code => {
+    tunnelProcess = null;
+    tunnelUrl = null;
+    broadcast({ type: 'tunnel', status: 'closed' });
+    if (!started) { started = true; res.status(500).json({ error: `cloudflared terminó con código ${code}` }); }
+  });
 });
+
 app.post('/api/tunnel/stop', (_req, res) => {
-  if (tunnelInstance) { tunnelInstance.close(); tunnelInstance = null; tunnelUrl = null; }
+  if (tunnelProcess) { tunnelProcess.kill(); tunnelProcess = null; tunnelUrl = null; }
   res.json({ ok: true });
 });
 
