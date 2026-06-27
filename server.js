@@ -237,12 +237,16 @@ ingress:
 
 app.post('/api/tunnel/start', (req, res) => {
   if (tunnelProcess) return res.json({ url: tunnelUrl });
-  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return res.status(400).json({ error: 'Configurá CF_TUNNEL_NAME y CF_DOMAIN en .env' });
+  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return res.status(400).json({ error: 'Falta CF_TUNNEL_NAME o CF_DOMAIN en .env' });
+
+  // ponytail: verificar cloudflared instalado
+  try { exec('cloudflared version', { stdio: 'ignore' }); }
+  catch { return res.status(400).json({ error: 'cloudflared no está instalado', guide: 'winget install cloudflare.cloudflared' }); }
 
   if (!fs.existsSync(CF_CREDENTIALS)) {
     return res.status(400).json({
-      error: `No se encontró ${CF_CREDENTIALS}`,
-      guide: 'cloudflared tunnel login && cloudflared tunnel create ' + CF_TUNNEL_NAME
+      error: `Falta archivo de credenciales: ${CF_CREDENTIALS}`,
+      guide: `Ejecutá:\n  cloudflared tunnel login\n  cloudflared tunnel create ${CF_TUNNEL_NAME}\n  cloudflared tunnel route dns ${CF_TUNNEL_NAME} ${CF_DOMAIN}`
     });
   }
 
@@ -254,33 +258,29 @@ app.post('/api/tunnel/start', (req, res) => {
     windowsHide: true
   });
 
-  let started = false;
-  tunnelProcess.stdout.on('data', d => {
-    const line = d.toString();
-    console.log('[CF]', line.trim());
-    if (!started && (line.includes('Connected') || line.includes('Registered') || line.includes('warp-runtime'))) {
-      started = true;
-      broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
-      res.json({ url: tunnelUrl });
-    }
-  });
+  // ponytail: respondemos al toque con la URL, monitoreamos en background
+  broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
+  res.json({ url: tunnelUrl });
+
+  let errLog = '';
   tunnelProcess.stderr.on('data', d => {
-    const line = d.toString();
-    console.log('[CF]', line.trim());
-    if (!started && (line.includes('Connected') || line.includes('Registered') || line.includes('Connection')) ) {
-      started = true;
-      broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
-      res.json({ url: tunnelUrl });
-    }
+    errLog += d.toString();
+    const line = d.toString().trim();
+    if (line) console.log('[CF]', line);
   });
   tunnelProcess.on('error', err => {
-    if (!started) { started = true; res.status(500).json({ error: err.message }); }
+    console.error('[CF] Error:', err.message);
+    tunnelProcess = null;
+    tunnelUrl = null;
+    broadcast({ type: 'tunnel', status: 'closed', error: err.message });
   });
   tunnelProcess.on('exit', code => {
     tunnelProcess = null;
     tunnelUrl = null;
-    broadcast({ type: 'tunnel', status: 'closed' });
-    if (!started) { started = true; res.status(500).json({ error: `cloudflared terminó con código ${code}` }); }
+    broadcast({ type: 'tunnel', status: 'closed', exitCode: code });
+    if (code !== 0) {
+      console.error('[CF] Exit code:', code, errLog);
+    }
   });
 });
 

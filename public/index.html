@@ -129,6 +129,10 @@ function handleEvent(d) {
         addSystemMsg(`🌐 Túnel activo: ${webhookUrl}`);
         if (d.fallback) addSystemMsg(`⚠ Subdominio fijo no disponible, URL aleatoria`);
         addBoxMsg('📋 WEBHOOK URL — Copiala exactamente a dev.kick.com:', webhookUrl, webhookUrl);
+      } else if (d.error) {
+        addSystemMsg(`⚠ cloudflared: ${d.error}`);
+      } else if (d.exitCode) {
+        addSystemMsg(`⚠ cloudflared terminó (código ${d.exitCode}). Ejecutá "cloudflared tunnel login" si no lo hiciste`);
       } else {
         addSystemMsg('🔌 Túnel cerrado');
       }
@@ -313,7 +317,17 @@ function subscribeEvents() {
 // -- Tunnel --
 function toggleTunnel() {
   const endpoint = tunnelActive ? '/api/tunnel/stop' : '/api/tunnel/start';
-  fetch(endpoint, { method: 'POST' }).catch(err => addSystemMsg(`⚠ Error: ${err.message}`));
+  addSystemMsg(`⏳ ${tunnelActive ? 'Deteniendo' : 'Iniciando'} túnel...`);
+  fetch(endpoint, { method: 'POST' })
+    .then(r => r.json().catch(() => ({ error: r.statusText })))
+    .then(d => {
+      if (d.error) {
+        tunnelActive = false;
+        addSystemMsg(`⚠ Error: ${d.error}`);
+        if (d.guide) addSystemMsg(`📋 ${d.guide}`);
+      }
+    })
+    .catch(err => addSystemMsg(`⚠ Error de red: ${err.message}`));
 }
 
 // -- Keybindings --
