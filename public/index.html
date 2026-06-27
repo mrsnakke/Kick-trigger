@@ -31,6 +31,16 @@ header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-right: aut
 .event-sub { border-color: #7ee787; }
 .event-redeem { border-color: #d2a8ff; }
 .event-sent { border-color: #f0883e; opacity: .7; }
+.event-follow { border-color: #f0883e; }
+.event-renewal { border-color: #58a6ff; }
+.event-gifts { border-color: #ffa657; }
+.event-live { border-color: #3fb950; }
+.event-offline { border-color: #f85149; }
+.event-ban { border-color: #f85149; }
+.event-kicks { border-color: #d2a8ff; }
+.event .emote { display: inline-block; vertical-align: middle; height: 28px; width: auto; margin: -2px 0; }
+.event .badge-img { display: inline-block; height: 18px; width: auto; vertical-align: middle; margin-right: 2px; }
+.event .badge-level { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 4px; background: #1f6feb; color: #fff; font-size: 11px; font-weight: 600; vertical-align: middle; margin-right: 2px; line-height: 1; }
 
 #chat-box { border-top: 1px solid #30363d; padding: 12px 16px; background: #161b22; display: flex; gap: 8px; align-items: flex-end; }
 #chat-box textarea { flex: 1; resize: none; height: 40px; padding: 10px 12px; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; color: #c9d1d9; font-size: 14px; font-family: inherit; }
@@ -51,7 +61,7 @@ header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-right: aut
   <span id="channel-name" style="font-size:13px;color:#8b949e"></span>
   <button id="btn-auth" class="btn btn-primary" onclick="authorize()">Autorizar con Kick</button>
   <button id="btn-sub" class="btn" onclick="subscribeEvents()" style="display:none">Suscribir a eventos</button>
-  <button id="btn-tunnel" class="btn" onclick="toggleTunnel()">Iniciar túnel</button>
+  <button id="btn-tunnel" class="btn" onclick="toggleTunnel()" style="display:none">Iniciar túnel</button>
 </header>
 
 <div id="feed">
@@ -110,9 +120,13 @@ function handleEvent(d) {
     case 'auth':
       if (d.status === 'connected') {
         setBadge('badge-auth', 'badge-ok', `● ${d.slug || 'Conectado'}`);
-        document.getElementById('btn-auth').disabled = true;
-        document.getElementById('btn-auth').textContent = '✓ Autorizado';
+        document.getElementById('btn-auth').style.display = 'none';
         document.getElementById('channel-name').textContent = d.slug ? `/${d.slug}` : '';
+      } else {
+        setBadge('badge-auth', 'badge-off', '○ No autorizado');
+        document.getElementById('btn-auth').style.display = '';
+        document.getElementById('btn-auth').disabled = false;
+        document.getElementById('btn-auth').textContent = 'Re-autorizar con Kick';
       }
       break;
     case 'event':
@@ -121,14 +135,10 @@ function handleEvent(d) {
     case 'tunnel':
       tunnelActive = d.status === 'open';
       setBadge('badge-tunnel', tunnelActive ? 'badge-ok' : 'badge-off', tunnelActive ? `● ${(d.url||'').replace('https://','')}` : '○ Sin túnel');
-      document.getElementById('btn-tunnel').textContent = tunnelActive ? 'Detener túnel' : 'Iniciar túnel';
-      document.getElementById('btn-tunnel').className = tunnelActive ? 'btn btn-danger' : 'btn';
-      document.getElementById('btn-sub').style.display = tunnelActive ? 'inline-block' : 'none';
+      document.getElementById('btn-tunnel').style.display = 'none';
+      document.getElementById('btn-sub').style.display = 'none';
       if (tunnelActive && d.url) {
-        const webhookUrl = d.url + '/webhook/kick';
-        addSystemMsg(`🌐 Túnel activo: ${webhookUrl}`);
-        if (d.fallback) addSystemMsg(`⚠ Subdominio fijo no disponible, URL aleatoria`);
-        addBoxMsg('📋 WEBHOOK URL — Copiala exactamente a dev.kick.com:', webhookUrl, webhookUrl);
+        addSystemMsg(`🌐 Túnel activo — subscribiendo eventos...`);
       } else if (d.error) {
         addSystemMsg(`⚠ cloudflared: ${d.error}`);
       } else if (d.exitCode !== undefined) {
@@ -139,7 +149,11 @@ function handleEvent(d) {
       }
       break;
     case 'subscription':
-      addSystemMsg(`📡 ${d.event}: ${d.status === 'active' ? '✔ suscrito' : `✖ HTTP ${d.statusCode} (${d.message || ''})`}`);
+      if (d.event === 'tunnel' && d.status === 'reconnecting') {
+        addSystemMsg('🔄 Túnel caído, reconectando en 10s...');
+      } else {
+        addSystemMsg(`📡 ${d.event}: ${d.status === 'active' ? '✔ suscrito' : `✖ ${d.message || d.statusCode || ''}`}`);
+      }
       break;
     case 'sent':
       addSentMessage(d);
@@ -150,8 +164,7 @@ function handleEvent(d) {
 function updateStatus(d) {
   if (d.authenticated) {
     setBadge('badge-auth', 'badge-ok', `● ${d.channelSlug || 'Conectado'}`);
-    document.getElementById('btn-auth').disabled = true;
-    document.getElementById('btn-auth').textContent = '✓ Autorizado';
+    document.getElementById('btn-auth').style.display = 'none';
     if (d.channelSlug) document.getElementById('channel-name').textContent = `/${d.channelSlug}`;
     document.getElementById('btn-send').disabled = false;
   } else {
@@ -160,8 +173,7 @@ function updateStatus(d) {
   if (d.tunnelUrl) {
     tunnelActive = true;
     setBadge('badge-tunnel', 'badge-ok', `● ${d.tunnelUrl.replace('https://','')}`);
-    document.getElementById('btn-tunnel').textContent = 'Detener túnel';
-    document.getElementById('btn-tunnel').className = 'btn btn-danger';
+    document.getElementById('btn-tunnel').style.display = 'none';
   }
   connected = true;
 }
@@ -184,18 +196,72 @@ function addEvent(d) {
       el.classList.add('event-chat');
       const p = d.payload;
       const user = p.sender?.username || 'desconocido';
-      const content = p.content || '';
-      el.innerHTML = `<div class="meta">${ts} · 💬 chat</div><div class="user">${user}:</div><div class="content">${escapeHtml(content)}</div>`;
+      const color = p.sender?.identity?.username_color || '';
+      const badges = p.sender?.identity?.badges || [];
+      const style = color ? `style="color:${color}"` : '';
+      const badgeImg = (type, count) => {
+        const tiered = count ? `/${count || 1}` : '';
+        const map = {
+          broadcaster:   '/images/badges/broadcaster.svg',
+          moderator:     '/images/badges/moderator.svg',
+          staff:         '/images/badges/staff.svg',
+          verified:      '/images/badges/verified.svg',
+          subscriber:    `/images/badges/subscriber${tiered}.png`,
+          sub_gifter:    `/images/badges/sub_gifter${tiered}.svg`,
+          vip:           '/images/badges/vip.svg',
+          og:            '/images/badges/og.svg',
+          founder:       '/images/badges/founder.svg',
+        };
+        return map[type] || '';
+      };
+      const badgeHtml = badges.map(b => {
+        if (b.type === 'level_badge') {
+          return `<span class="badge badge-level">Lv${b.count || 1}</span>`;
+        }
+        const src = badgeImg(b.type, b.count);
+        return src ? `<img class="badge-img" src="${src}" alt="${b.text}" title="${b.text}">` : '';
+      }).join('');
+      let contentHtml = renderContent(p.content || '', p.emotes);
+      if (p.replies_to?.content) {
+        const replyUser = p.replies_to.sender?.username || 'alguien';
+        contentHtml = `<div style="font-size:12px;color:#8b949e;border-left:2px solid #30363d;padding-left:8px;margin-bottom:4px">↩ ${escapeHtml(replyUser)}: ${escapeHtml(p.replies_to.content.slice(0, 80))}</div>${contentHtml}`;
+      }
+      el.innerHTML = `<div class="meta">${ts} · 💬 chat</div><div class="user">${badgeHtml}<span ${style}>${escapeHtml(user)}</span>:</div><div class="content">${contentHtml}</div>`;
       el.onclick = () => startReply(p.message_id, user);
       el.title = 'Click para responder';
       el.style.cursor = 'pointer';
+      break;
+    }
+    case 'channel.followed': {
+      el.classList.add('event-follow');
+      const p = d.payload;
+      const follower = p.follower?.username || 'alguien';
+      el.innerHTML = `<div class="meta">${ts} · ♥ follow</div><div class="content"><strong>${escapeHtml(follower)}</strong> siguió al canal!</div>`;
       break;
     }
     case 'channel.subscription.new': {
       el.classList.add('event-sub');
       const p = d.payload;
       const sub = p.subscriber?.username || 'alguien';
-      el.innerHTML = `<div class="meta">${ts} · ⭐ suscripción</div><div class="content"><strong>${sub}</strong> se suscribió al canal!</div>`;
+      const dur = p.duration || 1;
+      el.innerHTML = `<div class="meta">${ts} · ⭐ suscripción</div><div class="content"><strong>${escapeHtml(sub)}</strong> se suscribió (${dur} mes${dur > 1 ? 'es' : ''})!</div>`;
+      break;
+    }
+    case 'channel.subscription.renewal': {
+      el.classList.add('event-renewal');
+      const p = d.payload;
+      const ren = p.subscriber?.username || 'alguien';
+      const rdur = p.duration || 1;
+      el.innerHTML = `<div class="meta">${ts} · 🔄 renovación</div><div class="content"><strong>${escapeHtml(ren)}</strong> renovó suscripción (${rdur} mes${rdur > 1 ? 'es' : ''})</div>`;
+      break;
+    }
+    case 'channel.subscription.gifts': {
+      el.classList.add('event-gifts');
+      const p = d.payload;
+      const gifter = p.is_anonymous ? 'Anónimo' : (p.gifter?.username || 'Alguien');
+      const count = p.giftees?.length || 0;
+      const names = (p.giftees || []).map(g => g.username).join(', ');
+      el.innerHTML = `<div class="meta">${ts} · 🎁 suscripciones regaladas</div><div class="content"><strong>${escapeHtml(gifter)}</strong> regaló ${count} sub${count > 1 ? 's' : ''} a ${escapeHtml(names || 'alguien')}</div>`;
       break;
     }
     case 'channel.reward.redemption.updated': {
@@ -204,7 +270,39 @@ function addEvent(d) {
       const user = p.redeemer?.username || 'alguien';
       const reward = p.reward?.title || 'recompensa';
       const cost = p.reward?.cost || 0;
-      el.innerHTML = `<div class="meta">${ts} · 🎯 canje de puntos</div><div class="content"><strong>${user}</strong> canjeó <strong>${escapeHtml(reward)}</strong> (${cost} pts) — ${p.status}</div>`;
+      el.innerHTML = `<div class="meta">${ts} · 🎯 canje de puntos</div><div class="content"><strong>${escapeHtml(user)}</strong> canjeó <strong>${escapeHtml(reward)}</strong> (${cost} pts) — ${p.status}${p.user_input ? ': ' + escapeHtml(p.user_input) : ''}</div>`;
+      break;
+    }
+    case 'livestream.status.updated': {
+      const p = d.payload;
+      el.classList.add(p.is_live ? 'event-live' : 'event-offline');
+      el.innerHTML = `<div class="meta">${ts} · ${p.is_live ? '🔴 EN VIVO' : '⏹ DESCONECTADO'}</div><div class="content">${p.is_live ? 'Stream iniciado: ' + escapeHtml(p.title || '') : 'Stream finalizado'}</div>`;
+      break;
+    }
+    case 'livestream.metadata.updated': {
+      el.classList.add('event-meta');
+      const p = d.payload;
+      el.innerHTML = `<div class="meta">${ts} · 📝 metadata</div><div class="content">Título: ${escapeHtml(p.metadata?.title || '')}${p.metadata?.category?.name ? ' · Categoría: ' + escapeHtml(p.metadata.category.name) : ''}</div>`;
+      break;
+    }
+    case 'moderation.banned': {
+      el.classList.add('event-ban');
+      const p = d.payload;
+      const banned = p.banned_user?.username || 'alguien';
+      const mod = p.moderator?.username || 'un mod';
+      const reason = p.metadata?.reason || 'sin razón';
+      const perm = p.metadata?.expires_at ? 'temporal' : 'permanente';
+      el.innerHTML = `<div class="meta">${ts} · 🚫 ban</div><div class="content"><strong>${escapeHtml(banned)}</strong> baneado por <strong>${escapeHtml(mod)}</strong> (${perm}): ${escapeHtml(reason)}</div>`;
+      break;
+    }
+    case 'kicks.gifted': {
+      el.classList.add('event-kicks');
+      const p = d.payload;
+      const sender = p.sender?.username || 'alguien';
+      const amt = p.gift?.amount || 0;
+      const name = p.gift?.name || '';
+      const msg = p.gift?.message || '';
+      el.innerHTML = `<div class="meta">${ts} · 💰 kicks</div><div class="content"><strong>${escapeHtml(sender)}</strong> regaló ${amt} KICKs${name ? ' (' + escapeHtml(name) + ')' : ''}${msg ? ': ' + escapeHtml(msg) : ''}</div>`;
       break;
     }
     default:
@@ -346,6 +444,28 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function renderContent(content, emotes) {
+  if (!emotes || !emotes.length) return escapeHtml(content);
+  // ponytail: ordenar posiciones de derecha a izquierda para no romper índices
+  const parts = [];
+  let last = 0;
+  const positions = [];
+  emotes.forEach(em => {
+    (em.positions || []).forEach(pos => {
+      positions.push({ s: pos.s, e: pos.e, id: em.emote_id });
+    });
+  });
+  positions.sort((a, b) => a.s - b.s);
+  positions.forEach(p => {
+    if (p.s < last) return;
+    parts.push(escapeHtml(content.slice(last, p.s)));
+    parts.push(`<img class="emote" src="https://files.kick.com/emotes/${p.id}/fullsize" alt="[emote]" loading="lazy">`);
+    last = p.e + 1;
+  });
+  parts.push(escapeHtml(content.slice(last)));
+  return parts.join('');
+}
+
 function addBoxMsg(label, text, copyValue) {
   removePlaceholder();
   const el = document.createElement('div');
@@ -364,6 +484,9 @@ function addBoxMsg(label, text, copyValue) {
 
 // -- Init --
 connectSSE();
+window.addEventListener('beforeunload', () => {
+  fetch('/api/shutdown', { method: 'POST', keepalive: true });
+});
 </script>
 </body>
 </html>

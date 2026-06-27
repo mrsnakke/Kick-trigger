@@ -3,3 +3,4 @@ node_modules/
 cloudflared.yml
 stdout.txt
 stderr.txt
+tokens.json

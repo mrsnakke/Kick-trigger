@@ -1,9 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 
 // ponytail: cargar .env manual sin dotenv
 try {
@@ -32,10 +31,13 @@ let tunnelProcess = null;
 let tunnelUrl = null;
 let broadcasterUserId = null;
 let channelSlug = null;
+let tunnelIntentionalStop = false;
+let authFailCount = 0;
 const sseClients = [];
 const processedIds = new Set();
 let eventsCounter = 0;
 const TEN_MINUTES = 10 * 60 * 1000;
+const TOKENS_PATH = path.join(__dirname, 'tokens.json');
 
 // ponytail: hardcodeada, refresh dinámico si falla verificación
 let kickPublicKey = `-----BEGIN PUBLIC KEY-----
@@ -121,8 +123,9 @@ app.get('/auth/callback', async (req, res) => {
       expires_at: Date.now() + (data.expires_in * 1000)
     };
     oauthSession = null;
-    await fetchChannelInfo();
-    broadcast({ type: 'auth', status: 'connected', slug: channelSlug });
+    saveTokens();
+    // auto-flow en background, no bloquea el response
+    autoFlow().catch(() => {});
     res.send(`<script>window.opener.postMessage({type:'oauth-success'},'*');window.close()</script>`);
   } catch (err) {
     res.send(`<script>window.opener.postMessage({type:'oauth-error',error:'${err.message}'},'*');window.close()</script>`);
@@ -217,6 +220,7 @@ app.post('/api/chat/send', express.json(), async (req, res) => {
   if (!content || content.length > 500) return res.status(400).json({ error: 'Máx 500 caracteres' });
 
   await ensureValidToken();
+  if (!broadcasterUserId) await fetchChannelInfo();
   try {
     const body = { broadcaster_user_id: broadcasterUserId, content, type: 'user' };
     if (reply_to_message_id) body.reply_to_message_id = reply_to_message_id;
@@ -304,23 +308,14 @@ async function tunnelAlreadyRunning() {
   return false;
 }
 
-app.post('/api/tunnel/start', async (req, res) => {
-  if (tunnelProcess) return res.json({ url: tunnelUrl });
-  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return res.status(400).json({ error: 'Falta CF_TUNNEL_NAME o CF_DOMAIN en .env' });
-
-  if (!fs.existsSync(CF_BIN))
-    return res.status(400).json({ error: 'cloudflared no instalado', guide: 'winget install cloudflare.cloudflared' });
-
-  // si ya está corriendo, solo anunciar la URL
-  if (await tunnelAlreadyRunning())
-    return res.json({ url: tunnelUrl });
+async function startTunnel() {
+  if (tunnelProcess || tunnelUrl) return { url: tunnelUrl };
+  if (!CF_TUNNEL_NAME || !CF_DOMAIN) return { error: 'Falta CF_TUNNEL_NAME o CF_DOMAIN en .env' };
+  if (!fs.existsSync(CF_BIN)) return { error: 'cloudflared no instalado' };
+  if (await tunnelAlreadyRunning()) return { url: tunnelUrl };
 
   const credsFile = await findTunnelCredentials();
-  if (!credsFile)
-    return res.status(400).json({
-      error: `No hay credenciales para el túnel ${CF_TUNNEL_NAME}`,
-      guide: `Ejecutá:\n  cloudflared tunnel login\n  cloudflared tunnel create ${CF_TUNNEL_NAME}\n  cloudflared tunnel route dns ${CF_TUNNEL_NAME} ${CF_DOMAIN}`
-    });
+  if (!credsFile) return { error: `No hay credenciales para ${CF_TUNNEL_NAME}` };
 
   const yml = `tunnel: ${CF_TUNNEL_NAME}
 credentials-file: ${credsFile.replace(/\\/g, '/')}
@@ -336,7 +331,6 @@ ingress:
   });
 
   broadcast({ type: 'tunnel', status: 'open', url: tunnelUrl });
-  res.json({ url: tunnelUrl });
 
   let errLog = '';
   tunnelProcess.stderr.on('data', d => {
@@ -350,15 +344,106 @@ ingress:
   });
   tunnelProcess.on('exit', code => {
     tunnelProcess = null; tunnelUrl = null;
-    if (errLog) console.error('[CF] Exit:', code, errLog.slice(0, 2000));
+    const wasIntentional = tunnelIntentionalStop;
+    tunnelIntentionalStop = false;
+    if (errLog) console.error('[CF] Exit:', code);
     broadcast({ type: 'tunnel', status: 'closed', exitCode: code, log: errLog.slice(0, 1000) });
+    // auto-restart si no fue intencional y hay tokens
+    if (!wasIntentional && tokens) {
+      broadcast({ type: 'subscription', event: 'tunnel', status: 'reconnecting' });
+      setTimeout(async () => {
+        const r = await startTunnel();
+        if (r.url) setTimeout(() => subscribeToEvents(), 3000);
+      }, 10000);
+    }
   });
+
+  return { url: tunnelUrl };
+}
+
+app.post('/api/tunnel/start', async (req, res) => {
+  const result = await startTunnel();
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
 });
 
 app.post('/api/tunnel/stop', (_req, res) => {
+  tunnelIntentionalStop = true;
   if (tunnelProcess) { tunnelProcess.kill(); tunnelProcess = null; tunnelUrl = null; }
   res.json({ ok: true });
 });
+
+app.post('/api/shutdown', (_req, res) => {
+  res.json({ ok: true });
+  tunnelIntentionalStop = true;
+  if (tunnelProcess) tunnelProcess.kill();
+  setTimeout(() => process.exit(0), 500);
+});
+
+// -- Persistencia de tokens --
+function saveTokens() {
+  if (!tokens) return;
+  fs.writeFileSync(TOKENS_PATH, JSON.stringify({ access_token: tokens.access_token, refresh_token: tokens.refresh_token, expires_at: tokens.expires_at }));
+}
+
+function loadTokens() {
+  try {
+    const raw = fs.readFileSync(TOKENS_PATH, 'utf8');
+    tokens = JSON.parse(raw);
+    if (!tokens?.access_token) { tokens = null; return false; }
+    console.log('[TOKENS] Cargados');
+    return true;
+  } catch { return false; }
+}
+
+// -- Auto-flow: auth → túnel → suscripción --
+async function autoFlow() {
+  if (!tokens) return;
+  try {
+    await ensureValidToken();
+    saveTokens();
+    await fetchChannelInfo();
+    broadcast({ type: 'auth', status: 'connected', slug: channelSlug });
+    // si el túnel no está corriendo, iniciarlo
+    const tunnelResp = await startTunnel();
+    if (tunnelResp?.url) {
+      // esperar un momento para que cloudflared levante
+      setTimeout(() => subscribeToEvents(), 3000);
+    }
+  } catch (err) {
+    authFailCount++;
+    console.log('[AUTO]', err.message, `(intento ${authFailCount}/3)`);
+    if (authFailCount >= 3) {
+      tokens = null;
+      try { fs.unlinkSync(TOKENS_PATH); } catch {}
+      broadcast({ type: 'auth', status: 'disconnected' });
+    }
+  }
+}
+
+// -- Heartbeat: verificar suscripciones cada 5 min y reparar --
+async function heartbeat() {
+  if (!tokens) return;
+  try {
+    await ensureValidToken();
+    if (!tunnelUrl || !tunnelProcess) {
+      const r = await startTunnel();
+      if (r.url) setTimeout(() => subscribeToEvents(), 3000);
+      return;
+    }
+    const subs = await listSubscriptions();
+    if (!subs || subs.length < 10) {
+      console.log('[HEARTBEAT] suscripciones perdidas, re-subscribiendo...');
+      broadcast({ type: 'subscription', event: 'all', status: 'error', message: 'Re-subscribiendo...' });
+      await subscribeToEvents();
+    } else {
+      console.log('[HEARTBEAT] OK');
+    }
+    authFailCount = 0;
+  } catch (err) {
+    console.log('[HEARTBEAT]', err.message);
+  }
+}
 
 // -- Helpers --
 function broadcast(data) {
@@ -380,11 +465,22 @@ async function ensureValidToken() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body
   });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error('Error refresh token');
+  let data = await resp.json();
+  if (!resp.ok) {
+    // ponytail: un reintento tras 2s
+    await new Promise(r => setTimeout(r, 2000));
+    const resp2 = await fetch('https://id.kick.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    data = await resp2.json();
+    if (!resp2.ok) throw new Error('Error refresh token');
+  }
   tokens.access_token = data.access_token;
   tokens.refresh_token = data.refresh_token;
   tokens.expires_at = Date.now() + (data.expires_in * 1000);
+  saveTokens();
 }
 
 async function fetchChannelInfo() {
@@ -407,20 +503,12 @@ async function listSubscriptions() {
   return resp.ok ? (await resp.json()).data || [] : [];
 }
 
-async function deleteSubscription(id) {
-  await ensureValidToken();
-  await fetch(`https://api.kick.com/public/v1/events/subscriptions?id=${id}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${tokens.access_token}` }
-  });
-}
-
 async function subscribeToEvents() {
   if (!broadcasterUserId) await fetchChannelInfo();
   const results = [];
   await ensureValidToken();
   // limpiar suscripciones viejas
-  try { for (const s of await listSubscriptions()) await deleteSubscription(s.id); } catch {}
+  try { for (const s of await listSubscriptions()) await fetch(`https://api.kick.com/public/v1/events/subscriptions?id=${s.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tokens.access_token}` } }); } catch {}
   const webhookUrl = tunnelUrl ? `${tunnelUrl}/webhook/kick` : null;
   if (!webhookUrl) {
     broadcast({ type: 'subscription', event: 'all', status: 'error', message: 'Iniciá el túnel antes de subscribir' });
@@ -436,8 +524,15 @@ async function subscribeToEvents() {
       body: JSON.stringify({
         events: [
           { name: 'chat.message.sent', version: 1 },
+          { name: 'channel.followed', version: 1 },
           { name: 'channel.subscription.new', version: 1 },
-          { name: 'channel.reward.redemption.updated', version: 1 }
+          { name: 'channel.subscription.renewal', version: 1 },
+          { name: 'channel.subscription.gifts', version: 1 },
+          { name: 'channel.reward.redemption.updated', version: 1 },
+          { name: 'livestream.status.updated', version: 1 },
+          { name: 'livestream.metadata.updated', version: 1 },
+          { name: 'moderation.banned', version: 1 },
+          { name: 'kicks.gifted', version: 1 }
         ],
         method: 'webhook',
         webhook_url: webhookUrl
@@ -467,17 +562,6 @@ async function subscribeToEvents() {
   return results;
 }
 
-// -- Auto-open en modo app --
-function openAppMode(url) {
-  // ponytail: solo Windows, prueba Edge luego Chrome
-  const cmds = [
-    `start msedge --app="${url}" --no-first-run`,
-    `start chrome --app="${url}" --no-first-run`
-  ];
-  let i = 0;
-  (function tryNext() { if (i < cmds.length) exec(cmds[i++], err => { if (err) tryNext(); }); })();
-}
-
 // -- Arranque --
 app.listen(PORT, async () => {
   console.log(`\n╔══════════════════════════════════════╗`);
@@ -486,5 +570,7 @@ app.listen(PORT, async () => {
   console.log(`╚══════════════════════════════════════╝\n`);
   if (!CLIENT_ID) console.warn('⚠  Configura KICK_CLIENT_ID y KICK_CLIENT_SECRET en .env o variables de entorno');
   await fetchPublicKey();
-  openAppMode(`http://localhost:${PORT}`);
+  if (loadTokens()) autoFlow().catch(() => {});
+  setInterval(heartbeat, 300000);
+  console.log(`\n  Abrí http://localhost:${PORT} en tu navegador\n`);
 });

@@ -23,6 +23,8 @@ if "%KICK_CLIENT_ID%"=="" if exist ".env" (
 echo.
 echo [INICIO] Kick Backend - http://localhost:3000
 echo.
+:: Abrir navegador y arrancar servidor en paralelo
+start msedge --app="http://localhost:3000" --no-first-run
 call node server.js
 
 pause
