@@ -129,7 +129,7 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 // -- Webhook (acepta GET y POST para verificación) --
-app.all('/webhook/kick', (req, res) => {
+app.all('/webhook/kick', async (req, res) => {
   console.log('[WH]', req.method, 'desde', req.ip, 'type:', req.headers['kick-event-type'] || '(ninguno)');
   // ponytail: Kick podría enviar GET de verificación/healthcheck
   if (req.method === 'GET') {
@@ -143,22 +143,47 @@ app.all('/webhook/kick', (req, res) => {
   const ts = req.headers['kick-event-message-timestamp'];
   const evType = req.headers['kick-event-type'];
 
-  if (!sig || !msgId || !ts) return res.status(401).send('Cabeceras faltantes');
-  if (Math.abs(Date.now() - new Date(ts).getTime()) > 300000) return res.status(401).send('Timestamp fuera de ventana');
-  if (processedIds.has(msgId)) return res.status(200).send('Duplicado');
+  console.log('[WH] sig:', !!sig, 'msgId:', !!msgId, 'ts:', !!ts);
+
+  if (!sig || !msgId || !ts) {
+    console.log('[WH] FALTAN cabeceras');
+    return res.status(401).send('Cabeceras faltantes');
+  }
+
+  const tsDiff = Math.abs(Date.now() - new Date(ts).getTime());
+  if (tsDiff > 300000) {
+    console.log('[WH] TIMESTAMP fuera de ventana:', tsDiff);
+    return res.status(401).send('Timestamp fuera de ventana');
+  }
+  console.log('[WH] timestamp OK, diff:', tsDiff);
+
+  if (processedIds.has(msgId)) {
+    console.log('[WH] DUPLICADO');
+    return res.status(200).send('Duplicado');
+  }
 
   processedIds.add(msgId);
   setTimeout(() => processedIds.delete(msgId), TEN_MINUTES);
 
   const rawBody = req.rawBody ? req.rawBody.toString('utf8') : '';
+  console.log('[WH] rawBody length:', rawBody.length, 'rawBody:', rawBody.slice(0, 100));
+
   try {
     const v = crypto.createVerify('sha256');
     v.update(`${msgId}.${ts}.${rawBody}`);
-    if (!v.verify(kickPublicKey, sig, 'base64')) return res.status(401).send('Firma inválida');
-  } catch {
+    const isValid = v.verify(kickPublicKey, sig, 'base64');
+    if (!isValid) {
+      console.log('[WH] FIRMA INVÁLIDA');
+      // intentar refrescar la clave pública por si cambió
+      await fetchPublicKey();
+      return res.status(401).send('Firma inválida');
+    }
+  } catch (err) {
+    console.log('[WH] Error verificación:', err.message);
     return res.status(500).send('Error verificación');
   }
 
+  console.log('[WH] EVENTO VÁLIDO:', evType);
   eventsCounter++;
   broadcast({ type: 'event', eventType: evType, payload: req.body, ts });
   res.status(200).send('OK');
