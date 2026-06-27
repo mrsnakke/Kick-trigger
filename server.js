@@ -18,7 +18,9 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.KICK_CLIENT_ID;
 const CLIENT_SECRET = process.env.KICK_CLIENT_SECRET;
 const REDIRECT_URI = process.env.KICK_REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
-const TUNNEL_SUBDOMAIN = process.env.TUNNEL_SUBDOMAIN || 'kick-backend';
+// ponytail: subdominio único hash-based para que no cambie entre reinicios
+const TUNNEL_SUBDOMAIN = process.env.TUNNEL_SUBDOMAIN ||
+  'kb-' + crypto.createHash('md5').update(CLIENT_ID || '').digest('base64url').slice(0, 10).toLowerCase();
 
 let tokens = null;
 let oauthSession = null;
