@@ -1,5 +1,9 @@
 # Kick Backend — Módulos & Triggers
 
+![Node](https://img.shields.io/badge/Node.js-26.3.1-339933?logo=node.js&logoColor=white)
+![npm](https://img.shields.io/badge/npm-11.16.0-CB3837?logo=npm&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4.21.0-000000?logo=express&logoColor=white)
+
 ## Estructura
 
 ```
