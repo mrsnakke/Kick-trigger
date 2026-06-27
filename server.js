@@ -360,10 +360,33 @@ async function fetchChannelInfo() {
   }
 }
 
+async function listSubscriptions() {
+  await ensureValidToken();
+  const resp = await fetch('https://api.kick.com/public/v1/events/subscriptions', {
+    headers: { Authorization: `Bearer ${tokens.access_token}` }
+  });
+  return resp.ok ? (await resp.json()).data || [] : [];
+}
+
+async function deleteSubscription(id) {
+  await ensureValidToken();
+  await fetch(`https://api.kick.com/public/v1/events/subscriptions?id=${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${tokens.access_token}` }
+  });
+}
+
 async function subscribeToEvents() {
   if (!broadcasterUserId) await fetchChannelInfo();
   const results = [];
   await ensureValidToken();
+  // limpiar suscripciones viejas
+  try { for (const s of await listSubscriptions()) await deleteSubscription(s.id); } catch {}
+  const webhookUrl = tunnelUrl ? `${tunnelUrl}/webhook/kick` : null;
+  if (!webhookUrl) {
+    broadcast({ type: 'subscription', event: 'all', status: 'error', message: 'Iniciá el túnel antes de subscribir' });
+    return [{ name: 'all', ok: false, error: 'No tunnel URL' }];
+  }
   try {
     const resp = await fetch('https://api.kick.com/public/v1/events/subscriptions', {
       method: 'POST',
@@ -377,7 +400,8 @@ async function subscribeToEvents() {
           { name: 'channel.subscription.new', version: 1 },
           { name: 'channel.reward.redemption.updated', version: 1 }
         ],
-        method: 'webhook'
+        method: 'webhook',
+        webhook_url: webhookUrl
       })
     });
     const text = await resp.text();
