@@ -50,6 +50,7 @@ header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-right: aut
   <span id="badge-tunnel" class="badge badge-off">○ Sin túnel</span>
   <span id="channel-name" style="font-size:13px;color:#8b949e"></span>
   <button id="btn-auth" class="btn btn-primary" onclick="authorize()">Autorizar con Kick</button>
+  <button id="btn-sub" class="btn" onclick="subscribeEvents()" style="display:none">Suscribir a eventos</button>
   <button id="btn-tunnel" class="btn" onclick="toggleTunnel()">Iniciar túnel</button>
 </header>
 
@@ -58,12 +59,14 @@ header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-right: aut
     <div style="font-size:40px">🎛️</div>
     <div><strong>Esperando eventos</strong></div>
     <div style="font-size:13px">Autoriza con Kick y configura el webhook para comenzar</div>
-    <div style="font-size:12px;margin-top:8px;background:#161b22;padding:12px 16px;border-radius:8px;text-align:left;max-width:480px">
-      <b>Pasos rápidos:</b><br>
+    <div style="font-size:12px;margin-top:8px;background:#161b22;padding:12px 16px;border-radius:8px;text-align:left;max-width:520px">
+      <b>Pasos:</b><br>
       1. Crea una app en kick.com/settings/developer<br>
       2. Configura <code>KICK_CLIENT_ID</code> y <code>KICK_CLIENT_SECRET</code><br>
       3. Haz clic en "Autorizar con Kick"<br>
-      4. Inicia el túnel y copia la URL al webhook de tu app
+      4. Inicia el túnel → copia la URL generada<br>
+      5. Pega esa URL (+ /webhook/kick) en "Webhook URL" de tu app en dev.kick.com<br>
+      6. Haz clic en "Suscribir a eventos"
     </div>
   </div>
 </div>
@@ -120,14 +123,16 @@ function handleEvent(d) {
       setBadge('badge-tunnel', tunnelActive ? 'badge-ok' : 'badge-off', tunnelActive ? `● ${d.url.replace('https://','')}` : '○ Sin túnel');
       document.getElementById('btn-tunnel').textContent = tunnelActive ? 'Detener túnel' : 'Iniciar túnel';
       document.getElementById('btn-tunnel').className = tunnelActive ? 'btn btn-danger' : 'btn';
+      document.getElementById('btn-sub').style.display = tunnelActive ? 'inline-block' : 'none';
       if (tunnelActive && d.url) {
-        addSystemMsg(`🌐 Túnel activo: ${d.url}/webhook/kick — Copia esta URL al webhook de tu app en dev.kick.com`);
+        addSystemMsg(`🌐 Túnel activo: ${d.url}/webhook/kick`);
+        addSystemMsg(`📋 Copia esa URL + /webhook/kick al "Webhook URL" de tu app en dev.kick.com, luego haz clic en "Suscribir a eventos"`);
       } else {
         addSystemMsg('🔌 Túnel cerrado');
       }
       break;
     case 'subscription':
-      addSystemMsg(`📡 ${d.event}: ${d.status === 'active' ? '✔ suscrito' : '✖ error (' + (d.message || '') + ')'}`);
+      addSystemMsg(`📡 ${d.event}: ${d.status === 'active' ? '✔ suscrito' : `✖ HTTP ${d.statusCode} (${d.message || ''})`}`);
       break;
     case 'sent':
       addSentMessage(d);
@@ -279,11 +284,29 @@ function authorize() {
 
 window.addEventListener('message', e => {
   if (e.data?.type === 'oauth-success') {
-    addSystemMsg('🔑 Autorización exitosa, suscribiendo a eventos...');
+    addSystemMsg('🔑 Autorización exitosa. Ahora inicia el túnel.');
   } else if (e.data?.type === 'oauth-error') {
     addSystemMsg(`⚠ Error de autorización: ${e.data.error}`);
   }
 });
+
+// -- Suscripción manual --
+function subscribeEvents() {
+  document.getElementById('btn-sub').disabled = true;
+  document.getElementById('btn-sub').textContent = 'Suscribiendo...';
+  fetch('/api/events/subscribe', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      d.results.forEach(r => {
+        addSystemMsg(`📡 ${r.name}: ${r.ok ? '✔ suscrito' : `✖ HTTP ${r.status} — ${JSON.stringify(r.body)}`}`);
+      });
+    })
+    .catch(err => addSystemMsg(`⚠ Error: ${err.message}`))
+    .finally(() => {
+      document.getElementById('btn-sub').disabled = false;
+      document.getElementById('btn-sub').textContent = 'Suscribir a eventos';
+    });
+}
 
 // -- Tunnel --
 function toggleTunnel() {

@@ -114,7 +114,6 @@ app.get('/auth/callback', async (req, res) => {
     };
     oauthSession = null;
     await fetchChannelInfo();
-    await subscribeToEvents();
     broadcast({ type: 'auth', status: 'connected', slug: channelSlug });
     res.send(`<script>window.opener.postMessage({type:'oauth-success'},'*');window.close()</script>`);
   } catch (err) {
@@ -211,6 +210,14 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// -- Suscripción manual a eventos --
+app.post('/api/events/subscribe', async (req, res) => {
+  if (!tokens) return res.status(401).json({ error: 'No autenticado' });
+  const results = await subscribeToEvents();
+  const allOk = results.every(r => r.ok);
+  res.json({ ok: allOk, results });
+});
+
 // -- Tunnel --
 app.post('/api/tunnel/start', async (req, res) => {
   if (tunnelInstance) return res.json({ url: tunnelUrl });
@@ -274,24 +281,32 @@ async function fetchChannelInfo() {
 
 async function subscribeToEvents() {
   if (!broadcasterUserId) await fetchChannelInfo();
+  const results = [];
   for (const name of ['chat.message.sent', 'channel.subscription.new', 'channel.reward.redemption.updated']) {
     try {
       await ensureValidToken();
+      // ponytail: omitimos broadcaster_user_id, el user token lo infiere
       const resp = await fetch('https://api.kick.com/public/v1/events/subscriptions', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${tokens.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ broadcaster_user_id: broadcasterUserId, name, version: 1 })
+        body: JSON.stringify({ name, version: 1 })
       });
-      const data = await resp.json();
-      console.log(`[SUB] ${name}: ${resp.ok ? 'OK' : (data.message || 'error')}`);
-      broadcast({ type: 'subscription', event: name, status: resp.ok ? 'active' : 'error', message: data.message });
+      const text = await resp.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      const ok = resp.ok && (resp.status === 200 || resp.status === 201 || resp.status === 204);
+      console.log(`[SUB] ${name}: ${resp.status} — ${ok ? 'OK' : text}`);
+      broadcast({ type: 'subscription', event: name, status: ok ? 'active' : 'error', statusCode: resp.status, message: data.message || data.error || text });
+      results.push({ name, ok, status: resp.status, body: data });
     } catch (err) {
       console.error(`[SUB] ${name}: ${err.message}`);
+      results.push({ name, ok: false, error: err.message });
     }
   }
+  return results;
 }
 
 // -- Auto-open en modo app --
