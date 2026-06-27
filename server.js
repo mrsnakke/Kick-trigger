@@ -128,8 +128,16 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
-// -- Webhook --
-app.post('/webhook/kick', (req, res) => {
+// -- Webhook (acepta GET y POST para verificación) --
+app.all('/webhook/kick', (req, res) => {
+  console.log('[WH]', req.method, 'desde', req.ip, 'type:', req.headers['kick-event-type'] || '(ninguno)');
+  // ponytail: Kick podría enviar GET de verificación/healthcheck
+  if (req.method === 'GET') {
+    console.log('[WH] GET de verificación recibido, respondiendo 200');
+    return res.status(200).send('OK');
+  }
+  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
+
   const sig = req.headers['kick-event-signature'];
   const msgId = req.headers['kick-event-message-id'];
   const ts = req.headers['kick-event-message-timestamp'];
