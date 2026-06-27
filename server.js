@@ -2,7 +2,16 @@ const express = require('express');
 const crypto = require('crypto');
 const { exec } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const localtunnel = require('localtunnel');
+
+// ponytail: cargar .env manual sin dotenv
+try {
+  fs.readFileSync('.env', 'utf8').split('\n').forEach(l => {
+    const i = l.indexOf('=');
+    if (i > 0) process.env[l.slice(0, i).trim()] = l.slice(i + 1).trim();
+  });
+} catch {}
 
 const app = express();
 const PORT = process.env.PORT || 3000;

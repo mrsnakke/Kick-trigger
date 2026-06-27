@@ -15,13 +15,9 @@ if not exist "node_modules\" (
     call npm install
 )
 
-:: Verificar credenciales
-if "%KICK_CLIENT_ID%"=="" (
-    echo [INFO] KICK_CLIENT_ID no detectado.
-    set /p KICK_CLIENT_ID="Ingresa tu Client ID: "
-)
-if "%KICK_CLIENT_SECRET%"=="" (
-    set /p KICK_CLIENT_SECRET="Ingresa tu Client Secret: "
+:: Cargar credenciales desde .env si existen y no están en entorno
+if "%KICK_CLIENT_ID%"=="" if exist ".env" (
+    for /f "tokens=1,* delims==" %%a in (.env) do set "%%a=%%b"
 )
 
 echo.
