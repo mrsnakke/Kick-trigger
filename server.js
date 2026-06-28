@@ -26,6 +26,8 @@ app.use(express.static(path.join(__dirname, 'public')))
 // -- Auth --
 app.get('/auth/login', auth.login)
 app.get('/auth/callback', auth.callback)
+app.get('/auth/bot/login', auth.botLogin)
+app.get('/auth/bot/callback', auth.callback)
 
 // -- Webhook --
 app.all('/webhook/kick', webhook.handle)
@@ -36,10 +38,29 @@ app.get('/api/events', sse.handle)
 // -- Chat --
 app.post('/api/chat/send', express.json(), chat.send)
 
+// -- Chat como Bot --
+app.post('/api/chat/send-bot', express.json(), async (req, res) => {
+  try {
+    const { content, reply_to_message_id } = req.body
+    console.log('[SEND-BOT] Enviando:', content?.slice(0, 50));
+    if (!state.botTokens) {
+      console.error('[SEND-BOT] botTokens es null');
+      return res.status(400).json({ error: 'Bot no autenticado. Hacé clic en "Autorizar Bot".' })
+    }
+    const data = await chat.sendAsBot(content, reply_to_message_id)
+    console.log('[SEND-BOT] Respuesta:', JSON.stringify(data));
+    res.json(data)
+  } catch (err) {
+    console.error('[SEND-BOT] Error:', err.message)
+    res.status(400).json({ error: err.message })
+  }
+})
+
 // -- Estado --
 app.get('/api/status', (req, res) => {
   res.json({
     authenticated: !!state.tokens,
+    botAuthenticated: !!state.botTokens,
     clientId: !!config.CLIENT_ID,
     tunnelUrl: state.tunnelUrl,
     broadcasterUserId: state.broadcasterUserId,
@@ -123,6 +144,7 @@ server.listen(config.PORT, async () => {
 
   await webhook.fetchPublicKey()
   if (auth.loadTokens()) auth.autoFlow().catch(() => {})
+  if (auth.loadBotTokens()) auth.botAutoFlow().catch(() => {})
 
   // Iniciar módulo GACHA
   gacha.init().catch(e => console.error('[GACHA] Error init:', e.message))
