@@ -10,7 +10,7 @@
     },
     "SPEAKERBOT_URL": "ws://127.0.0.1:7580/",
     "MAX_TEXT_LENGTH": 600,
-    "KICKBONKS_URL": "http://localhost:3030"
+    "KICKBONKS_URL": "http://192.168.50.246:3030"
   },
   "bannedWords": [
     "cara de gato",
@@ -48,8 +48,8 @@
     },
     "geostav": {
       "username": "Geostav",
-      "voice": "Sabina",
-      "updatedAt": "2026-06-27T02:12:10.961Z"
+      "voice": "Ava",
+      "updatedAt": "2026-06-28T03:00:07.085Z"
     },
     "akashid1": {
       "username": "Akashid1",

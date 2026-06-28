@@ -1,4 +1,5 @@
 const express = require('express')
+const http = require('http')
 const path = require('path')
 const config = require('./lib/config')
 const state = require('./lib/state')
@@ -10,8 +11,11 @@ const sse = require('./modules/sse')
 const events = require('./modules/events')
 const forwarder = require('./lib/forwarder')
 const ttsTrigger = require('./modules/triggers/tts')
+const gacha = require('./modules/triggers/GACHA')
+const vtuber = require('./modules/triggers/vtuber-ai')
 
 const app = express()
+const server = http.createServer(app)
 
 // -- Preservar raw body para validación webhook --
 app.use(express.json({
@@ -61,6 +65,16 @@ app.post('/api/tts/user-alias/delete', express.json(), ttsTrigger.handleDeleteUs
 app.post('/api/tts/toggle', express.json(), ttsTrigger.handleToggleBot)
 app.get('/api/tts/status', ttsTrigger.handleGetStatus)
 
+// -- VTUBER-AI --
+app.get('/api/vtuber/status', vtuber.handleGetStatus)
+app.get('/api/vtuber/config', vtuber.handleGetConfig)
+app.post('/api/vtuber/config', express.json(), vtuber.handleSaveConfig)
+app.post('/api/vtuber/test', express.json(), vtuber.handleTest)
+
+// -- GACHA --
+gacha.initWs(server)
+app.use('/gacha', gacha.router)
+
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true })
@@ -94,7 +108,7 @@ async function heartbeat() {
 }
 
 // -- Arranque --
-app.listen(config.PORT, async () => {
+server.listen(config.PORT, async () => {
   console.log(`\n╔══════════════════════════════════════╗`)
   console.log(`║   Kick Backend                      ║`)
   console.log(`║   http://localhost:${config.PORT}              ║`)
@@ -109,6 +123,10 @@ app.listen(config.PORT, async () => {
 
   await webhook.fetchPublicKey()
   if (auth.loadTokens()) auth.autoFlow().catch(() => {})
+
+  // Iniciar módulo GACHA
+  gacha.init().catch(e => console.error('[GACHA] Error init:', e.message))
+
   setInterval(heartbeat, 300000)
   console.log(`\n  Abrí http://localhost:${config.PORT} en tu navegador\n`)
 })
