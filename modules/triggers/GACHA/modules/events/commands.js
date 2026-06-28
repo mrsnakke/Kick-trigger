@@ -71,7 +71,7 @@ async function handleRedemption(payload, userId, userName, rewardTitle) {
     return
   }
 
-  await inventory.addCharacters(userId, characters)
+  await inventory.addCharacters(userId, characters, userName)
 
   broadcast({
     event: 'gacha_wish',
@@ -104,7 +104,7 @@ function reply(msg) { chat.send(msg) }
 
 bus.on('chat.message.sent', async (data) => {
   const payload = data.payload
-  const content = payload.content
+  const content = (payload.content || '').trim()
   const sender = payload.sender
   if (!content || !sender) return
 
@@ -120,7 +120,7 @@ bus.on('chat.message.sent', async (data) => {
     switch (cmd) {
       case 'daily': {
         if (!dailyKey(userId)) { reply(`@${userName} ya reclamaste tus llaves hoy!`); return }
-        await inventory.addKeys(userId, DAILY_KEYS)
+        await inventory.addKeys(userId, DAILY_KEYS, userName)
         reply(`@${userName} recibiste ${DAILY_KEYS} 🔑 llaves del daily!`)
         break
       }
@@ -151,7 +151,7 @@ bus.on('chat.message.sent', async (data) => {
         await inventory.spendKeys(userId, 1)
         const c = await engine.performPull(userId)
         if (!c) { reply(`@${userName} error al realizar la tirada.`); break }
-        await inventory.addCharacters(userId, [c])
+        await inventory.addCharacters(userId, [c], userName)
         broadcast({ event: 'gacha_wish', data: { pull_type: 'single', userId, userName, character: c } })
         if (c.rarity === '5_star') {
           reply(`🎉 @${userName} tiró ${c.name} (5⭐)!`)
@@ -167,7 +167,7 @@ bus.on('chat.message.sent', async (data) => {
         await inventory.spendKeys(userId, 10)
         const chars = await engine.performMultiPull(userId)
         if (chars.length === 0) { reply(`@${userName} error al realizar la tirada.`); break }
-        await inventory.addCharacters(userId, chars)
+        await inventory.addCharacters(userId, chars, userName)
         broadcast({ event: 'gacha_wish', data: { pull_type: 'multi', userId, userName, characters: chars } })
         const fives = chars.filter(x => x.rarity === '5_star')
         const msg = fives.length > 0
@@ -233,7 +233,7 @@ bus.on('chat.message.sent', async (data) => {
         const targetEntry = Object.entries(store.state.inventories).find(([id, u]) => u.userName?.toLowerCase() === target.replace('@', '').toLowerCase())
         if (!targetEntry) { reply(`@${userName} usuario @${target} no encontrado.`); break }
         const [targetId] = targetEntry
-        await inventory.addKeys(targetId, amount)
+        await inventory.addKeys(targetId, amount, targetEntry[1].userName)
         reply(`@${userName} añadidas ${amount} llaves a @${targetEntry[1].userName || targetId}. Total: ${store.state.inventories[targetId].keys}`)
         break
       }
@@ -248,7 +248,7 @@ bus.on('chat.message.sent', async (data) => {
         const [targetId] = targetEntry
         const char = store.state.characterData[charName]
         if (!char) { reply(`@${userName} personaje "${charName}" no existe.`); break }
-        await inventory.addCharacters(targetId, [{ ...char, rarity: char.rarity }])
+        await inventory.addCharacters(targetId, [{ ...char, rarity: char.rarity }], targetEntry[1].userName)
         reply(`@${userName} ${charName} (${char.rarity}) dado a @${targetEntry[1].userName || targetId}`)
         break
       }
@@ -420,21 +420,22 @@ bus.on('chat.message.sent', async (data) => {
     logger.error(TAG, `Error handling cmd ${cmd}: ${e.message}`)
   }
 })
-bus.on('channel.reward.redemption.updated', (data) => {
-  const payload = data.payload
-  const reward = payload.reward
-  const redeemer = payload.redeemer
-  if (!reward || !redeemer) return
-
-  const userId = String(redeemer.id || redeemer.user_id || redeemer.username)
-  const userName = redeemer.username || userId
-  const rewardTitle = (reward.title || '').toLowerCase()
-
-  logger.log(TAG, `Redemption queued: ${userName} -> ${rewardTitle}`)
-
-  redemptionQueue.push({ payload, userId, userName, rewardTitle })
-  processRedemptionQueue()
-})
+// ponytail: channel-point redemptions disabled — pulls only via chat commands (!pull/!multi/!tirada/!x10)
+// bus.on('channel.reward.redemption.updated', (data) => {
+//   const payload = data.payload
+//   const reward = payload.reward
+//   const redeemer = payload.redeemer
+//   if (!reward || !redeemer) return
+//
+//   const userId = String(redeemer.id || redeemer.user_id || redeemer.username)
+//   const userName = redeemer.username || userId
+//   const rewardTitle = (reward.title || '').toLowerCase()
+//
+//   logger.log(TAG, `Redemption queued: ${userName} -> ${rewardTitle}`)
+//
+//   redemptionQueue.push({ payload, userId, userName, rewardTitle })
+//   processRedemptionQueue()
+// })
 
 // ─── skeleton handlers for remaining known events ───
 bus.on('channel.followed', (data) => {

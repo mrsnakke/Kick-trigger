@@ -10,17 +10,24 @@ function ensureUser(userId, userName) {
   return u
 }
 
-async function addCharacters(userId, characters) {
-  const u = ensureUser(userId, userId)
+async function addCharacters(userId, characters, userName) {
+  const u = ensureUser(userId, userName || userId)
+  let dropped = 0
   for (const c of characters) {
+    if (!store.state.characterData[c.name]) {
+      logger.warn(TAG, `Rejected unknown character: ${c.name} (rarity=${c.rarity})`)
+      dropped++
+      continue
+    }
     const arr = u[c.rarity]
     if (arr && !arr.includes(c.name)) {
       arr.push(c.name)
-      logger.log(TAG, `Added ${c.name} (${c.rarity}) to ${userId}`)
+      logger.log(TAG, `Added ${c.name} (${c.rarity}) to ${userName || userId}`)
     }
   }
   u.total_pulls = (u.total_pulls || 0) + characters.length
   await store.saveInventories()
+  return { added: characters.length - dropped, dropped }
 }
 
 function getKeys(userId) {
@@ -28,8 +35,8 @@ function getKeys(userId) {
   return u ? (u.keys || 0) : 0
 }
 
-async function addKeys(userId, amount) {
-  const u = ensureUser(userId, userId)
+async function addKeys(userId, amount, userName) {
+  const u = ensureUser(userId, userName || userId)
   u.keys = (u.keys || 0) + amount
   await store.saveInventories()
   return u.keys

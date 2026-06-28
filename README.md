@@ -247,8 +247,8 @@ Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. E
 const eventBus = require('../../../lib/event-bus')
 
 eventBus.on('chat.message.sent', (data) => {
-  const msg = (data.payload.message?.content || '').trim()
-  const user = data.payload.message?.sender?.username
+  const msg = (data.payload.content || '').trim()
+  const user = data.payload.sender?.username
 
   if (!msg.startsWith('!')) return
 

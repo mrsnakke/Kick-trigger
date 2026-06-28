@@ -84,6 +84,6 @@ async function subscribeHandler(req, res) {
   res.json({ ok: allOk, results })
 }
 
-eventBus.on('tunnel:open', () => subscribeToEvents())
+eventBus.on('tunnel:open', () => setTimeout(subscribeToEvents, 5000))
 
 module.exports = { listSubscriptions, subscribeToEvents, listHandler, subscribeHandler }

@@ -1,0 +1,17 @@
+{
+  "gacha_rules": {
+    "rarity_probabilities": {
+      "3_star": 0.93,
+      "4_star": 0.06,
+      "5_star": 0.006,
+      "6_star": 0.004
+    },
+    "banner_selection_probabilities": {
+      "4_star_and_above": {
+        "standard_banner": 0.6,
+        "seasonal_banner": 0.4
+      }
+    }
+  },
+  "character_stocks": {}
+}

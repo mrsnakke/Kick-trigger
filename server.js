@@ -14,6 +14,7 @@ const ttsTrigger = require('./modules/triggers/tts')
 const gacha = require('./modules/triggers/GACHA')
 const vtuber = require('./modules/triggers/vtuber-ai')
 const obsActions = require('./modules/triggers/obs-actions')
+const music = require('./modules/triggers/Music')
 
 const app = express()
 const server = http.createServer(app)
@@ -101,6 +102,10 @@ app.use('/gacha', gacha.router)
 app.use('/obs-actions', obsActions.router)
 obsActions.init()
 
+// -- Music --
+app.use('/music', music.router)
+music.init()
+
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true })
@@ -153,6 +158,31 @@ server.listen(config.PORT, async () => {
 
   // Iniciar módulo GACHA
   gacha.init().catch(e => console.error('[GACHA] Error init:', e.message))
+
+  // Iniciar módulo Music
+  setTimeout(() => music.init().catch(e => console.error('[MUSIC] Error init:', e.message)), 5000)
+
+  // Delay inicial antes de subscribir y de iniciar túnel, para que los servicios se estabilicen
+  await new Promise(r => setTimeout(r, 3000))
+
+  // Iniciar túnel Cloudflare con reintentos
+  async function initTunnelWithRetry(attempts = 3, delay = 5000) {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        console.log(`[TUNNEL] Intentando iniciar túnel (intento ${i + 1}/${attempts})...`)
+        await tunnel.startTunnel()
+        if (state.tunnelUrl) {
+          console.log('[TUNNEL] Túnel iniciado con éxito!')
+          return
+        }
+      } catch (err) {
+        console.error('[TUNNEL] Error al iniciar túnel:', err.message)
+      }
+      if (i < attempts - 1) await new Promise(r => setTimeout(r, delay))
+    }
+    console.error('[TUNNEL] Fallo al iniciar el túnel después de varios intentos.')
+  }
+  initTunnelWithRetry()
 
   setInterval(heartbeat, 300000)
   console.log(`\n  Abrí http://localhost:${config.PORT} en tu navegador\n`)
