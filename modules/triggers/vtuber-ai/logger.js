@@ -3,6 +3,7 @@ const path = require('path');
 
 const LOG_DIR = process.env.VTUBER_LOG_DIR || './logs/vtuber-ai';
 const MAX_LOG_AGE_DAYS = 30;
+const fsp = fs.promises;
 
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
 
@@ -11,27 +12,34 @@ function logFile(username) {
   return path.join(LOG_DIR, `${username}_${date}.jsonl`);
 }
 
-function logMessage(entry) {
+async function logMessage(entry) {
   const line = JSON.stringify(entry) + '\n';
-  fs.appendFileSync(logFile(entry.username), line, 'utf-8');
+  await fsp.appendFile(logFile(entry.username), line, 'utf-8');
 }
 
-function getConversation(username, maxTurns = 15) {
+async function getConversation(username, maxTurns = 15) {
   const file = logFile(username);
-  if (!fs.existsSync(file)) return [];
-
-  const lines = fs.readFileSync(file, 'utf-8').trim().split('\n');
-  const entries = lines.map(l => JSON.parse(l));
-  return entries.slice(-maxTurns * 2);
+  try {
+    const raw = await fsp.readFile(file, 'utf-8');
+    const lines = raw.trim().split('\n');
+    const entries = lines.map(l => JSON.parse(l));
+    return entries.slice(-maxTurns * 2);
+  } catch {
+    return [];
+  }
 }
 
 // limpieza de logs viejos al arrancar
-(() => {
-  const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 86400000;
-  for (const f of fs.readdirSync(LOG_DIR)) {
-    const p = path.join(LOG_DIR, f);
-    if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
-  }
+(async () => {
+  try {
+    const cutoff = Date.now() - MAX_LOG_AGE_DAYS * 86400000;
+    const files = await fsp.readdir(LOG_DIR);
+    for (const f of files) {
+      const p = path.join(LOG_DIR, f);
+      const stat = await fsp.stat(p);
+      if (stat.mtimeMs < cutoff) await fsp.unlink(p);
+    }
+  } catch {}
 })();
 
 module.exports = { logMessage, getConversation };

@@ -4,3 +4,4 @@ cloudflared.yml
 stdout.txt
 stderr.txt
 tokens.json
+modules/triggers/vtuber-ai/vtuber-data.json

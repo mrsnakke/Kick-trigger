@@ -99,9 +99,9 @@ async function processMessage(username, content) {
 
   console.log(`[VTUBER-AI] ${username}: ${content}`);
 
-  logMessage({ username, role: 'user', content });
+  await logMessage({ username, role: 'user', content });
 
-  const history = getConversation(username, cfg.MAX_HISTORY_TURNS);
+  const history = await getConversation(username, cfg.MAX_HISTORY_TURNS);
   const messages = [
     { role: 'system', content: getSystemPrompt() },
     ...history.map(e => ({ role: e.role, content: e.content })),
@@ -115,14 +115,16 @@ async function processMessage(username, content) {
     });
     const elapsed = Date.now() - start;
 
+    const promptMiss = Math.max(0, result.usage.prompt - result.usage.cacheHit);
+    const cost = (result.usage.cacheHit * 0.0028 + promptMiss * 0.14 + result.usage.completion * 0.28) / 1_000_000;
     console.log(
       `[VTUBER-AI] ✅ ${result.usage.total} tokens ` +
       `(prompt:${result.usage.prompt}, completion:${result.usage.completion}, ` +
       `cache_hit:${result.usage.cacheHit}) en ${elapsed}ms ` +
-      `~$${(result.usage.total * 0.28 / 1_000_000).toFixed(6)}`
+      `~$${cost.toFixed(6)}`
     );
 
-    logMessage({ username, role: 'assistant', content: result.text });
+    await logMessage({ username, role: 'assistant', content: result.text });
 
     const chatSent = await sendChatMessage('!sp ' + result.text);
     console.log(`[VTUBER-AI] Chat ${chatSent ? 'enviado ✅' : 'falló ❌'}`);
