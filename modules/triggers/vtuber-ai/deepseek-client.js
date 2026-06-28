@@ -7,6 +7,7 @@ function createDeepSeekClient(apiKey) {
     apiKey,
     baseURL: 'https://api.deepseek.com',
     maxRetries: 3,
+    fetch: (url, init) => fetch(url, init),
   });
 
   async function executeToolCall(toolCall) {
