@@ -1,0 +1,27 @@
+# Dependencies
+/node_modules
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.DS_Store
+.env
+
+# GachaWish data files
+GachaWish/*.json
+GachaWish/user_inventory - BAK.json
+GachaWish/user_inventory_migrated.json
+GachaWish/trades.json
+GachaWish/trade_history.json
+GachaWish/currency_data.json
+GachaWish/latest_pull.json
+GachaWish/pity_data.json
+GachaWish/user_data.json
+GachaWish/user_inventory.json
+# Excluir la carpeta GachaWish/ pero permitir gacha_data
+!GachaWish/gacha_data/
+!GachaWish/gacha_data/banners/
+!GachaWish/gacha_data/characters/

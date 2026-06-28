@@ -1,0 +1,19 @@
+{
+  "name": "gacha-waifus",
+  "version": "2.0.0",
+  "description": "Gacha Waifus overlay - Kick backend integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "author": "mrsnakevt",
+  "license": "",
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.17.0",
+    "multer": "^2.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  }
+}

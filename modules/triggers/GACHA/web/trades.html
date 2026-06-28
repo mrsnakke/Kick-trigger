@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Trades</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Gestión de Trades</h1>
+        <div class="trade-container">
+            <div class="user-input">
+                <label for="playerName">Tu Nombre de Usuario:</label>
+                <input type="text" id="playerName" placeholder="Escribe tu nombre aquí...">
+                <button id="loadTradesBtn">Cargar Trades</button>
+            </div>
+
+            <div id="trades-display">
+                <h2>Trades Recibidos</h2>
+                <div id="received-trades-list" class="trades-list">
+                    <!-- Los trades recibidos se cargarán aquí -->
+                </div>
+
+                <h2>Trades Enviados</h2>
+                <div id="sent-trades-list" class="trades-list">
+                    <!-- Los trades enviados se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/trades.js"></script>
+</body>
+</html>

@@ -1,0 +1,356 @@
+/* Estilos y Animaciones del Gachapon - Burbujas x10 y Single Burbuja */
+
+/* ================== CAPA DE PREVIEW Y GASHAPON ================== */
+#gacha-preview,
+#gashapon-animation {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    background: transparent;
+    z-index: 100;
+}
+
+#preview-image,
+#gashapon-machine-img,
+#five-star-image {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+}
+
+
+
+/* ================== SINGLE PULL - BURBUJA GRANDE ================== */
+#single-pull-display {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    justify-content: center;
+    align-items: center;
+    z-index: 95;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: visible; /* Permitir que las estrellas se salgan */
+}
+
+.single-bubble {
+    width: clamp(280px, 38vw, 520px);
+    height: clamp(280px, 38vw, 520px);
+    position: relative;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1) 60%, transparent 100%);
+    box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.25); /* Sombra interna base */
+    animation: bubbleAppear 0.6s ease-out both, animate 8s ease-in-out 0.6s infinite;
+    transition: box-shadow 0.4s ease-out; /* Para el glow exterior */
+    display: grid;
+    place-items: center;
+    overflow: visible; /* Permitir que las estrellas se salgan */
+}
+
+.character-image-wrapper {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden; /* Contener la imagen */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 0; /* La imagen ahora es el fondo */
+}
+
+.character-image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Cambiado a contain para evitar deformaciones */
+    border-radius: 50%;
+}
+
+.single-bubble::before, .bubble-card::before {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #fff;
+    top: 15%;
+    left: 20%;
+    z-index: 2; /* Encima de la imagen */
+    filter: blur(2px);
+}
+
+.single-bubble::after, .bubble-card::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    top: 35%;
+    left: 40%;
+    z-index: 2; /* Encima de la imagen */
+    filter: blur(2px);
+}
+
+.single-bubble span, .bubble-card span {
+    position: absolute;
+    border-radius: 50%;
+    z-index: 2; /* Encima de la imagen */
+}
+.single-bubble span:nth-child(1), .bubble-card span:nth-child(1) {
+    inset: 10px;
+    border-left: 15px solid #0fb2ff;
+    filter: blur(8px);
+}
+.single-bubble span:nth-child(2), .bubble-card span:nth-child(2) {
+    inset: 10px;
+    border-right: 15px solid #ff4484;
+    filter: blur(8px);
+}
+.single-bubble span:nth-child(3), .bubble-card span:nth-child(3) {
+    inset: 20px;
+    border-top: 15px solid #ffeb3b;
+    filter: blur(8px);
+}
+.single-bubble span:nth-child(4), .bubble-card span:nth-child(4) {
+    inset: 20px;
+    border-bottom: 15px solid #ff4484;
+    filter: blur(10px);
+}
+.single-bubble span:nth-child(5), .bubble-card span:nth-child(5) {
+    inset: 20px;
+    border-bottom: 15px solid #fff;
+    filter: blur(6px);
+    transform: rotate(330deg);
+}
+
+#single-pull-redeemer,
+#single-character-name {
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0,255,255,0.8), 0 0 30px rgba(0,255,255,0.5);
+    animation: textReveal 1s ease-out both;
+}
+
+#single-pull-redeemer { font-size: 2.2rem; }
+#single-character-name { font-size: 4rem; opacity: 0; animation-delay: .15s; }
+
+#single-pull-display .star-container {
+    position: absolute;
+    width: 120%; /* Un poco más grande que la burbuja para el arco */
+    height: 120%; /* Un poco más grande que la burbuja para el arco */
+    top: -10%; /* Ajustar para que el centro del contenedor coincida con el centro de la burbuja */
+    left: -10%; /* Ajustar para que el centro del contenedor coincida con el centro de la burbuja */
+    border-radius: 50%;
+    display: block;
+    z-index: 1000;
+    pointer-events: none;
+    background: transparent; /* Asegurar que sea invisible */
+    border: none; /* Asegurar que no tenga bordes */
+}
+
+/* ================== MULTI PULL x10 - BURBUJAS ================== */
+#multi-pull-display {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    background: rgba(0,0,0,0); 
+    z-index: 90;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: visible; /* Permitir que las estrellas se salgan */
+}
+
+.redeemer-name {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 15px rgba(0,255,255,0.8), 0 0 25px rgba(0,255,255,0.5);
+    z-index: 10;
+    animation: textReveal 0.9s ease-out forwards;
+    margin-bottom: 16px;
+}
+
+#multi-pull-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    align-items: center;
+    width: 100%;
+}
+
+.multi-row {
+    display: flex;
+    justify-content: center;
+    gap: clamp(16px, 2.5vw, 28px);
+}
+
+.bubble-card {
+    width: clamp(220px, 26vw, 300px);
+    height: clamp(220px, 26vw, 300px);
+    position: relative;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1) 60%, transparent 100%);
+    box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.25); /* Sombra interna base */
+    transform: scale(0);
+    opacity: 0;
+    /* La animaciรณn de apariciรณn la controla Anime.js, pero el flotar puede ser CSS */
+    animation: animate 8s ease-in-out infinite;
+    transition: box-shadow 0.4s ease-out; /* Para el glow exterior */
+    display: grid;
+    place-items: center;
+    overflow: visible; /* Permitir que las estrellas se salgan */
+}
+
+/* La regla para .bubble-card img ya no es necesaria, se maneja con .character-image-wrapper img */
+
+.bubble-card.is-revealed img {
+    filter: brightness(1) blur(0);
+}
+
+.bubble-name {
+    margin-top: 8px;
+    font-size: 1.9rem; /* Duplicado de .95rem */
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    width: 100%;
+    text-shadow: 0 0 8px rgba(0,255,255,0.6);
+}
+
+.bubble-card .star-container {
+    position: absolute;
+    width: 120%; /* Un poco más grande que la burbuja para el arco */
+    height: 120%; /* Un poco más grande que la burbuja para el arco */
+    top: -10%; /* Ajustar para que el centro del contenedor coincida con el centro de la burbuja */
+    left: -10%; /* Ajustar para que el centro del contenedor coincida con el centro de la burbuja */
+    border-radius: 50%;
+    display: block;
+    z-index: 1000;
+    pointer-events: none;
+    background: transparent; /* Asegurar que sea invisible */
+    border: none; /* Asegurar que no tenga bordes */
+}
+
+/* ================== REVEAL GLOW INTERNO Y EXTERNO ================== */
+/* Glow interno (ya aplicado en .single-bubble y .bubble-card) */
+.is-revealed.rarity-3_star {
+    box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.25), 0 0 40px 10px rgba(0, 191, 255, 0.6);
+}
+.is-revealed.rarity-4_star {
+    box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.25), 0 0 45px 12px rgba(178, 102, 255, 0.7);
+}
+.is-revealed.rarity-5_star {
+    box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.25), 0 0 50px 15px rgba(255, 215, 0, 0.8);
+}
+.is-revealed.rarity-6_star {
+    box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.25), 0 0 60px 20px rgba(255, 40, 40, 0.9);
+}
+
+/* ================== ESTRELLAS ================== */
+.star-icon {
+    width: auto;
+    height: auto;
+    font-size: 90px; /* Doble de grandes */
+    line-height: 1;
+    color: currentColor;
+    opacity: 0;
+    transform: scale(0);
+    animation: starPop 0.7s ease-out forwards;
+    text-shadow: 0 0 1px white, 0 0 3px rgba(0,0,0,0.3), 0 0 5px currentColor;
+    position: absolute;
+    top: 50%; /* Centrar en el contenedor */
+    left: 50%; /* Centrar en el contenedor */
+    transform: translate(-50%, -50%); /* Ajustar para el centro del elemento */
+    transform-origin: center; /* Rotar alrededor de su propio centro */
+    z-index: 1001; /* Asegurar que las estrellas estén encima de todo */
+}
+
+.star-icon.rarity-3 { color: rgba(0, 191, 255, 1); }
+.star-icon.rarity-4 { color: rgba(178, 102, 255, 1); }
+.star-icon.rarity-5 { color: rgba(255, 215, 0, 1); }
+.star-icon.rarity-6 { color: rgba(255, 40, 40, 1); }
+
+/* ================== ANIMACIONES ================== */
+@keyframes bubbleAppear {
+    0% { transform: scale(0); opacity: 0; }
+    70% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); }
+}
+@keyframes animate {
+    0%, 100% {
+        transform: translateY(-10px);
+    }
+    50% {
+        transform: translateY(10px);
+    }
+}
+
+@keyframes starPop {
+    0% { opacity: 0; transform: scale(0); filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
+    70% { opacity: 1; transform: scale(1.18); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes textReveal {
+    0% { opacity: 0; transform: translateY(16px); filter: blur(3px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* ====== (Opcional) Mantengo estilos previos necesarios para compatibilidad ====== */
+.hidden { display: none !important; }
+
+/* ================== REVELADO DE PERSONAJES RAROS (MULTI PULL) ================== */
+#multi-rarity-reveal-display {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px; /* Espacio entre burbujas */
+    background: rgba(0,0,0,0.7); /* Fondo semitransparente para el overlay */
+    z-index: 105; /* Encima de la animaciรณn normal del gacha */
+    opacity: 0; /* Inicialmente oculto */
+    pointer-events: none; /* No bloquear interacciones */
+}
+
+#multi-rarity-reveal-display.active {
+    opacity: 1;
+    pointer-events: all;
+    transition: opacity 0.5s ease-out;
+}
+
+#multi-rarity-reveal-display .single-bubble { /* Reutilizar estilos de burbuja grande */
+    width: clamp(280px, 38vw, 520px);
+    height: clamp(280px, 38vw, 520px);
+    animation: none; /* Desactivar animaciones de flotaciรณn y apariciรณn */
+    transform: scale(0); /* Controlado por JS */
+    opacity: 0; /* Controlado por JS */
+}
+
+#multi-rarity-reveal-display .single-bubble.is-revealed {
+    animation: animate 8s ease-in-out infinite; /* Reactivar flotaciรณn */
+}
+
+/* Esta regla ya no es necesaria si .single-bubble img es genรฉrico */
+
+#multi-rarity-reveal-display .single-bubble .star-container {
+    position: absolute;
+    bottom: auto;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 1000;
+}
