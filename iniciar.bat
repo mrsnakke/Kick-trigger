@@ -20,6 +20,13 @@ if "%KICK_CLIENT_ID%"=="" if exist ".env" (
     for /f "tokens=1,* delims==" %%a in (.env) do set "%%a=%%b"
 )
 
+:: Liberar puerto 3000 si está ocupado
+echo [INFO] Liberando puerto 3000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr /r ":3000.*LISTENING"') do (
+  taskkill /F /PID %%a >nul 2>&1
+)
+timeout /t 1 /nobreak >nul
+
 echo.
 echo [INICIO] Kick Backend - http://localhost:3000
 echo.

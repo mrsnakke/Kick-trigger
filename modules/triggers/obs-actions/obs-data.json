@@ -1,0 +1,490 @@
+{
+  "config": {
+    "host": "192.168.50.246",
+    "port": "4456",
+    "password": "123456"
+  },
+  "actions": [
+    {
+      "id": "19e242a4-f5f9-43e1-a038-5f6e13ecfbb6",
+      "name": "murio",
+      "subActions": [
+        {
+          "id": 1782646411295.8188,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "11",
+          "sourceName": "murio",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        },
+        {
+          "id": 1782646421038.742,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782646427057.207,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "11",
+          "sourceName": "murio",
+          "groupName": "0untos de canal",
+          "state": "Visible"
+        },
+        {
+          "id": 1782646438122.147,
+          "type": "delay",
+          "duration": 3000
+        },
+        {
+          "id": 1782646446153.0962,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "11",
+          "sourceName": "murio",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        }
+      ],
+      "enabled": true,
+      "sortOrder": 5,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "06717a55-5c4c-45cf-9275-3e7d4468d1f3",
+      "name": "Wuajaja",
+      "subActions": [
+        {
+          "id": 1782648302248.2456,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "1",
+          "sourceName": "wajaja",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        },
+        {
+          "id": 1782648308322.971,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782650518198.3389,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "1",
+          "sourceName": "wajaja",
+          "groupName": "0untos de canal",
+          "state": "Visible"
+        },
+        {
+          "id": 1782650525294.961,
+          "type": "delay",
+          "duration": 3000
+        },
+        {
+          "id": 1782650530310.4827,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "1",
+          "sourceName": "wajaja",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 0,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "357ccff7-019e-4d66-9427-3fcef9d727d2",
+      "name": "que? como que no",
+      "subActions": [
+        {
+          "id": 1782650610639.3176,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "2",
+          "sourceName": "q que no",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        },
+        {
+          "id": 1782650619624.2004,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782650623708.0732,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "2",
+          "sourceName": "q que no",
+          "groupName": "0untos de canal",
+          "state": "Visible"
+        },
+        {
+          "id": 1782650640175.4727,
+          "type": "delay",
+          "duration": 4100
+        },
+        {
+          "id": 1782650645662.3198,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "2",
+          "sourceName": "q que no",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 2,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "5e83e8b2-fa75-43f4-8665-2bc1ea9d689d",
+      "name": "lautg hard",
+      "subActions": [
+        {
+          "id": 1782650715757.7356,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "3",
+          "sourceName": "lautg hard",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        },
+        {
+          "id": 1782650720843.3352,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782650725029.9934,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "3",
+          "sourceName": "lautg hard",
+          "groupName": "0untos de canal",
+          "state": "Visible"
+        },
+        {
+          "id": 1782650732433.909,
+          "type": "delay",
+          "duration": 3000
+        },
+        {
+          "id": 1782650735845.9653,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "3",
+          "sourceName": "lautg hard",
+          "groupName": "0untos de canal",
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 1,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "58c61bc8-c104-4ec3-95c3-b89b643015a4",
+      "name": "hable bien",
+      "subActions": [
+        {
+          "id": 1782652128365.3904,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "7",
+          "sourceName": "hable b",
+          "groupName": "0untos de canal",
+          "isGroup": false,
+          "state": "Hidden"
+        },
+        {
+          "id": 1782652131831.7402,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782652137129.2798,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "7",
+          "sourceName": "hable b",
+          "groupName": "0untos de canal",
+          "isGroup": false,
+          "state": "Visible"
+        },
+        {
+          "id": 1782652145757.698,
+          "type": "delay",
+          "duration": 6000
+        },
+        {
+          "id": 1782652151155.3992,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "7",
+          "sourceName": "hable b",
+          "groupName": "0untos de canal",
+          "isGroup": false,
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 3,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "e3227163-56bf-44d1-a0f3-058b00399af5",
+      "name": "Muegege",
+      "subActions": [
+        {
+          "id": 1782652247137.8774,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "10",
+          "sourceName": "muehehe",
+          "groupName": "MueheC",
+          "isGroup": false,
+          "state": "Hidden"
+        },
+        {
+          "id": 1782652259638.6882,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "8",
+          "sourceName": "MueheheC1",
+          "groupName": "MueheC",
+          "isGroup": false,
+          "state": "Hidden"
+        },
+        {
+          "id": 1782652217051.8113,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782652283106.4011,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "10",
+          "sourceName": "muehehe",
+          "groupName": "MueheC",
+          "isGroup": false,
+          "state": "Visible"
+        },
+        {
+          "id": 1782652285550.8186,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "8",
+          "sourceName": "MueheheC1",
+          "groupName": "MueheC",
+          "isGroup": false,
+          "state": "Visible"
+        },
+        {
+          "id": 1782652298104.11,
+          "type": "delay",
+          "duration": 6000
+        },
+        {
+          "id": 1782652304903.7124,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "8",
+          "sourceName": "MueheheC1",
+          "groupName": "MueheC",
+          "isGroup": false,
+          "state": "Hidden"
+        },
+        {
+          "id": 1782652308238.91,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "10",
+          "sourceName": "muehehe",
+          "groupName": "MueheC",
+          "isGroup": false,
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 4,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "e35a0fa1-6b9b-4b6f-9349-842cd5681f74",
+      "name": "teconfundes",
+      "subActions": [
+        {
+          "id": 1782652424981.4846,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "12",
+          "sourceName": "te confundes",
+          "groupName": "0untos de canal",
+          "isGroup": false,
+          "state": "Hidden"
+        },
+        {
+          "id": 1782652430016.7427,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782652433722.4226,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "12",
+          "sourceName": "te confundes",
+          "groupName": "0untos de canal",
+          "isGroup": false,
+          "state": "Visible"
+        },
+        {
+          "id": 1782652446841.0571,
+          "type": "delay",
+          "duration": 6000
+        },
+        {
+          "id": 1782652450528.7876,
+          "type": "visibility",
+          "scene": "puntos de canal",
+          "sourceId": "12",
+          "sourceName": "te confundes",
+          "groupName": "0untos de canal",
+          "isGroup": false,
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 6,
+      "groupId": "ba641868-526c-40b2-9864-651658f35e78"
+    },
+    {
+      "id": "49d1c984-d945-4307-8803-d2b593e4f661",
+      "name": "Ruleta Strinova",
+      "subActions": [
+        {
+          "id": 1782652535259.5647,
+          "type": "visibility",
+          "scene": "gameplay",
+          "sourceId": "12",
+          "sourceName": "Rulet Strinoba",
+          "groupName": null,
+          "isGroup": false,
+          "state": "Hidden"
+        },
+        {
+          "id": 1782652548418.002,
+          "type": "delay",
+          "duration": 100
+        },
+        {
+          "id": 1782652553573.2854,
+          "type": "visibility",
+          "scene": "gameplay",
+          "sourceId": "12",
+          "sourceName": "Rulet Strinoba",
+          "groupName": null,
+          "isGroup": false,
+          "state": "Visible"
+        },
+        {
+          "id": 1782652566372.434,
+          "type": "delay",
+          "duration": 24000
+        },
+        {
+          "id": 1782652571658.6863,
+          "type": "visibility",
+          "scene": "gameplay",
+          "sourceId": "12",
+          "sourceName": "Rulet Strinoba",
+          "groupName": null,
+          "isGroup": false,
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 7,
+      "groupId": "0c371bfe-42e0-45d4-98a0-b0a01fde4680"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "b681cd6b-4770-465e-a35d-8f88d72a2e11",
+      "name": "murio",
+      "type": "reward",
+      "pattern": "se murio",
+      "actionId": "19e242a4-f5f9-43e1-a038-5f6e13ecfbb6",
+      "enabled": true
+    },
+    {
+      "id": "79dd79ea-72bf-4165-b0ad-6772de670ff0",
+      "name": "Wajaja",
+      "type": "reward",
+      "pattern": "wajaja",
+      "actionId": "06717a55-5c4c-45cf-9275-3e7d4468d1f3",
+      "enabled": true
+    },
+    {
+      "id": "4728f203-f349-4630-9fdf-7be2c4b5b7bc",
+      "name": "gato se rie de tí",
+      "type": "reward",
+      "pattern": "gato se rie de tí",
+      "actionId": "5e83e8b2-fa75-43f4-8665-2bc1ea9d689d",
+      "enabled": true
+    },
+    {
+      "id": "440eef3a-b348-4ecc-899c-2e588984e3c8",
+      "name": "qué? cómo que no?",
+      "type": "reward",
+      "pattern": "qué? cómo que no?",
+      "actionId": "357ccff7-019e-4d66-9427-3fcef9d727d2",
+      "enabled": true
+    },
+    {
+      "id": "925e242d-6f72-4dec-bec1-5ec0279f01fc",
+      "name": "hable bien",
+      "type": "reward",
+      "pattern": "hable bien",
+      "actionId": "58c61bc8-c104-4ec3-95c3-b89b643015a4",
+      "enabled": true
+    },
+    {
+      "id": "f7b0d1f9-703e-4b76-88ce-b11eb26fd6ea",
+      "name": "Muehehe",
+      "type": "reward",
+      "pattern": "Muehehe",
+      "actionId": "e3227163-56bf-44d1-a0f3-058b00399af5",
+      "enabled": true
+    },
+    {
+      "id": "0ff4d628-5a9c-42b7-b716-fafa6736efee",
+      "name": "teconfundes",
+      "type": "reward",
+      "pattern": "teconfundes",
+      "actionId": "e35a0fa1-6b9b-4b6f-9349-842cd5681f74",
+      "enabled": true
+    },
+    {
+      "id": "c496d755-396f-4658-a68c-e9a4ad96e7a9",
+      "name": "Ruleta Strinova",
+      "type": "reward",
+      "pattern": "Ruleta Strinova",
+      "actionId": "49d1c984-d945-4307-8803-d2b593e4f661",
+      "enabled": true
+    }
+  ],
+  "groups": [
+    {
+      "id": "ba641868-526c-40b2-9864-651658f35e78",
+      "name": "Canjes",
+      "collapsed": false
+    },
+    {
+      "id": "0c371bfe-42e0-45d4-98a0-b0a01fde4680",
+      "name": "ruleta",
+      "collapsed": false
+    }
+  ]
+}

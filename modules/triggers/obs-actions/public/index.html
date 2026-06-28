@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Actions</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .group-menu { position: absolute; z-index: 50; background: #1f2937; border: 1px solid #374151; border-radius: 0.5rem; padding: 0.25rem; min-width: 8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .group-menu button { display: block; width: 100%; text-align: left; padding: 0.25rem 0.5rem; font-size: 11px; color: #d1d5db; background: transparent; border: none; cursor: pointer; }
+    .group-menu button:hover { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+    .action-card { transition: all 0.15s; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen p-2 md:p-3 font-sans flex flex-col overflow-hidden">
+  <div class="max-w-7xl mx-auto flex-1 flex flex-col min-h-0 w-full">
+
+    <!-- HEADER -->
+    <header class="mb-2 flex items-center gap-2 flex-wrap shrink-0">
+      <div id="obs-status-badge" class="flex items-center gap-1.5 text-sm font-mono cursor-pointer select-none" onclick="toggleOBS()" title="Click para conectar/desconectar">
+        <span class="flex h-2.5 w-2.5 relative">
+          <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+          <span id="status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span>
+        </span>
+        <span id="status-text" class="text-gray-300">OBS</span>
+      </div>
+      <span id="obs-connection-info" class="text-[10px] text-gray-500 hidden"></span>
+      <button id="obs-connect-btn" onclick="toggleOBS()" class="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition whitespace-nowrap">Conectar</button>
+      <button onclick="toggleObsConfig()" class="text-gray-500 hover:text-gray-300 text-sm px-1" title="Configuracion OBS">⚙️</button>
+    </header>
+    <div id="obs-config-row" class="hidden flex items-center gap-1 mb-2 shrink-0">
+      <input id="obs-host" class="w-24 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="Host">
+      <span class="text-gray-600 text-xs">:</span>
+      <input id="obs-port" class="w-12 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="Puerto">
+      <input id="obs-pass" type="password" class="w-16 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="Pass">
+    </div>
+
+    <!-- MAIN LAYOUT: 50/50 -->
+    <div class="flex-1 flex flex-col lg:flex-row gap-3 min-h-0">
+
+      <!-- ==================== LEFT: ACTIONS (50%) ==================== -->
+      <div class="lg:w-1/2 bg-gray-900 border border-gray-800 rounded-xl flex flex-col min-h-0 overflow-hidden">
+        <div class="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800 shrink-0">
+          <h2 class="text-xs font-bold text-indigo-300">Actions <span id="action-count" class="text-gray-500 font-normal">(0)</span></h2>
+          <div class="flex gap-2 items-center">
+            <input id="new-action-name" class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500" placeholder="Nueva accion">
+            <button onclick="createAction()" class="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition whitespace-nowrap">+</button>
+            <button onclick="createGroup()" class="bg-gray-700 hover:bg-gray-600 text-[10px] font-bold px-2 py-1 rounded transition whitespace-nowrap">+ Grupo</button>
+          </div>
+        </div>
+        <div id="action-list" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1 text-xs">
+          <p class="text-gray-500 text-xs py-8 text-center">Cargando...</p>
+        </div>
+      </div>
+
+      <!-- ==================== RIGHT: TRIGGERS + SUB-ACTIONS (50%) ==================== -->
+      <div class="lg:w-1/2 flex flex-col gap-3 min-h-0">
+
+        <!-- TRIGGERS PANEL (50% of right) -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl flex flex-col min-h-0 flex-1 overflow-hidden">
+          <div class="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800 shrink-0">
+            <h2 class="text-xs font-bold text-indigo-300">Triggers</h2>
+            <button onclick="showTriggerForm()" class="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition">+</button>
+          </div>
+          <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-800/50 shrink-0">
+            <span class="col-span-5">Pattern</span>
+            <span class="col-span-2">Type</span>
+            <span class="col-span-2 text-center">Enabled</span>
+            <span class="col-span-3 text-right">Accion</span>
+          </div>
+          <div id="trigger-list" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1 text-xs">
+            <p class="text-gray-500 text-xs py-4 text-center">Cargando...</p>
+          </div>
+          <div id="trigger-form" class="hidden shrink-0 border-t border-gray-800 p-3 space-y-2 bg-gray-800/30">
+            <div class="flex gap-2 items-end">
+              <div class="w-24">
+                <label class="text-[9px] text-gray-500 uppercase">Tipo</label>
+                <select id="trigger-type" onchange="onTriggerTypeChange()" class="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+                  <option value="chat_command">Comando</option>
+                  <option value="reward">Reward</option>
+                </select>
+              </div>
+              <div class="flex-1">
+                <label class="text-[9px] text-gray-500 uppercase">Patron</label>
+                <input id="trigger-pattern" class="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div class="flex items-center gap-2">
+              <span id="trigger-context-indicator" class="text-[10px] text-gray-400 hidden"></span>
+              <button id="pair-btn" onclick="pairReward()" class="hidden bg-yellow-600 hover:bg-yellow-500 text-[10px] font-bold px-2 py-1.5 rounded transition">🎯 Emparejar</button>
+              <button onclick="saveTrigger()" class="bg-green-700 hover:bg-green-600 text-[10px] font-bold px-2 py-1.5 rounded transition">Guardar</button>
+                <button onclick="hideTriggerForm()" id="trigger-cancel-btn" class="hidden bg-gray-700 hover:bg-gray-600 text-[10px] font-bold px-2 py-1.5 rounded transition">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-ACTIONS PANEL (50% of right) -->
+        <div id="sub-panel" class="bg-gray-900 border border-gray-800 rounded-xl flex flex-col min-h-0 flex-1 overflow-hidden">
+          <div class="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800 shrink-0">
+            <h2 class="text-xs font-bold text-indigo-300">Sub-Acciones <span id="sub-count" class="text-gray-500 font-normal">(0)</span></h2>
+            <span id="editor-action-label" class="text-[10px] text-gray-400"></span>
+          </div>
+          <div id="sub-add-form" class="shrink-0">
+            <div class="flex items-center gap-2 px-3 py-2 border-b border-gray-800/50">
+              <select id="sub-type" onchange="toggleSubFields()" class="w-28 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
+                <option value="visibility">Visibilidad</option>
+                <option value="delay">Delay</option>
+              </select>
+              <div id="sub-visibility-fields" class="flex items-center gap-1 flex-1">
+                <select id="sub-scene" onchange="loadSources()" class="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
+                  <option value="">Escena</option>
+                </select>
+                <select id="sub-source" class="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
+                  <option value="">Fuente</option>
+                </select>
+                <select id="sub-state" class="w-20 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
+                  <option value="Visible">Visible</option>
+                  <option value="Hidden">Oculto</option>
+                </select>
+              </div>
+              <div id="sub-delay-fields" class="hidden flex items-center gap-1">
+                <input id="sub-delay-ms" type="number" value="1000" min="1" class="w-20 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
+                <span class="text-[9px] text-gray-500">ms</span>
+              </div>
+              <button onclick="addSubAction()" class="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition">Anadir</button>
+              <button onclick="testCurrentSubAction()" class="bg-gray-700 hover:bg-gray-600 text-[10px] font-bold px-2 py-1 rounded transition">Test</button>
+            </div>
+          </div>
+          <div id="editor-sub-list" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1 text-xs">
+            <p class="text-gray-600 text-xs py-6 text-center">Selecciona una accion para editar sus sub-acciones</p>
+          </div>
+        </div>
+
+      </div><!-- /right col -->
+    </div><!-- /main layout -->
+  </div>
+
+  <script>
+    // -----------------------------------------------------------------------
+    // STATE
+    // -----------------------------------------------------------------------
+    function api(method, path, body) {
+      const opts = { method, headers: {} };
+      if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+      return fetch(path, opts).then(r => r.json());
+    }
+    const API = {
+      data:                () => api('GET', 'api/data'),
+      obsStatus:           () => api('GET', 'api/obs/status'),
+      obsConnect:          (b) => api('POST', 'api/obs/connect', b),
+      obsDisconnect:       () => api('POST', 'api/obs/disconnect'),
+      obsRefreshCache:     () => api('POST', 'api/obs/refresh-cache'),
+      obsTestSubAction:    (s) => api('POST', 'api/obs/test-sub-action', s),
+      getActions:          () => api('GET', 'api/actions'),
+      createAction:        (b) => api('POST', 'api/actions', b),
+      updateAction:        (id,b) => api('PUT', `api/actions/${id}`, b),
+      deleteAction:        (id) => api('DELETE', `api/actions/${id}`),
+      executeAction:       (id) => api('POST', `api/actions/${id}/execute`),
+      batchActions:        (u) => api('PUT', 'api/actions/batch', { updates: u }),
+      getTriggers:         () => api('GET', 'api/triggers'),
+      createTrigger:       (b) => api('POST', 'api/triggers', b),
+      updateTrigger:       (id,b) => api('PUT', `api/triggers/${id}`, b),
+      deleteTrigger:       (id) => api('DELETE', `api/triggers/${id}`),
+      testTrigger:         (id) => api('POST', `api/triggers/${id}/test`),
+      getGroups:           () => api('GET', 'api/groups'),
+      createGroup:         (b) => api('POST', 'api/groups', b),
+      updateGroup:         (id,b) => api('PUT', `api/groups/${id}`, b),
+      deleteGroup:         (id) => api('DELETE', `api/groups/${id}`),
+    };
+
+    let state = {
+      config: {},
+      actions: [],
+      triggers: [],
+      groups: [],
+      obsConnected: false,
+      scenes: { scenes: [], itemsByScene: {} },
+      editingActionId: null,
+      editingSubActions: [],
+      editingTriggerId: null,
+      pollTimer: null,
+    };
+
+    // -----------------------------------------------------------------------
+    // OBS CONNECTION
+    // -----------------------------------------------------------------------
+    function updateStatusDot(connected, text) {
+      const dot = document.getElementById('status-dot');
+      const ping = document.getElementById('status-ping');
+      const txt = document.getElementById('status-text');
+      txt.textContent = text || 'OBS';
+      if (connected) {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500';
+        ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
+      } else {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
+        ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75';
+      }
+    }
+
+    async function pollConnection() {
+      try {
+        const s = await API.obsStatus();
+        if (state.obsConnected !== s.connected) {
+          state.obsConnected = s.connected;
+          updateStatusDot(s.connected, 'OBS');
+          const btn = document.getElementById('obs-connect-btn');
+          btn.textContent = s.connected ? 'Desconectar' : 'Conectar';
+          if (s.connected) await refreshScenes();
+        }
+      } catch {}
+    }
+
+    function startPolling() {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      pollConnection();
+      state.pollTimer = setInterval(pollConnection, 3000);
+    }
+
+    async function toggleOBS() {
+      const btn = document.getElementById('obs-connect-btn');
+      if (state.obsConnected) {
+        btn.textContent = '...'; btn.disabled = true;
+        await API.obsDisconnect();
+        state.obsConnected = false; updateStatusDot(false, 'OBS');
+        btn.textContent = 'Conectar'; btn.disabled = false;
+        return;
+      }
+      btn.textContent = '...'; btn.disabled = true;
+      const host = document.getElementById('obs-host').value;
+      const port = document.getElementById('obs-port').value;
+      const password = document.getElementById('obs-pass').value;
+      const res = await API.obsConnect({ host, port, password });
+      if (res.ok) {
+        state.obsConnected = true; updateStatusDot(true, 'OBS');
+        btn.textContent = 'Desconectar'; await refreshScenes();
+      } else { updateStatusDot(false, 'OBS'); btn.textContent = 'Conectar'; }
+      btn.disabled = false;
+    }
+
+    async function refreshScenes() {
+      const res = await API.obsRefreshCache();
+      if (res.ok) { state.scenes = res.cache; populateSceneDropdowns(); }
+    }
+
+    function populateSceneDropdowns() {
+      const sel = document.getElementById('sub-scene');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Escena</option>';
+      state.scenes.scenes.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s; sel.appendChild(opt);
+      });
+    }
+
+    function loadSources() {
+      const scene = document.getElementById('sub-scene').value;
+      const sourceSel = document.getElementById('sub-source');
+      sourceSel.innerHTML = '<option value="">Fuente</option>';
+      if (!scene || !state.scenes.itemsByScene[scene]) return;
+      const items = state.scenes.itemsByScene[scene];
+      const groups = [], groupChildren = {}, ungrouped = [];
+      for (const src of items) {
+        if (src.isGroup) { groups.push(src); groupChildren[src.name] = []; }
+        else if (src.groupName) { (groupChildren[src.groupName] ||= []).push(src); }
+        else ungrouped.push(src);
+      }
+      for (const g of groups) {
+        const og = document.createElement('optgroup');
+        og.label = `📁 ${g.name}`;
+        const self = document.createElement('option');
+        self.value = g.id; self.textContent = `📁 ${g.name} (carpeta)`; self.dataset.name = g.name; self.dataset.isGroup = 'true';
+        og.appendChild(self);
+        for (const child of (groupChildren[g.name] || [])) {
+          const opt = document.createElement('option');
+          opt.value = child.id; opt.textContent = `   🖼️ ${child.name}`; opt.dataset.name = child.name; opt.dataset.groupName = child.groupName;
+          og.appendChild(opt);
+        }
+        sourceSel.appendChild(og);
+      }
+      if (ungrouped.length) {
+        const og = document.createElement('optgroup');
+        og.label = 'Sin grupo';
+        for (const src of ungrouped) {
+          const opt = document.createElement('option');
+          opt.value = src.id; opt.textContent = `🖼️ ${src.name}`; opt.dataset.name = src.name;
+          og.appendChild(opt);
+        }
+        sourceSel.appendChild(og);
+      }
+    }
+
+    function toggleSubFields() {
+      const type = document.getElementById('sub-type').value;
+      document.getElementById('sub-visibility-fields').classList.toggle('hidden', type !== 'visibility');
+      document.getElementById('sub-delay-fields').classList.toggle('hidden', type !== 'delay');
+    }
+
+    function toggleObsConfig() {
+      document.getElementById('obs-config-row').classList.toggle('hidden');
+    }
+
+    // -----------------------------------------------------------------------
+    // ACTIONS + GROUPS
+    // -----------------------------------------------------------------------
+    async function loadActions() {
+      state.actions = await API.getActions();
+      state.groups = await API.getGroups();
+      renderActionList();
+      updateSubPanel();
+      renderTriggerList();
+    }
+
+    function getSortedActions() {
+      return [...state.actions].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    }
+
+    function renderActionList() {
+      const container = document.getElementById('action-list');
+      document.getElementById('action-count').textContent = `(${state.actions.length})`;
+
+      if (!state.actions.length) {
+        container.innerHTML = '<p class="text-gray-500 text-xs py-8 text-center">No hay acciones</p>';
+        return;
+      }
+
+      const sorted = getSortedActions();
+      const grouped = {};
+      const ungrouped = [];
+      state.groups.forEach(g => { grouped[g.id] = []; });
+      sorted.forEach(a => {
+        if (a.groupId && grouped[a.groupId]) grouped[a.groupId].push(a);
+        else ungrouped.push(a);
+      });
+
+      let html = '';
+      state.groups.forEach(g => {
+        const items = grouped[g.id] || [];
+        html += `
+          <div class="group-section" data-group-id="${g.id}">
+            <div class="flex items-center gap-1 px-1 py-1 rounded bg-gray-800/40 border border-gray-700/50 mb-1 group-header select-none" onclick="toggleGroupCollapsed('${g.id}')">
+              <span class="text-gray-400 text-[10px] w-3">${g.collapsed ? '▶' : '▼'}</span>
+              <span class="text-[11px] font-semibold text-indigo-400 flex-1 truncate">${g.name}</span>
+              <span class="text-[10px] text-gray-500 mr-1">${items.length}</span>
+              <button onclick="event.stopPropagation();renameGroupPrompt('${g.id}')" class="text-gray-500 hover:text-indigo-400 text-[10px] px-1" title="Renombrar">✎</button>
+              <button onclick="event.stopPropagation();deleteGroupConfirm('${g.id}')" class="text-gray-500 hover:text-red-400 text-[10px] px-1" title="Eliminar grupo">✕</button>
+            </div>
+            <div class="group-actions ${g.collapsed ? 'hidden' : ''}">
+              ${renderActionItems(items)}
+            </div>
+          </div>`;
+      });
+
+      if (ungrouped.length || state.groups.length) {
+        html += `<div class="text-[9px] text-gray-600 uppercase font-semibold px-1 pt-2 pb-1">${ungrouped.length ? 'Sin grupo' : ''}</div>`;
+      }
+      html += renderActionItems(ungrouped);
+      container.innerHTML = html;
+    }
+
+    function renderActionItems(actions) {
+      if (!actions.length) return '';
+      const sorted = getSortedActions();
+      return actions.map((a) => {
+        const triggerCount = state.triggers.filter(t => t.actionId === a.id).length;
+        const isSelected = state.editingActionId === a.id;
+        const subLen = a.subActions ? a.subActions.length : 0;
+        const idx = sorted.findIndex(x => x.id === a.id);
+        const isFirst = idx === 0;
+        const isLast = idx === sorted.length - 1;
+        const groupName = a.groupId ? (state.groups.find(g => g.id === a.groupId)?.name || '') : 'Sin grupo';
+        return `
+          <div class="action-card grid grid-cols-12 gap-1 items-center p-2 rounded-lg ${isSelected ? 'bg-indigo-950/30 border border-indigo-500/50' : 'bg-gray-800/30 border border-transparent hover:bg-gray-800/50'}" data-action-id="${a.id}">
+            <span class="col-span-5 font-mono text-gray-200 truncate text-[11px] flex items-center gap-1 ${isSelected ? 'text-indigo-300' : ''}" onclick="selectAction('${a.id}')">
+              <span>${a.name} <span class="text-gray-500">(${subLen})</span></span>
+            </span>
+            <span class="col-span-1 text-center"><input type="checkbox" ${a.enabled !== false ? 'checked' : ''} onchange="toggleActionEnabled('${a.id}', this.checked)" onclick="event.stopPropagation()" class="accent-indigo-500"></span>
+            <span class="col-span-1 text-center text-gray-400 text-[10px]">${triggerCount}</span>
+            <span class="col-span-2 text-center flex gap-0.5 justify-center">
+              <button onclick="event.stopPropagation();moveAction('${a.id}', -1)" class="text-gray-500 hover:text-indigo-400 text-[10px] px-0.5 ${isFirst ? 'opacity-20' : ''}" title="Subir">↑</button>
+              <button onclick="event.stopPropagation();moveAction('${a.id}', 1)" class="text-gray-500 hover:text-indigo-400 text-[10px] px-0.5 ${isLast ? 'opacity-20' : ''}" title="Bajar">↓</button>
+            </span>
+            <span class="col-span-3 text-right flex gap-1 justify-end relative">
+              <button onclick="event.stopPropagation();toggleGroupMenu(event, '${a.id}')" class="text-gray-500 hover:text-yellow-400 text-[10px] px-1" title="${groupName}">📁</button>
+              <button onclick="event.stopPropagation();executeCurrentAction('${a.id}')" class="text-gray-500 hover:text-green-400 text-[10px] px-1" title="Ejecutar">▶</button>
+              <button onclick="event.stopPropagation();deleteActionConfirm('${a.id}')" class="text-gray-500 hover:text-red-400 text-[10px] px-1">✕</button>
+            </span>
+          </div>`;
+      }).join('');
+    }
+
+    // --- Move actions (arrows) ---
+    async function moveAction(id, direction) {
+      const sorted = getSortedActions();
+      const idx = sorted.findIndex(a => a.id === id);
+      if (idx === -1) return;
+      const target = idx + direction;
+      if (target < 0 || target >= sorted.length) return;
+      [sorted[idx], sorted[target]] = [sorted[target], sorted[idx]];
+      const updates = sorted.map((a, i) => ({ id: a.id, sortOrder: i, groupId: a.groupId }));
+      await API.batchActions(updates);
+      await loadActions();
+    }
+
+    // --- Group menu ---
+    function toggleGroupMenu(event, actionId) {
+      event.stopPropagation();
+      const existing = document.querySelector('.group-menu');
+      if (existing) { existing.remove(); return; }
+      const menu = document.createElement('div');
+      menu.className = 'group-menu';
+      menu.style.top = Math.min(event.clientY, window.innerHeight - 200) + 'px';
+      menu.style.left = Math.min(event.clientX, window.innerWidth - 140) + 'px';
+      const action = state.actions.find(a => a.id === actionId);
+      const currentGroup = action ? action.groupId : null;
+      const addBtn = (label, groupId) => {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        if (groupId === currentGroup) btn.style.fontWeight = 'bold';
+        btn.onclick = (e) => { e.stopPropagation(); setActionGroup(actionId, groupId); menu.remove(); };
+        menu.appendChild(btn);
+      };
+      addBtn('🚫 Sin grupo', null);
+      state.groups.forEach(g => addBtn(`📁 ${g.name}`, g.id));
+      document.body.appendChild(menu);
+      setTimeout(() => {
+        document.addEventListener('click', function handler(e) {
+          if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', handler); }
+        });
+      }, 0);
+    }
+
+    async function setActionGroup(actionId, groupId) {
+      const action = state.actions.find(a => a.id === actionId);
+      if (!action || action.groupId === groupId) return;
+      await API.batchActions([{ id: actionId, groupId }]);
+      await loadActions();
+    }
+
+    // --- Group management ---
+    async function createGroup() {
+      const name = prompt('Nombre del grupo:');
+      if (!name || !name.trim()) return;
+      await API.createGroup({ name: name.trim() });
+      await loadActions();
+    }
+
+    function renameGroupPrompt(id) {
+      const g = state.groups.find(x => x.id === id);
+      if (!g) return;
+      const name = prompt('Nuevo nombre:', g.name);
+      if (!name || !name.trim() || name.trim() === g.name) return;
+      API.updateGroup(id, { name: name.trim() }).then(() => loadActions());
+    }
+
+    async function toggleGroupCollapsed(id) {
+      const g = state.groups.find(x => x.id === id);
+      if (!g) return;
+      await API.updateGroup(id, { collapsed: !g.collapsed });
+      await loadActions();
+    }
+
+    async function deleteGroupConfirm(id) {
+      if (!confirm('Eliminar este grupo? Las acciones se moveran a "Sin grupo".')) return;
+      await API.deleteGroup(id);
+      await loadActions();
+    }
+
+    // --- Action CRUD ---
+    async function toggleActionEnabled(id, enabled) {
+      await API.updateAction(id, { enabled });
+      await loadActions();
+    }
+
+    async function createAction() {
+      const name = document.getElementById('new-action-name').value.trim();
+      if (!name) return;
+      await API.createAction({ name, subActions: [] });
+      document.getElementById('new-action-name').value = '';
+      await loadActions();
+    }
+
+    async function deleteActionConfirm(id) {
+      if (!confirm('Eliminar esta accion?')) return;
+      await API.deleteAction(id);
+      if (state.editingActionId === id) {
+        state.editingActionId = null; state.editingSubActions = [];
+      }
+      await loadActions();
+    }
+
+    function selectAction(id) {
+      state.editingActionId = id;
+      const action = state.actions.find(a => a.id === id);
+      if (!action) return;
+      state.editingSubActions = JSON.parse(JSON.stringify(action.subActions || []));
+      renderActionList();
+      updateSubPanel();
+      renderTriggerList();
+    }
+
+    function updateSubPanel() {
+      const action = state.actions.find(a => a.id === state.editingActionId);
+      const label = document.getElementById('editor-action-label');
+      const list = document.getElementById('editor-sub-list');
+      const count = document.getElementById('sub-count');
+      if (!action) {
+        label.textContent = ''; count.textContent = '(0)';
+        list.innerHTML = '<p class="text-gray-600 text-xs py-6 text-center">Selecciona una accion para editar sus sub-acciones</p>';
+        return;
+      }
+      label.textContent = `Editando: ${action.name}`;
+      count.textContent = `(${state.editingSubActions.length})`;
+      renderSubActionList();
+    }
+
+    // -----------------------------------------------------------------------
+    // SUB-ACTIONS
+    // -----------------------------------------------------------------------
+    function addSubAction() {
+      if (!state.editingActionId) return;
+      const type = document.getElementById('sub-type').value;
+      let sub = { id: Date.now() + Math.random() };
+      if (type === 'visibility') {
+        const sel = document.getElementById('sub-source');
+        const opt = sel.selectedIndex > 0 ? sel.options[sel.selectedIndex] : null;
+        sub = { ...sub, type: 'visibility', scene: document.getElementById('sub-scene').value, sourceId: sel.value, sourceName: opt?.dataset.name || '', groupName: opt?.dataset.groupName || null, isGroup: opt?.dataset.isGroup === 'true', state: document.getElementById('sub-state').value };
+      } else {
+        sub = { ...sub, type: 'delay', duration: parseInt(document.getElementById('sub-delay-ms').value) || 1000 };
+      }
+      state.editingSubActions.push(sub);
+      renderSubActionList();
+      document.getElementById('sub-count').textContent = `(${state.editingSubActions.length})`;
+      saveCurrentAction();
+    }
+
+    function removeSubAction(id) {
+      state.editingSubActions = state.editingSubActions.filter(s => s.id !== id);
+      renderSubActionList();
+      document.getElementById('sub-count').textContent = `(${state.editingSubActions.length})`;
+      saveCurrentAction();
+    }
+
+    async function testCurrentSubAction() {
+      const type = document.getElementById('sub-type').value;
+      let sub;
+      if (type === 'visibility') {
+        const sel = document.getElementById('sub-source');
+        const opt = sel.selectedIndex > 0 ? sel.options[sel.selectedIndex] : null;
+        sub = { type: 'visibility', scene: document.getElementById('sub-scene').value, sourceId: sel.value, groupName: opt?.dataset.groupName || null, isGroup: opt?.dataset.isGroup === 'true', state: document.getElementById('sub-state').value };
+      } else {
+        sub = { type: 'delay', duration: parseInt(document.getElementById('sub-delay-ms').value) || 1000 };
+      }
+      if (type === 'delay') { alert(`Test: espera ${sub.duration}ms`); return; }
+      if (!sub.scene || !sub.sourceId) return alert('Selecciona escena y fuente');
+      const res = await API.obsTestSubAction(sub);
+      if (!res.ok) alert('Error: ' + res.error);
+    }
+
+    async function saveCurrentAction() {
+      const id = state.editingActionId;
+      if (!id) return;
+      await API.updateAction(id, { subActions: state.editingSubActions });
+      await loadActions();
+      const action = state.actions.find(a => a.id === id);
+      if (action) {
+        state.editingSubActions = JSON.parse(JSON.stringify(action.subActions || []));
+        renderSubActionList();
+        document.getElementById('sub-count').textContent = `(${state.editingSubActions.length})`;
+      }
+    }
+
+    async function executeCurrentAction(id) {
+      id = id || state.editingActionId;
+      if (!id) return;
+      if (!state.obsConnected) return alert('OBS no conectado');
+      await API.executeAction(id);
+    }
+
+    // --- Drag & Drop for sub-actions ---
+    let dragSubEl = null;
+
+    function renderSubActionList() {
+      const container = document.getElementById('editor-sub-list');
+      if (!state.editingSubActions.length) {
+        container.innerHTML = '<p class="text-gray-600 text-xs py-6 text-center">Sin sub-acciones</p>';
+        return;
+      }
+      container.innerHTML = '';
+      state.editingSubActions.forEach((step, idx) => {
+        const card = document.createElement('div');
+        card.className = 'flex items-center justify-between p-1.5 bg-gray-800/30 border border-gray-700/50 rounded-lg hover:border-gray-600 cursor-grab active:cursor-grabbing transition group select-none';
+        card.draggable = true;
+        card.dataset.index = idx;
+        card.addEventListener('dragstart', (e) => {
+          dragSubEl = card;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', idx);
+          card.classList.add('opacity-40');
+        });
+        card.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+        card.addEventListener('drop', (e) => {
+          e.stopPropagation();
+          if (dragSubEl !== card) {
+            const from = parseInt(e.dataTransfer.getData('text/plain'));
+            const to = idx;
+            const [removed] = state.editingSubActions.splice(from, 1);
+            state.editingSubActions.splice(to, 0, removed);
+            renderSubActionList();
+            saveCurrentAction();
+          }
+        });
+        card.addEventListener('dragend', () => { card.classList.remove('opacity-40'); });
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2 flex-1 min-w-0';
+        const num = document.createElement('span');
+        num.className = 'text-gray-600 text-[10px] w-4 text-right';
+        num.textContent = `${idx + 1}.`;
+        const dragIcon = document.createElement('span');
+        dragIcon.className = 'text-gray-600 group-hover:text-gray-400 text-xs';
+        dragIcon.textContent = '⋮⋮';
+        const content = document.createElement('span');
+        content.className = 'text-[11px] font-mono truncate';
+        if (step.type === 'visibility') {
+          const target = step.groupName ? `${step.scene} > ${step.groupName}` : (step.scene || '?');
+          content.innerHTML = `<span class="text-indigo-400">[Visibilidad]</span> <span class="text-gray-300">${target}</span> :: <span class="text-yellow-400">${step.sourceName || '?'}</span> :: <span class="${step.state === 'Visible' ? 'text-green-400' : 'text-red-400'}">${step.state}</span>`;
+        } else {
+          content.innerHTML = `<span class="text-gray-400">[Delay]</span> <span class="text-indigo-300">${step.duration}ms</span>`;
+        }
+        left.appendChild(num);
+        left.appendChild(dragIcon);
+        left.appendChild(content);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'text-gray-500 hover:text-red-400 text-[10px] px-1 transition';
+        delBtn.textContent = '✕';
+        delBtn.onclick = () => removeSubAction(step.id);
+        card.appendChild(left);
+        card.appendChild(delBtn);
+        container.appendChild(card);
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // TRIGGERS
+    // -----------------------------------------------------------------------
+    async function loadTriggers() {
+      state.triggers = await API.getTriggers();
+      renderTriggerList();
+      renderActionList();
+    }
+
+    function renderTriggerList() {
+      const container = document.getElementById('trigger-list');
+      const actionTriggers = state.triggers.filter(t => t.actionId === state.editingActionId);
+      if (!state.editingActionId) {
+        container.innerHTML = '<p class="text-gray-500 text-xs py-4 text-center">Selecciona una accion para ver sus triggers</p>';
+        return;
+      }
+      if (!actionTriggers.length) {
+        container.innerHTML = '<p class="text-gray-500 text-xs py-4 text-center">Sin disparadores para esta accion</p>';
+        return;
+      }
+      container.innerHTML = actionTriggers.map(t => {
+        const action = state.actions.find(a => a.id === t.actionId);
+        const typeLabel = t.type === 'reward' ? 'Reward' : 'Comando';
+        return `
+          <div class="grid grid-cols-12 gap-1 items-center p-2 bg-gray-800/20 border border-gray-800/30 rounded-lg hover:border-gray-700 transition group text-[11px]">
+            <span class="col-span-5 text-gray-300 font-mono truncate">"${t.pattern}"</span>
+            <span class="col-span-2"><span class="text-[10px] ${t.type === 'reward' ? 'text-purple-400' : 'text-blue-400'} bg-gray-800 px-1 py-0.5 rounded">${typeLabel}</span></span>
+            <span class="col-span-2 text-center"><input type="checkbox" ${t.enabled !== false ? 'checked' : ''} onchange="toggleTriggerEnabled('${t.id}', this.checked)" class="accent-indigo-500"></span>
+            <span class="col-span-3 text-right flex gap-1 justify-end">
+              <span class="text-gray-500 text-[10px] truncate">${action ? action.name : '<span class="text-red-400">?</span>'}</span>
+              <button onclick="editTrigger('${t.id}')" class="text-gray-500 hover:text-indigo-400 text-[10px] px-1">Editar</button>
+              <button onclick="deleteTrigger('${t.id}')" class="text-gray-500 hover:text-red-400 text-[10px] px-1">✕</button>
+            </span>
+          </div>`;
+      }).join('');
+    }
+
+    async function toggleTriggerEnabled(id, enabled) {
+      await API.updateTrigger(id, { enabled });
+      await loadTriggers();
+    }
+
+    function showTriggerForm() {
+      if (!state.editingActionId) return alert('Selecciona una accion primero');
+      document.getElementById('trigger-form').classList.remove('hidden');
+      document.getElementById('trigger-pattern').focus();
+      document.getElementById('trigger-cancel-btn').classList.remove('hidden');
+      const action = state.actions.find(a => a.id === state.editingActionId);
+      const indicator = document.getElementById('trigger-context-indicator');
+      indicator.textContent = `Asociando trigger a: ${action.name}`;
+      indicator.classList.remove('hidden');
+      onTriggerTypeChange();
+    }
+
+    function hideTriggerForm() {
+      document.getElementById('trigger-form').classList.add('hidden');
+      cancelEditTrigger();
+    }
+
+    function saveTrigger() {
+      const pattern = document.getElementById('trigger-pattern').value.trim();
+      if (!pattern) return alert('Patron requerido');
+      const data = { name: pattern, pattern, type: document.getElementById('trigger-type').value, actionId: state.editingActionId };
+      const editId = state.editingTriggerId;
+      (editId ? API.updateTrigger(editId, data) : API.createTrigger(data)).then(() => {
+        cancelEditTrigger();
+        hideTriggerForm();
+        loadTriggers();
+      });
+    }
+
+    function editTrigger(id) {
+      state.editingTriggerId = id;
+      const t = state.triggers.find(x => x.id === id);
+      if (!t) return;
+      if (t.actionId) selectAction(t.actionId);
+      document.getElementById('trigger-type').value = t.type;
+      document.getElementById('trigger-pattern').value = t.pattern;
+      document.getElementById('trigger-cancel-btn').classList.remove('hidden');
+      showTriggerForm();
+    }
+
+    function cancelEditTrigger() {
+      state.editingTriggerId = null;
+      document.getElementById('trigger-type').value = 'chat_command';
+      document.getElementById('trigger-pattern').value = '';
+      document.getElementById('trigger-cancel-btn').classList.add('hidden');
+      document.getElementById('trigger-context-indicator').classList.add('hidden');
+    }
+
+    async function deleteTrigger(id) {
+      if (!confirm('Eliminar este disparador?')) return;
+      await API.deleteTrigger(id);
+      if (state.editingTriggerId === id) cancelEditTrigger();
+      await loadTriggers();
+    }
+
+    // -----------------------------------------------------------------------
+    // PAIRING DE REWARDS
+    // -----------------------------------------------------------------------
+
+    function onTriggerTypeChange() {
+      const type = document.getElementById('trigger-type').value;
+      document.getElementById('pair-btn').classList.toggle('hidden', type !== 'reward');
+    }
+
+    async function pairReward() {
+      const btn = document.getElementById('pair-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Esperando...';
+      try {
+        const res = await api('POST', 'api/triggers/pair');
+        if (res.ok) {
+          document.getElementById('trigger-pattern').value = res.title;
+          saveTrigger();
+        } else {
+          alert(res.error || 'No se pudo emparejar');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+      btn.disabled = false;
+      btn.textContent = '🎯 Emparejar';
+    }
+
+    // -----------------------------------------------------------------------
+    // INIT
+    // -----------------------------------------------------------------------
+    async function init() {
+      const d = await API.data();
+      state.config = d.config;
+      state.actions = d.actions;
+      state.triggers = d.triggers;
+      state.groups = d.groups || [];
+      state.obsConnected = d.obsStatus.connected;
+      state.scenes = d.scenes || { scenes: [], itemsByScene: {} };
+
+      document.getElementById('obs-host').value = state.config.host || '192.168.50.246';
+      document.getElementById('obs-port').value = state.config.port || '4456';
+      document.getElementById('obs-pass').value = state.config.password || '123456';
+
+      if (state.obsConnected) {
+        updateStatusDot(true, 'OBS');
+        document.getElementById('obs-connect-btn').textContent = 'Desconectar';
+      } else { updateStatusDot(false, 'OBS'); }
+
+      populateSceneDropdowns();
+      renderTriggerList();
+      renderActionList();
+      updateSubPanel();
+      startPolling();
+    }
+
+    init();
+  </script>
+</body>
+</html>

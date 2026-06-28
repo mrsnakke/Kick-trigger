@@ -1,0 +1,14 @@
+{
+  "name": "obs-actions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Modulo de acciones para OBS Studio v5.x - triggers, sub-acciones secuenciales",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "obs-websocket-js": "^5.0.0"
+  }
+}
