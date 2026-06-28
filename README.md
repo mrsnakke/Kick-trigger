@@ -10,28 +10,31 @@ Backend Node.js para conectar con la API de Kick: OAuth, webhooks, chat, suscrip
 
 ```
 kick-backend/
-├── lib/                   # Librerías base
-│   ├── event-bus.js       # EventEmitter singleton (nervio central)
-│   ├── config.js          # .env parser + constantes
-│   ├── state.js           # Estado compartido mutable
-│   └── forwarder.js       # Reenvío HTTP de eventos a otras máquinas
+├── lib/                       # Librerías base
+│   ├── event-bus.js           # EventEmitter singleton (nervio central)
+│   ├── config.js              # .env parser + constantes
+│   ├── state.js               # Estado compartido mutable
+│   └── forwarder.js           # Reenvío HTTP de eventos a otras máquinas
 │
-├── modules/               # Módulos funcionales
-│   ├── auth.js            # OAuth PKCE + token management
-│   ├── webhook.js         # Receptor webhook Kick + validación RSA
-│   ├── chat.js            # Enviar mensajes al chat de Kick
-│   ├── tunnel.js          # Cloudflare tunnel (gestión automática)
-│   ├── sse.js             # SSE push al dashboard web
-│   ├── events.js          # Suscripción/desuscripción a eventos de Kick
-│   └── triggers/          # ★ Tus módulos de reacción aquí
-│       └── tts/           # Trigger TTS (Speaker.bot + !sp)
+├── modules/                   # Módulos funcionales del core
+│   ├── auth.js                # OAuth PKCE + token management
+│   ├── webhook.js             # Receptor webhook Kick + validación RSA
+│   ├── chat.js                # Enviar mensajes al chat de Kick
+│   ├── tunnel.js              # Cloudflare tunnel (gestión automática)
+│   ├── sse.js                 # SSE push al dashboard web
+│   ├── events.js              # Suscripción/desuscripción a eventos de Kick
+│   └── triggers/              # ★ Tus módulos de reacción aquí
+│       ├── tts/               # Text-to-Speech con Speaker.bot
+│       ├── obs-actions/       # Control de OBS vía WebSocket
+│       ├── GACHA/             # Sistema de gacha (personajes, overlays)
+│       └── vtuber-ai/         # Integración con VTuber AI
 │
-├── server.js              # Express setup + montaje de rutas
-├── public/index.html      # Dashboard web (SSE, chat, TTS panel)
-├── .env                   # Configuración (KICK, CF, FORWARD_URL_*)
-├── tokens.json            # Tokens OAuth persistidos
-├── iniciar.bat            # Lanzador Windows (consola)
-└── iniciar.vbs            # Lanzador silencioso (sin consola)
+├── server.js                  # Express setup + montaje de rutas
+├── public/index.html          # Dashboard web (SSE, chat, TTS panel)
+├── .env                       # Configuración (KICK, CF, FORWARD_URL_*)
+├── tokens.json                # Tokens OAuth persistidos
+├── iniciar.bat                # Lanzador Windows (consola)
+└── iniciar.vbs                # Lanzador silencioso (sin consola)
 ```
 
 ## Configuración inicial
@@ -78,22 +81,20 @@ Abrir `http://localhost:3000`, autorizar con Kick e iniciar el túnel.
 | `/api/events` | GET | SSE — stream de eventos al dashboard |
 | `/api/status` | GET | Estado actual (auth, túnel, contadores) |
 | `/api/chat/send` | POST | Enviar mensaje al chat de Kick |
+| `/api/chat/send-bot` | POST | Enviar mensaje como bot |
 | `/api/events/subscriptions` | GET | Listar suscripciones activas |
 | `/api/events/subscribe` | POST | Suscribir a todos los eventos |
 | `/api/tunnel/start` | POST | Iniciar túnel Cloudflare |
 | `/api/tunnel/stop` | POST | Detener túnel |
-| `/api/tts/config` | GET/POST | Obtener/guardar config TTS |
-| `/api/tts/user-aliases` | GET | Listar voces personalizadas por usuario |
-| `/api/tts/user-alias/delete` | POST | Eliminar voz personalizada de un usuario |
-| `/api/tts/toggle` | POST | Activar/desactivar bot TTS |
-| `/api/tts/status` | GET | Estado del bot TTS y Speaker.bot |
+| `/api/tts/*` | varias | Configuración y control de TTS |
+| `/api/vtuber/*` | varias | Configuración de VTuber AI |
+| `/gacha/*` | varias | Sistema de gacha + overlays |
+| `/obs-actions/*` | varias | Panel de control de OBS |
 | `/api/shutdown` | POST | Detener servidor + túnel |
 
 ## Event Bus
 
-`lib/event-bus.js` exporta un `EventEmitter` de Node.js. Es el sistema nervioso central.
-
-Cualquier módulo puede emitir/escuchar eventos. Los triggers se conectan al bus sin modificar el core.
+`lib/event-bus.js` exporta un `EventEmitter` de Node.js. Es el sistema nervioso central. Cualquier módulo puede emitir/escuchar eventos. Los triggers se conectan al bus sin modificar el core.
 
 ### Eventos de Kick (webhook entrante)
 
@@ -176,7 +177,7 @@ Configurá `FORWARD_URL_*` en `.env`. Cada evento Kick válido se reenvía como 
 - Respuesta a mensajes del chat (click en un mensaje → reply)
 - Botón de autorización OAuth (popup)
 - Botón de inicio/parada del túnel
-- Panel TTS completo (configuración, voces, palabras prohibidas, monitoreo)
+- Panel TTS completo
 - Console TTS con logs en tiempo real
 - Shutdown al cerrar la pestaña
 
@@ -192,74 +193,167 @@ Configurá `FORWARD_URL_*` en `.env`. Cada evento Kick válido se reenvía como 
 | `eventsCounter` | `number` | Total de eventos procesados |
 | `authFailCount` | `number` | Intentos fallidos de auth consecutivos |
 
-## Trigger TTS (Text-to-Speech)
+---
+
+## Rewards (Puntos de Canal)
 
 ### Cómo funciona
 
-Escucha mensajes del chat y envía texto a **Speaker.bot** vía WebSocket para reproducirlo en vivo.
+Los viewers pueden canjear puntos de canal por rewards personalizados que creás en el dashboard de Kick. Cuando un viewer canjea un reward, Kick envía un webhook con el evento `channel.reward.redemption.updated` que este backend recibe y emite al event bus.
 
-### Comandos
+### Lo que ya está configurado
 
-| Comando | Acción |
-|---|---|
-| `!sp <texto>` | Reproduce `<texto>` con la voz principal |
-| `!sp <alias> <texto>` | Reproduce con la voz del alias (ej: `!sp ava hola`) |
-| `!<nombre_voz>` | Asigna permanentemente esa voz al usuario (ej: `!ava`) |
-| `!bonk` | Lanza un bonk al streamer |
-| `!bonks` | Lanza ráfaga de bonks |
+1. **Scope OAuth**: `channel:rewards:read` — ya se solicita en `auth.js` (líneas 169, 187)
+2. **Suscripción**: `channel.reward.redemption.updated` — ya suscrito en `events.js` (línea 40)
+3. **Endpoint API**: `GET /obs-actions/api/rewards` — lista los rewards disponibles desde la API de Kick (`modules/triggers/obs-actions/index.js:211`)
+4. **Manejo del evento**: cualquier módulo puede escuchar `channel.reward.redemption.updated` en el event bus
 
-### Configuración (desde dashboard o `tts-data.json`)
-
-| Parámetro | Default | Descripción |
-|---|---|---|
-| `COMMAND` | `!sp` | Comando para activar TTS |
-| `VOICE_NAME` | `Sabina` | Voz principal |
-| `VOICE_ALIASES` | `{ ava, brian, jorge, sabina }` | Alias de voces disponibles |
-| `SPEAKERBOT_URL` | `ws://127.0.0.1:7580/` | URL de Speaker.bot |
-| `MAX_TEXT_LENGTH` | `600` | Máx caracteres (0 = sin límite) |
-| `KICKBONKS_URL` | `http://localhost:3030` | URL del servicio de bonks |
-| `bannedWords` | — | Palabras bloqueadas (no se reproducen) |
-
-### Conexión con Speaker.bot
-
-El trigger se conecta automáticamente a Speaker.bot vía WebSocket. Si la conexión se pierde, reintenta cada 5 segundos.
-
-### Archivos del trigger
-
-- `index.js` — lógica principal, manejo de comandos, HTTP handlers
-- `config-manager.js` — persistencia en `tts-data.json`, filtro de palabras
-- `speakerbot.js` — WebSocket a Speaker.bot
-- `tts-data.json` — datos persistentes (config, palabras, aliases de usuarios)
-
-## Cómo crear un trigger
-
-### 1. Crear archivo en `modules/triggers/`
+### Cómo escuchar rewards en tu módulo
 
 ```js
-// modules/triggers/ruleta.js
-const eventBus = require('../../lib/event-bus')
+const eventBus = require('../../../lib/event-bus')
 
-eventBus.on('channel.reward.redemption.updated', async (data) => {
-  const { payload } = data
-  if (payload.reward?.title === 'Ruleta Spin') {
-    console.log('[RULETA]', payload.redeemer?.username, 'activó la ruleta')
+eventBus.on('channel.reward.redemption.updated', (data) => {
+  const title = data.payload.reward?.title       // nombre del reward
+  const user = data.payload.redeemer?.username    // quién lo canjeó
+  // tu lógica acá
+})
+```
+
+### Crear rewards en Kick
+
+Los rewards se crean desde el dashboard de Kick (no via API pública):
+1. Ve a tu canal de Kick → Puntos de Canal → Canales personalizados
+2. Creá un reward con nombre, costo en puntos y descripción
+3. El nombre debe coincidir con el `pattern` configurado en tu trigger
+
+---
+
+## Comandos del chat (!comando)
+
+### Cómo funciona
+
+Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. El backend lo recibe, lo valida y lo emite al event bus. Los módulos escuchan este evento y filtran por comandos (mensajes que empiezan con `!`).
+
+### Lo que ya está configurado
+
+1. **Suscripción**: `chat.message.sent` — ya suscrito en `events.js`
+2. **Manejo del evento**: cualquier módulo puede escuchar `chat.message.sent` en el event bus
+3. **Enviar mensajes al chat**: usá `chat.send(content)` o `chat.sendAsBot(content, replyTo?)` desde cualquier módulo
+
+### Cómo escuchar comandos en tu módulo
+
+```js
+const eventBus = require('../../../lib/event-bus')
+
+eventBus.on('chat.message.sent', (data) => {
+  const msg = (data.payload.message?.content || '').trim()
+  const user = data.payload.message?.sender?.username
+
+  if (!msg.startsWith('!')) return
+
+  const parts = msg.slice(1).split(/\s+/)
+  const command = parts[0].toLowerCase()
+  const args = parts.slice(1)
+
+  switch (command) {
+    case 'hola':
+      console.log(`${user} saludó!`)
+      break
+    case 'ping':
+      // chat.send('pong!')  — requiere auth.ensureValidToken()
+      break
   }
 })
-
-console.log('[TRIGGER] Ruleta cargada')
 ```
 
-### 2. Cargar el trigger desde `server.js`
+### Embeber comandos en el dashboard
+
+Si tu módulo tiene comandos de chat, podés exponerlos vía un endpoint `GET /api/commands` para que el dashboard los muestre. Ver `modules/triggers/GACHA/index.js:54` como ejemplo.
+
+---
+
+## Cómo agregar un nuevo módulo
+
+Hay **dos patrones** según la complejidad del módulo:
+
+### Patrón A — Simple (sin router, sin init)
+
+Un archivo único que escucha eventos del bus. Ideal para lógica simple.
 
 ```js
-require('./modules/triggers/ruleta')
+// modules/triggers/mi-modulo/index.js
+const eventBus = require('../../../lib/event-bus')
+
+eventBus.on('chat.message.sent', (data) => {
+  // tu lógica
+})
+
+console.log('[MI-MODULO] Cargado')
 ```
 
-### Criterios
+Luego en `server.js`:
+```js
+require('./modules/triggers/mi-modulo')
+```
 
-1. **Archivos individuales**: cada trigger en su propio `.js` dentro de `modules/triggers/`
-2. **Sin modificar el core**: solo importás de `lib/` o de otros módulos
-3. **Fire-and-forget**: no bloquear el event bus
-4. **Manejo de errores**: cada trigger es responsable de su propio try/catch
-5. **Cero dependencias nuevas**: usá `fetch` (nativo Node 18+), `fs`, etc.
-6. **Idempotencia**: los eventos pueden llegar duplicados (dedup de 10 min)
+### Patrón B — Completo (con router Express + init)
+
+Un módulo con su propio router, estado, init asíncrono y persistencia. Ideal cuando necesitás API endpoints, UI web y configuración.
+
+```js
+// modules/triggers/mi-modulo/index.js
+const express = require('express')
+const eventBus = require('../../../lib/event-bus')
+const router = express.Router()
+
+// — Rutas API —
+router.get('/api/status', (req, res) => {
+  res.json({ ok: true })
+})
+
+// — Init (se llama desde server.js) —
+function init() {
+  eventBus.on('chat.message.sent', (data) => {
+    // tu lógica
+  })
+  console.log('[MI-MODULO] Inicializado')
+}
+
+module.exports = { router, init }
+```
+
+Luego en `server.js`:
+```js
+const miModulo = require('./modules/triggers/mi-modulo')
+// ...
+app.use('/mi-modulo', miModulo.router)
+miModulo.init()
+```
+
+### Patrón C — Completo + WebSocket
+
+Como el GACHA, que necesita WebSocket para overlays. Misma estructura que el patrón B pero además exporta `initWs(server)`.
+
+```js
+module.exports = { router, init, initWs }
+```
+
+```js
+// En server.js:
+gacha.initWs(server)  // antes de server.listen
+gacha.init().catch(...)
+app.use('/gacha', gacha.router)
+```
+
+### Checklist para agregar un nuevo módulo
+
+- [ ] Crear carpeta en `modules/triggers/`
+- [ ] Si tiene dependencias extra, `npm init` dentro y agregar `package.json`
+- [ ] Escuchar eventos del bus (`chat.message.sent`, `channel.reward.redemption.updated`, etc.)
+- [ ] Si tiene UI web, servir estáticos con `router.use(express.static(...))`
+- [ ] Si expone endpoints, usar un sub-path único (ej: `/mi-modulo/*`)
+- [ ] Exportar `{ router, init }` y enganchar en `server.js` (ver `server.js:96-102`)
+- [ ] NO modificar archivos del core (`lib/`, `modules/auth.js`, etc.) a menos que sea estrictamente necesario
+- [ ] Cada trigger es responsable de su propio try/catch
+- [ ] Los eventos pueden llegar duplicados (dedup window de 10 min) — asegurar idempotencia

@@ -143,6 +143,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <span id="badge-sb" class="badge badge-off">○ SP.BOT</span>
     <span id="badge-gacha" class="badge badge-off">○ GACHA</span>
     <span id="badge-vtuber" class="badge badge-off">○ VTUBER</span>
+    <span id="badge-obs" class="badge badge-off">○ OBS</span>
     <span id="badge-bot" class="badge badge-off">○ BOT</span>
   </div>
   <span id="channel-name" class="channel-name"></span>
@@ -154,6 +155,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="gacha">Gacha</button>
     <button class="tab-btn" data-tab="comandos">Comandos</button>
     <button class="tab-btn" data-tab="vtuber">VTUBER</button>
+    <button class="tab-btn" data-tab="obs">OBS</button>
   </div>
 </header>
 
@@ -477,6 +479,10 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   </div>
 </div>
 
+<div id="tab-obs" class="tab-content hidden" style="flex:1;min-height:0">
+  <iframe src="/obs-actions/" style="width:100%;height:100%;border:none;background:#0d1117;flex:1" title="OBS Actions"></iframe>
+</div>
+
 <div id="tab-vtuber" class="tab-content hidden">
   <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
     <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px">
@@ -542,6 +548,7 @@ function handleEvent(d) {
   if (d._source === 'tts') { handleTtsEvent(d); return }
   if (d._source === 'gacha') { handleGachaEvent(d); return }
   if (d._source === 'vtuber') { handleVtuberEvent(d); return }
+  if (d._source === 'obs') { handleObsEvent(d); return }
   switch (d.type) {
     case 'status':
       updateStatus(d);
@@ -600,6 +607,7 @@ function switchMainTab(tab) {
   if (tab === 'gacha') gachaLoadStats();
   if (tab === 'comandos') gachaLoadCommands();
   if (tab === 'vtuber') vtuberLoadConfig();
+  if (tab === 'obs') obsCheckStatus();
 }
 
 document.getElementById('tab-bar').addEventListener('click', e => {
@@ -616,6 +624,19 @@ function handleVtuberEvent(d) {
       setBadge('badge-vtuber', d.apiKeySet ? 'badge-off' : 'badge-gray', d.apiKeySet ? '○ VTUBER' : '○ VTUBER');
     }
   }
+}
+
+// -- OBS --
+function handleObsEvent(d) {
+  if (d.type === 'obs:status') {
+    setBadge('badge-obs', d.connected ? 'badge-ok' : 'badge-off', d.connected ? '● OBS' : '○ OBS');
+  }
+}
+
+function obsCheckStatus() {
+  fetch('/obs-actions/api/obs/status').then(r => r.json()).then(s => {
+    setBadge('badge-obs', s.connected ? 'badge-ok' : 'badge-off', s.connected ? '● OBS' : '○ OBS');
+  }).catch(() => setBadge('badge-obs', 'badge-off', '○ OBS'));
 }
 
 function handleGachaEvent(d) {
@@ -1445,6 +1466,7 @@ fetch('/api/vtuber/status').then(r => r.json()).then(d => {
   if (d.connected) setBadge('badge-vtuber', 'badge-ok', '● VTUBER');
   else setBadge('badge-vtuber', d.apiKeySet ? 'badge-off' : 'badge-gray', d.apiKeySet ? '○ VTUBER' : '○ VTUBER');
 }).catch(() => setBadge('badge-vtuber', 'badge-gray', '○ VTUBER'));
+obsCheckStatus();
 window.addEventListener('beforeunload', () => {
   fetch('/api/shutdown', { method: 'POST', keepalive: true });
 });

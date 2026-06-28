@@ -36,6 +36,10 @@ If fso.FileExists(fso.BuildPath(scriptDir, ".env")) Then
   Set env = Nothing
 End If
 
+' Liberar puerto 3000 si está ocupado
+shell.Run "cmd /c for /f ""tokens=5"" %a in ('netstat -ano ^| findstr /r "":3000.*LISTENING""') do taskkill /F /PID %a >nul 2>&1", 0, True
+WScript.Sleep 1000
+
 ' Iniciar servidor oculto desde el directorio del script
 shell.Run "cmd /c cd /d """ & scriptDir & """ && node server.js", 0, False
 

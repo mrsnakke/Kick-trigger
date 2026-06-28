@@ -13,6 +13,7 @@ const forwarder = require('./lib/forwarder')
 const ttsTrigger = require('./modules/triggers/tts')
 const gacha = require('./modules/triggers/GACHA')
 const vtuber = require('./modules/triggers/vtuber-ai')
+const obsActions = require('./modules/triggers/obs-actions')
 
 const app = express()
 const server = http.createServer(app)
@@ -95,6 +96,10 @@ app.post('/api/vtuber/test', express.json(), vtuber.handleTest)
 // -- GACHA --
 gacha.initWs(server)
 app.use('/gacha', gacha.router)
+
+// -- OBS-Actions --
+app.use('/obs-actions', obsActions.router)
+obsActions.init()
 
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
