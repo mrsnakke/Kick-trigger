@@ -123,8 +123,8 @@ async function autoFlow() {
     eventBus.emit('auth:ready', { slug: state.channelSlug })
     sse.broadcast({ type: 'auth', status: 'connected', slug: state.channelSlug })
 
-    const tunnel = require('./tunnel')
-    tunnel.startTunnel()
+    // const tunnel = require('./tunnel')
+    // tunnel.startTunnel()
   } catch (err) {
     state.authFailCount++
     console.log('[AUTO]', err.message, `(intento ${state.authFailCount}/3)`)

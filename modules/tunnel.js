@@ -11,9 +11,9 @@ let tunnelIntentionalStop = false
 
 function cfExec(args) {
   return new Promise((resolve, reject) => {
-    if (!fs.existsSync(config.CF_BIN)) return reject('cloudflared no instalado')
+    if (!fs.existsSync(config.CF_BIN)) return reject(new Error('cloudflared no instalado'))
     exec(`"${config.CF_BIN}" ${args}`, (err, stdout) => {
-      if (err) reject(err.message); else resolve(stdout)
+      if (err) reject(err); else resolve(stdout)
     })
   })
 }
@@ -30,7 +30,11 @@ async function findTunnelCredentials() {
       const f = all.find(f => f.startsWith(t.id))
       if (f) return path.join(config.CF_CREDENTIALS_DIR, f)
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[CF] No se pudo listar los túneles para emparejar credenciales:', err.message)
+  }
+  // Al menos advertimos en consola qué credenciales usaremos de respaldo
+  console.warn(`[CF] Usando archivo de credenciales por defecto: ${all[0]}`)
   return path.join(config.CF_CREDENTIALS_DIR, all[0])
 }
 
@@ -49,69 +53,129 @@ async function tunnelAlreadyRunning() {
 }
 
 async function startTunnel() {
-  if (tunnelProcess || state.tunnelUrl) return { url: state.tunnelUrl }
-  if (!config.CF_TUNNEL_NAME || !config.CF_DOMAIN) return { error: 'Falta CF_TUNNEL_NAME o CF_DOMAIN en .env' }
-  if (!fs.existsSync(config.CF_BIN)) return { error: 'cloudflared no instalado' }
-  if (await tunnelAlreadyRunning()) return { url: state.tunnelUrl }
+  return new Promise((resolve, reject) => {
+    if (tunnelProcess || state.tunnelUrl) {
+      resolve({ url: state.tunnelUrl })
+      return
+    }
+    if (!config.CF_TUNNEL_NAME || !config.CF_DOMAIN) {
+      reject(new Error('Falta CF_TUNNEL_NAME o CF_DOMAIN en .env'))
+      return
+    }
+    if (!fs.existsSync(config.CF_BIN)) {
+      reject(new Error('cloudflared no instalado'))
+      return
+    }
+    
+    // Check if tunnel already running
+    tunnelAlreadyRunning()
+      .then(running => {
+        if (running) {
+          resolve({ url: state.tunnelUrl })
+          return
+        }
+        
+        // Continue with tunnel startup
+        findTunnelCredentials()
+          .then(credsFile => {
+            if (!credsFile) {
+              reject(new Error(`No hay credenciales para ${config.CF_TUNNEL_NAME}`))
+              return
+            }
 
-  const credsFile = await findTunnelCredentials()
-  if (!credsFile) return { error: `No hay credenciales para ${config.CF_TUNNEL_NAME}` }
-
-  const yml = `tunnel: ${config.CF_TUNNEL_NAME}
+            const yml = `tunnel: ${config.CF_TUNNEL_NAME}
 credentials-file: ${credsFile.replace(/\\/g, '/')}
 ingress:
   - service: http://localhost:${config.PORT}
 `
-  fs.writeFileSync(config.CF_CONFIG, yml)
+            fs.writeFileSync(config.CF_CONFIG, yml)
 
-  tunnelProcess = spawn(config.CF_BIN, ['tunnel', '--config', config.CF_CONFIG, 'run', config.CF_TUNNEL_NAME], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
-  })
+            tunnelProcess = spawn(config.CF_BIN, ['tunnel', '--config', config.CF_CONFIG, 'run', config.CF_TUNNEL_NAME], {
+              stdio: ['ignore', 'pipe', 'pipe'],
+              windowsHide: true
+            })
 
-  let errLog = ''
-  let connected = false
-  const connectTimeout = setTimeout(() => {
-    if (!connected && tunnelProcess) {
-      console.error('[CF] Timeout — matando proceso')
-      tunnelProcess.kill()
-    }
-  }, 60000)
-  tunnelProcess.stderr.on('data', d => {
-    errLog += d.toString()
-    const line = d.toString().trim()
-    if (line) console.log('[CF]', line)
-    if (!connected && line && (line.includes('Registered') || line.includes('connection') || line.includes('+'))) {
-      clearTimeout(connectTimeout)
-      connected = true
-      state.tunnelUrl = `https://${config.CF_DOMAIN}`
-      eventBus.emit('tunnel:open', { url: state.tunnelUrl })
-      sse.broadcast({ type: 'tunnel', status: 'open', url: state.tunnelUrl })
-    }
-  })
-  tunnelProcess.on('error', err => {
-    clearTimeout(connectTimeout)
-    tunnelProcess = null
-    state.tunnelUrl = null
-    eventBus.emit('tunnel:error', { error: err.message })
-    sse.broadcast({ type: 'tunnel', status: 'closed', error: err.message })
-  })
-  tunnelProcess.on('exit', code => {
-    clearTimeout(connectTimeout)
-    tunnelProcess = null
-    state.tunnelUrl = null
-    const wasIntentional = tunnelIntentionalStop
-    tunnelIntentionalStop = false
-    if (errLog) console.error('[CF] Exit:', code)
-    eventBus.emit('tunnel:closed', { exitCode: code, log: errLog.slice(0, 1000) })
-    sse.broadcast({ type: 'tunnel', status: 'closed', exitCode: code, log: errLog.slice(0, 1000) })
-    if (!wasIntentional && state.tokens) {
-      sse.broadcast({ type: 'subscription', event: 'tunnel', status: 'reconnecting' })
-      setTimeout(startTunnel, 10000)
-    }
-  })
+            let errLog = ''
+            let connected = false
+            
+            const connectTimeout = setTimeout(() => {
+              if (!connected && tunnelProcess) {
+                console.error('[CF] Timeout superado (60s) esperando conexión — deteniendo proceso')
+                tunnelProcess.kill()
+                reject(new Error('Timeout superado (60s) esperando conexión'))
+              }
+            }, 60000)
 
-  return { url: state.tunnelUrl }
+            // Buffer para reconstruir líneas completas de logs
+            let stderrBuffer = ''
+
+            tunnelProcess.stderr.on('data', d => {
+              stderrBuffer += d.toString()
+              const lines = stderrBuffer.split('\n')
+              
+              // El último elemento puede ser una línea incompleta, la dejamos en el buffer
+              stderrBuffer = lines.pop()
+
+              for (let line of lines) {
+                line = line.trim()
+                if (!line) continue
+                
+                console.log('[CF]', line)
+                errLog += line + '\n'
+
+                // Filtros más estrictos para asegurar que realmente se conectó
+                const isRegistered = line.includes('Registered tunnel') || line.includes('Registered connection')
+                const isEstablished = line.includes('Connection') && line.includes('established')
+
+                if (!connected && (isRegistered || isEstablished)) {
+                  clearTimeout(connectTimeout)
+                  connected = true
+                  state.tunnelUrl = `https://${config.CF_DOMAIN}`
+                  eventBus.emit('tunnel:open', { url: state.tunnelUrl })
+                  sse.broadcast({ type: 'tunnel', status: 'open', url: state.tunnelUrl })
+                  resolve({ url: state.tunnelUrl })
+                }
+              }
+            })
+
+            tunnelProcess.on('error', err => {
+              clearTimeout(connectTimeout)
+              tunnelProcess = null
+              state.tunnelUrl = null
+              eventBus.emit('tunnel:error', { error: err.message })
+              sse.broadcast({ type: 'tunnel', status: 'closed', error: err.message })
+              reject(new Error(`Error al iniciar proceso: ${err.message}`))
+            })
+
+            tunnelProcess.on('exit', code => {
+              clearTimeout(connectTimeout)
+              tunnelProcess = null
+              state.tunnelUrl = null
+              const wasIntentional = tunnelIntentionalStop
+              tunnelIntentionalStop = false
+              
+              if (errLog) console.error('[CF] Proceso finalizado con código:', code)
+              
+              eventBus.emit('tunnel:closed', { exitCode: code, log: errLog.slice(0, 1000) })
+              sse.broadcast({ type: 'tunnel', status: 'closed', exitCode: code, log: errLog.slice(0, 1000) })
+              
+              // Asegúrate de validar si la condición 'state.tokens' es realmente necesaria para reintentar
+              if (!wasIntentional) {
+                console.log('[CF] Intento de reconexión programado en 10 segundos...')
+                sse.broadcast({ type: 'subscription', event: 'tunnel', status: 'reconnecting' })
+                setTimeout(() => startTunnel().catch(() => {}), 10000)
+              }
+              
+              // Only reject if we haven't already resolved (connection succeeded)
+              if (!connected) {
+                reject(new Error(`Proceso finalizado con código: ${code}`))
+              }
+            })
+          })
+          .catch(reject)
+      })
+      .catch(reject)
+  })
 }
 
 async function startHandler(req, res) {
@@ -122,8 +186,30 @@ async function startHandler(req, res) {
 
 function stopHandler(_req, res) {
   tunnelIntentionalStop = true
-  if (tunnelProcess) { tunnelProcess.kill(); tunnelProcess = null; state.tunnelUrl = null }
+  if (tunnelProcess) { 
+    tunnelProcess.kill()
+    tunnelProcess = null
+    state.tunnelUrl = null 
+  }
   res.json({ ok: true })
 }
 
-module.exports = { startTunnel, startHandler, stopHandler, getTunnelProcess: () => tunnelProcess, getTunnelIntentionalStop: () => tunnelIntentionalStop, setTunnelIntentionalStop: v => { tunnelIntentionalStop = v } }
+// Asegurar que el subproceso cloudflared muera si la app de Node.js finaliza
+function cleanup() {
+  if (tunnelProcess) {
+    console.log('[CF] Limpieza: Matando proceso huérfano de cloudflared')
+    tunnelProcess.kill('SIGTERM')
+  }
+}
+process.on('exit', cleanup)
+process.on('SIGINT', () => { cleanup(); process.exit() })
+process.on('SIGTERM', () => { cleanup(); process.exit() })
+
+module.exports = { 
+  startTunnel, 
+  startHandler, 
+  stopHandler, 
+  getTunnelProcess: () => tunnelProcess, 
+  getTunnelIntentionalStop: () => tunnelIntentionalStop, 
+  setTunnelIntentionalStop: v => { tunnelIntentionalStop = v } 
+}

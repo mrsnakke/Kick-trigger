@@ -22,6 +22,17 @@ function handle(req, res) {
     channelSlug: state.channelSlug,
     eventsCounter: state.eventsCounter
   })}\n\n`)
+
+  res.write(`data: ${JSON.stringify({
+    type: 'auth',
+    status: state.tokens ? 'connected' : 'disconnected',
+    slug: state.channelSlug
+  })}\n\n`)
+
+  res.write(`data: ${JSON.stringify({
+    type: 'bot-auth',
+    status: state.botTokens ? 'connected' : 'disconnected'
+  })}\n\n`)
   eventBus.emit('tts:request_status')
   req.on('close', () => {
     const i = state.sseClients.indexOf(client)

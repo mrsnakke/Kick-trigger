@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Control</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#111;color:#eee;padding:20px;max-width:600px;margin:0 auto}
+h1{color:#1db954;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.status-dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.status-dot.on{background:#1db954;box-shadow:0 0 8px #1db954}
+.status-dot.off{background:#555}
+.song-card{background:#1a1a2e;border-radius:12px;padding:16px;margin-bottom:20px}
+.song-card h2{font-size:16px;color:#888;margin-bottom:8px}
+.song-card .title{font-size:18px;font-weight:700;color:#fff}
+.song-card .artist{font-size:14px;color:#aaa}
+.song-card .url{font-size:12px;color:#1db954;word-break:break-all;margin-top:4px}
+.empty{color:#666;font-style:italic}
+.section{background:#1a1a2e;border-radius:12px;padding:16px;margin-bottom:12px}
+.section h3{font-size:14px;color:#888;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.section label{font-size:13px;display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #222}
+.section label:last-child{border-bottom:none}
+.section label span{color:#ccc}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#444;border-radius:24px;transition:.3s}
+.slider::before{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.3s}
+.toggle input:checked+.slider{background:#1db954}
+.toggle input:checked+.slider::before{transform:translateX(20px)}
+.cmd-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #222}
+.cmd-row:last-child{border-bottom:none}
+.cmd-row label{flex:1;font-size:13px;color:#ccc;border-bottom:none!important;padding:0!important}
+.cmd-row input[type=text]{background:#222;border:1px solid #333;color:#eee;border-radius:6px;padding:4px 8px;font-size:13px;width:120px;font-family:monospace}
+.cmd-row input[type=text]:focus{outline:none;border-color:#1db954}
+.config-row{display:flex;align-items:center;gap:8px;padding:8px 0}
+.config-row label{flex:1;font-size:13px;color:#ccc}
+.config-row input[type=number]{background:#222;border:1px solid #333;color:#eee;border-radius:6px;padding:4px 8px;font-size:13px;width:80px}
+button{background:#1db954;color:#000;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;width:100%;margin-top:8px}
+button:hover{background:#1ed760}
+.empty-state{text-align:center;padding:40px 20px;color:#666}
+.empty-state .big{font-size:64px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<h1>🎵 Music Control <span id="playerDot" class="status-dot off"></span></h1>
+
+<div class="song-card" id="songCard">
+  <h2>🎧 Reproduciendo ahora</h2>
+  <div id="songContent" class="empty">No hay información de la canción</div>
+</div>
+
+<div class="section">
+  <h3>⚙️ Configuración</h3>
+  <div class="config-row">
+    <label>Puerto del reproductor</label>
+    <input type="number" id="portInput" value="26538" min="1" max="65535">
+  </div>
+  <div class="config-row" style="border-bottom:none">
+    <label>Notificar cambio de canción automáticamente</label>
+    <label class="toggle" style="position:relative">
+      <input type="checkbox" id="autoNotifyToggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🎮 Comandos</h3>
+  <div id="commandsContainer"></div>
+</div>
+
+<button onclick="saveConfig()">💾 Guardar configuración</button>
+
+<script>
+const COMMAND_LABELS = {
+  song: 'Now Playing',
+  addsong: 'Add Song',
+  skip: 'Skip',
+  stop: 'Pause/Resume',
+  volume: 'Volume',
+  like: 'Like'
+}
+
+let currentConfig = null
+let eventSource = null
+
+function connectSSE() {
+  eventSource = new EventSource('/api/events')
+  eventSource.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data)
+      if (msg._source === 'music') handleMusicEvent(msg)
+    } catch {}
+  }
+  eventSource.onerror = () => {}
+}
+
+function handleMusicEvent(msg) {
+  if (msg.type === 'status') {
+    const dot = document.getElementById('playerDot')
+    dot.className = 'status-dot ' + (msg.playerConnected ? 'on' : 'off')
+    const info = msg.currentSong
+    const el = document.getElementById('songContent')
+    if (info && info.title) {
+      el.innerHTML = `<div class="title">${esc(info.title)}</div><div class="artist">${esc(info.artist || 'Artista desconocido')}</div>${info.url ? `<div class="url">🔗 ${esc(info.url)}</div>` : ''}`
+    } else {
+      el.innerHTML = '<span class="empty">No hay información de la canción</span>'
+    }
+  }
+}
+
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+
+async function fetchConfig() {
+  try {
+    const resp = await fetch('/api/music/config')
+    currentConfig = await resp.json()
+    renderConfig(currentConfig)
+  } catch (err) {
+    document.getElementById('commandsContainer').innerHTML = `<div class="empty-state"><div class="big">⚠️</div><p>No se pudo conectar con el módulo Music.</p></div>`
+  }
+}
+
+function renderConfig(config) {
+  document.getElementById('portInput').value = config.port || 26538
+  document.getElementById('autoNotifyToggle').checked = config.autoNotify !== false
+  const container = document.getElementById('commandsContainer')
+  container.innerHTML = ''
+  for (const [key, cmd] of Object.entries(config.commands || {})) {
+    const label = COMMAND_LABELS[key] || key
+    const row = document.createElement('div')
+    row.className = 'cmd-row'
+    row.innerHTML = `
+      <label>${esc(label)}</label>
+      <input type="text" value="${esc(cmd.trigger)}" data-key="${key}" class="trigger-input">
+      <label class="toggle">
+        <input type="checkbox" ${cmd.enabled ? 'checked' : ''} data-key="${key}" class="enabled-input">
+        <span class="slider"></span>
+      </label>
+    `
+    container.appendChild(row)
+  }
+}
+
+async function saveConfig() {
+  const commands = {}
+  document.querySelectorAll('.cmd-row').forEach(row => {
+    const triggerInput = row.querySelector('.trigger-input')
+    const enabledInput = row.querySelector('.enabled-input')
+    const key = triggerInput.dataset.key
+    commands[key] = {
+      trigger: triggerInput.value.trim() || '!' + key,
+      enabled: enabledInput.checked
+    }
+  })
+  const body = {
+    port: parseInt(document.getElementById('portInput').value, 10) || 26538,
+    autoNotify: document.getElementById('autoNotifyToggle').checked,
+    commands
+  }
+  try {
+    const resp = await fetch('/api/music/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    const data = await resp.json()
+    if (data.ok) {
+      showToast('✅ Configuración guardada')
+      currentConfig = data.config
+      renderConfig(data.config)
+    }
+  } catch (err) {
+    showToast('❌ Error al guardar: ' + err.message)
+  }
+}
+
+function showToast(msg) {
+  const old = document.querySelector('.toast')
+  if (old) old.remove()
+  const el = document.createElement('div')
+  el.className = 'toast'
+  el.textContent = msg
+  Object.assign(el.style, {
+    position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+    background: '#1a1a2e', color: '#eee', padding: '12px 24px', borderRadius: '8px',
+    zIndex: 999, fontSize: '14px', border: '1px solid #333'
+  })
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 2000)
+}
+
+connectSSE()
+fetchConfig()
+</script>
+</body>
+</html>

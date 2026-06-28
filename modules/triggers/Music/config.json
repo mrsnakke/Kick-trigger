@@ -1,0 +1,31 @@
+{
+  "PORT": 26538,
+  "POLL_INTERVAL": 3000,
+  "AUTO_NOTIFY": true,
+  "commands": {
+    "song": {
+      "enabled": true,
+      "trigger": "!song"
+    },
+    "addsong": {
+      "enabled": true,
+      "trigger": "!addsong"
+    },
+    "skip": {
+      "enabled": true,
+      "trigger": "!skip"
+    },
+    "stop": {
+      "enabled": true,
+      "trigger": "!stop"
+    },
+    "volume": {
+      "enabled": true,
+      "trigger": "!volume"
+    },
+    "like": {
+      "enabled": true,
+      "trigger": "!like"
+    }
+  }
+}
