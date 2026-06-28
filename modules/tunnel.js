@@ -71,11 +71,18 @@ ingress:
 
   let errLog = ''
   let connected = false
+  const connectTimeout = setTimeout(() => {
+    if (!connected && tunnelProcess) {
+      console.error('[CF] Timeout — matando proceso')
+      tunnelProcess.kill()
+    }
+  }, 60000)
   tunnelProcess.stderr.on('data', d => {
     errLog += d.toString()
     const line = d.toString().trim()
     if (line) console.log('[CF]', line)
     if (!connected && line && (line.includes('Registered') || line.includes('connection') || line.includes('+'))) {
+      clearTimeout(connectTimeout)
       connected = true
       state.tunnelUrl = `https://${config.CF_DOMAIN}`
       eventBus.emit('tunnel:open', { url: state.tunnelUrl })
@@ -83,12 +90,14 @@ ingress:
     }
   })
   tunnelProcess.on('error', err => {
+    clearTimeout(connectTimeout)
     tunnelProcess = null
     state.tunnelUrl = null
     eventBus.emit('tunnel:error', { error: err.message })
     sse.broadcast({ type: 'tunnel', status: 'closed', error: err.message })
   })
   tunnelProcess.on('exit', code => {
+    clearTimeout(connectTimeout)
     tunnelProcess = null
     state.tunnelUrl = null
     const wasIntentional = tunnelIntentionalStop

@@ -5,8 +5,7 @@ const { createDeepSeekClient } = require('./deepseek-client');
 const { logMessage, getConversation } = require('./logger');
 const eventBus = require('../../../lib/event-bus');
 const sse = require('../../sse');
-const state = require('../../../lib/state');
-const auth = require('../../auth');
+const chat = require('../../chat');
 
 const CONFIG_PATH = path.join(__dirname, 'vtuber-data.json');
 const { env } = process;
@@ -38,7 +37,11 @@ function saveConfig() {
 }
 
 function getSystemPrompt() {
-  return loadSystemPrompt().replace('{name}', cfg.VTUBER_NAME);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('es-ES', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
+  return loadSystemPrompt().replace('{name}', cfg.VTUBER_NAME) +
+    `\n\n## Fecha y hora actual\n\nHoy es ${dateStr} y son las ${timeStr} (Pacific Time).`;
 }
 
 function emitStatus() {
@@ -69,28 +72,14 @@ function init() {
 }
 
 async function sendChatMessage(content) {
-  if (!state.tokens) return false;
   try {
-    await auth.ensureValidToken();
-    if (!state.broadcasterUserId) await auth.fetchChannelInfo();
-    const body = { broadcaster_user_id: state.broadcasterUserId, content, type: 'user' };
-    const resp = await fetch('https://api.kick.com/public/v1/chat', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${state.tokens.access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    const data = await resp.json();
-    if (data.data?.is_sent) {
-      eventBus.emit('chat:sent', { content, message_id: data.data.message_id });
-      sse.broadcast({ type: 'sent', content, message_id: data.data.message_id });
-    }
-    return data.data?.is_sent || false;
+    const data = await chat.sendAsBot(content)
+    if (data.data?.is_sent) return true
+    console.error('[VTUBER-AI] Kick API rechazó el mensaje:', JSON.stringify(data))
+    return false
   } catch (err) {
-    console.error('[VTUBER-AI] Error enviando chat:', err.message);
-    return false;
+    console.error('[VTUBER-AI] Error enviando chat:', err.message)
+    return false
   }
 }
 
@@ -126,7 +115,13 @@ async function processMessage(username, content) {
 
     await logMessage({ username, role: 'assistant', content: result.text });
 
-    const chatSent = await sendChatMessage('!sp ' + result.text);
+    const prefix = '!sp '
+    const maxLen = 500 - prefix.length
+    const text = result.text.length > maxLen
+      ? result.text.slice(0, maxLen - 3) + '...'
+      : result.text
+    if (text !== result.text) console.warn(`[VTUBER-AI] Respuesta truncada de ${result.text.length} a ${text.length} caracteres`)
+    const chatSent = await sendChatMessage(prefix + text);
     console.log(`[VTUBER-AI] Chat ${chatSent ? 'enviado ✅' : 'falló ❌'}`);
 
     return { ok: true, text: result.text, usage: result.usage, chatSent };

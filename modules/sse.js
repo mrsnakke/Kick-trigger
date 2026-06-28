@@ -17,6 +17,7 @@ function handle(req, res) {
   res.write(`data: ${JSON.stringify({
     type: 'status',
     authenticated: !!state.tokens,
+    botAuthenticated: !!state.botTokens,
     tunnelUrl: state.tunnelUrl,
     channelSlug: state.channelSlug,
     eventsCounter: state.eventsCounter
