@@ -39,6 +39,9 @@ async function uploadImageToGitHub(filename, imageBuffer, rarity) {
     }
 
     const data = await res.json();
+    if (!data?.content?.download_url) {
+        return `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${pathInRepo}`;
+    }
     return data.content.download_url;
 }
 

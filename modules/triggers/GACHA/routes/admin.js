@@ -226,6 +226,21 @@ router.delete('/seasonal-characters-config/remove-character/:name', async (req, 
   res.json({ message: `'${name}' removed from seasonal.` })
 })
 
+router.put('/seasonal-characters-config/update-stock', async (req, res) => {
+  const { name, stock } = req.body
+  if (!name || stock === undefined) return res.status(400).json({ error: 'name and stock required' })
+  const sc = store.state.seasonalCharactersConfig.characters
+  const idx = sc.findIndex(c => c.name === name)
+  if (idx === -1) return res.status(404).json({ error: 'Not in seasonal' })
+  sc[idx].stock = parseInt(stock)
+  if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
+  store.state.gachaConfig.character_stocks[name] = parseInt(stock)
+  if (store.state.characterData[name]) store.state.characterData[name].stock = parseInt(stock)
+  await store.saveSeasonalChars()
+  await store.saveGachaConfig()
+  res.json({ message: `Stock de '${name}' actualizado a ${stock}.` })
+})
+
 // ─── user keys ───
 
 router.get('/user-keys', (req, res) => {
@@ -239,9 +254,10 @@ router.get('/user-keys', (req, res) => {
 router.post('/user-keys/add', async (req, res) => {
   const { username, keys } = req.body
   if (!username || keys === undefined || isNaN(keys) || keys <= 0) return res.status(400).json({ error: 'Invalid input' })
-  const u = store.getUser(username)
+  const entry = Object.entries(store.state.inventories).find(([id, u]) => u.userName?.toLowerCase() === username.toLowerCase())
+  if (!entry) return res.status(404).json({ error: 'Usuario no encontrado en inventario.' })
+  const [userId, u] = entry
   u.keys = (u.keys || 0) + parseInt(keys)
-  u.userName = username
   await store.saveInventories()
   res.json({ message: `Added ${keys} keys to ${username}. Total: ${u.keys}` })
 })

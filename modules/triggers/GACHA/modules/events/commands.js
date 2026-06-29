@@ -84,9 +84,9 @@ async function handleRedemption(payload, userId, userName, rewardTitle) {
     },
   })
 
-  const fives = characters.filter(c => c.rarity === '5_star')
-  if (fives.length > 0) {
-    reply(`🎉 @${userName} tiró un personaje 5⭐: ${fives.map(c => c.name).join(', ')}!`)
+  const high = characters.filter(c => c.rarity === '5_star' || c.rarity === '6_star')
+  if (high.length > 0) {
+    reply(`🎉 @${userName} tiró ${high.length} 5⭐/6⭐: ${high.map(c => `${c.name} (${c.rarity.replace('_star', '⭐')})`).join(', ')}!`)
   }
 }
 
@@ -126,9 +126,12 @@ bus.on('chat.message.sent', async (data) => {
       }
 
       case 'inventario':
-      case 'inventory': {
-        const text = inventory.getInventoryText(userId)
-        reply(`@${userName} ${text}`)
+      case 'inventory':
+      case 'inv': {
+        const texts = inventory.getInventoryText(userId)
+        for (const text of texts) {
+          reply(`@${userName} ${text}`)
+        }
         break
       }
 
@@ -137,10 +140,14 @@ bus.on('chat.message.sent', async (data) => {
           .sort((a, b) => (b[1].total_pulls || 0) - (a[1].total_pulls || 0))
           .slice(0, 3)
         if (sorted.length === 0) { reply(`@${userName} no hay tiradas aún.`); break }
-        const lines = sorted.map(([id, u], i) => `${i + 1}. ${u.userName || id} - ${u.total_pulls || 0} tiradas`)
+
+        const medals = ['🥇', '🥈', '🥉']
+        const lines = sorted.map(([id, u], i) => `${medals[i]} ${u.userName || id}: ${u.total_pulls || 0} tiradas`)
+
         const myRank = sorted.findIndex(([id]) => id === userId)
-        const rankStr = myRank !== -1 ? ` | Tu puesto: #${myRank + 1}` : ''
-        reply(`@${userName} 🏆 Top Coleccionistas: ${lines.join(' | ')}${rankStr}`)
+        const rankStr = myRank !== -1 ? ` ｜ Tu puesto: #${myRank + 1}` : ''
+
+        reply(`@${userName} 🏆 Top Coleccionistas ｜ ${lines.join('  •  ')}${rankStr}`)
         break
       }
 
@@ -153,15 +160,15 @@ bus.on('chat.message.sent', async (data) => {
         if (!c) { reply(`@${userName} error al realizar la tirada.`); break }
         await inventory.addCharacters(userId, [c], userName)
         broadcast({ event: 'gacha_wish', data: { pull_type: 'single', userId, userName, character: c } })
-        if (c.rarity === '5_star') {
-          reply(`🎉 @${userName} tiró ${c.name} (5⭐)!`)
+        if (c.rarity === '5_star' || c.rarity === '6_star') {
+          reply(`🎉 @${userName} tiró ${c.name} (${c.rarity.replace('_star', '⭐')})!`)
         } else {
           reply(`@${userName} obtuviste ${c.name} (${c.rarity.replace('_star', '⭐')})`)
         }
         break
       }
 
-      case 'multi':
+case 'multi':
       case 'x10': {
         if (inventory.getKeys(userId) < 10) { reply(`@${userName} necesitas 10 🔑 llaves para multi-tirada.`); break }
         await inventory.spendKeys(userId, 10)
@@ -169,9 +176,9 @@ bus.on('chat.message.sent', async (data) => {
         if (chars.length === 0) { reply(`@${userName} error al realizar la tirada.`); break }
         await inventory.addCharacters(userId, chars, userName)
         broadcast({ event: 'gacha_wish', data: { pull_type: 'multi', userId, userName, characters: chars } })
-        const fives = chars.filter(x => x.rarity === '5_star')
-        const msg = fives.length > 0
-          ? `🎉 @${userName} multi-tirada! Obtuviste ${fives.length} 5⭐: ${fives.map(x => x.name).join(', ')}`
+        const high = chars.filter(x => x.rarity === '5_star' || x.rarity === '6_star')
+        const msg = high.length > 0
+          ? `🎉 @${userName} multi-tirada! Obtuviste ${high.length} 5⭐/6⭐: ${high.map(x => `${x.name} (${x.rarity.replace('_star', '⭐')})`).join(', ')}`
           : `@${userName} multi-tirada completada. Revisa !inventario`
         reply(msg)
         break
@@ -409,6 +416,89 @@ bus.on('chat.message.sent', async (data) => {
         if (!isMod(sender)) { reply(`@${userName} solo moderadores.`); break }
         if (!args.trim()) { reply(`@${userName} uso: !announce <mensaje>`); break }
         reply(args.trim())
+        break
+      }
+
+      case 'pj': {
+        const charName = args.trim()
+        if (!charName) { reply(`@${userName} uso: !pj <personaje>`); break }
+        const norm = charName.toLowerCase()
+        const cKey = Object.keys(store.state.characterData).find(k => k.toLowerCase() === norm)
+        if (!cKey) { reply(`@${userName} personaje "${charName}" no encontrado.`); break }
+        const c = store.state.characterData[cKey]
+        const inv = store.state.inventories
+        let totalInInventories = 0
+        let userOwnsCharacter = false
+        const owners = []
+        for (const [uid, uinv] of Object.entries(inv)) {
+          let count = 0
+          for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+            if (uinv[r]) count += uinv[r].filter(n => n.toLowerCase() === norm).length
+          }
+          if (count > 0) {
+            totalInInventories += count
+            const ownerName = (uinv.userName && uinv.userName !== '%user%') ? uinv.userName : uid
+            owners.push({ userName: ownerName, count })
+            if (uid === userId) userOwnsCharacter = true
+          }
+        }
+        broadcast({
+          type: 'showCharacter',
+          data: {
+            character: {
+              name: c.name || cKey,
+              image: store.normalizeImageUrl(c.image_url),
+              quality: typeof c.rarity === 'string' ? parseInt(c.rarity.match(/^(\d+)/)?.[1] || '0') : (c.rarity || 0),
+              description: c.description || '',
+            },
+            userOwnsCharacter,
+            totalInInventories,
+            owners,
+          },
+        })
+        reply(`@${userName} mostrando carta de ${c.name || cKey} en overlay.`)
+        break
+      }
+
+      case 'sinv': {
+        const u = store.state.inventories[userId]
+        if (!u) { reply(`@${userName} no tienes inventario aún.`); break }
+        const pity = u.pity || { '4_star': 0, '5_star': 0 }
+        const hp = store.state.pityData.pity_thresholds?.['5_star']?.hard_pity || 90
+        const pullsLeft = hp - pity['5_star']
+        const owned = []
+        const ownedSet = new Set()
+        for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+          if (u[r]) {
+            for (const n of u[r]) {
+              if (!ownedSet.has(n)) { ownedSet.add(n); owned.push(n) }
+            }
+          }
+        }
+        const missing = Object.keys(store.state.characterData)
+          .filter(k => !ownedSet.has(k))
+          .sort()
+        broadcast({
+          type: 'showInventory',
+          data: {
+            userName,
+            keys: u.keys || 0,
+            totalPulls: u.total_pulls || 0,
+            pity4: pity['4_star'],
+            pity5: pity['5_star'],
+            hardPity: hp,
+            pullsLeft,
+            owned: owned.sort(),
+            missing,
+            charCounts: {
+              '3_star': (u['3_star'] || []).length,
+              '4_star': (u['4_star'] || []).length,
+              '5_star': (u['5_star'] || []).length,
+              '6_star': (u['6_star'] || []).length,
+            },
+          },
+        })
+        reply(`@${userName} mostrando inventario en overlay.`)
         break
       }
 
