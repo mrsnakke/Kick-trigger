@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const message = JSON.parse(event.data);
             if (message.type === 'showCharacter') {
                 displayCharacterData(message.data);
+            } else if (message.type === 'showInventory') {
+                displayInventoryData(message.data);
             }
         };
 
@@ -136,6 +138,75 @@ document.addEventListener('DOMContentLoaded', () => {
             cardFlipper.classList.add('animate-fly-flip-out');
 
             // Ocultar completamente después de la animación de salida
+            setTimeout(() => {
+                cardContainer.classList.add('hidden');
+            }, ANIMATION_DURATION_MS);
+        }, displayDuration);
+    }
+
+    function displayInventoryData(data) {
+        if (!data) return;
+        if (hideTimeout) clearTimeout(hideTimeout);
+        if (paginationInterval) clearInterval(paginationInterval);
+        currentPage = 0;
+
+        const lines = [];
+        lines.push(`🔑 Keys: ${data.keys}`);
+        lines.push(`📊 Tiradas: ${data.totalPulls}`);
+        lines.push(`🎯 Pity 4★: ${data.pity4} | 5★: ${data.pity5}/${data.hardPity} (${data.pullsLeft} falta)`);
+        lines.push(`📦 3★: ${data.charCounts['3_star']} | 4★: ${data.charCounts['4_star']} | 5★: ${data.charCounts['5_star']} | 6★: ${data.charCounts['6_star']}`);
+
+        charNameElem.textContent = `INVENTARIO — ${data.userName.toUpperCase()}`;
+        charImageElem.src = '';
+        charImageElem.alt = 'Inventory';
+        charStarsElem.innerHTML = '';
+
+        userOwnsCharStatusElem.classList.remove('owns-character', 'not-owns-character');
+        userOwnsCharStatusElem.className = 'my-3 px-4 py-2 bg-black/40 rounded-lg border text-center';
+        userOwnsCharTextElem.innerHTML = lines.join('<br>');
+        userOwnsCharTextElem.className = 'text-sm font-mono leading-relaxed';
+
+        totalInInventoriesElem.textContent = `${data.owned.length} obtenidos / ${data.missing.length + data.owned.length} total`;
+
+        currentOwnerNames = [];
+        if (data.owned.length > 0) {
+            const withStars = data.owned.map(n => {
+                const c = data.charCounts;
+                return n;
+            });
+            currentOwnerNames = withStars;
+        }
+        if (data.missing.length > 0) {
+            currentOwnerNames.push('── Faltantes ──');
+            currentOwnerNames.push(...data.missing.slice(0, 50));
+            if (data.missing.length > 50) currentOwnerNames.push(`... y ${data.missing.length - 50} más`);
+        }
+
+        cardContainer.classList.remove('hidden');
+        overlay.classList.add('opacity-100');
+        cardFlipper.classList.remove('animate-fly-flip-out', 'float-animation');
+        cardFlipper.classList.add('animate-fly-flip-in');
+
+        setTimeout(() => {
+            cardFlipper.classList.add('float-animation');
+        }, ANIMATION_DURATION_MS);
+
+        setTimeout(() => {
+            updateOwnersList();
+            const totalPages = currentOwnerNames.length > 0 ? Math.ceil(currentOwnerNames.length / NAMES_PER_PAGE) : 1;
+            if (totalPages > 1) {
+                paginationInterval = setInterval(() => {
+                    currentPage = (currentPage + 1) % totalPages;
+                    updateOwnersList();
+                }, PAGE_DURATION_MS);
+            }
+        }, ANIMATION_DURATION_MS);
+
+        const displayDuration = ANIMATION_DURATION_MS + (Math.max(1, Math.ceil(currentOwnerNames.length / NAMES_PER_PAGE)) * PAGE_DURATION_MS) + ANIMATION_DURATION_MS;
+        hideTimeout = setTimeout(() => {
+            overlay.classList.remove('opacity-100');
+            cardFlipper.classList.remove('animate-fly-flip-in', 'float-animation');
+            cardFlipper.classList.add('animate-fly-flip-out');
             setTimeout(() => {
                 cardContainer.classList.add('hidden');
             }, ANIMATION_DURATION_MS);

@@ -453,6 +453,20 @@ async function removeSeasonalCharacter(name) {
   } catch (err) { toast(err.message, 'error') }
 }
 
+async function saveSeasonalCharacterStock(name) {
+  const card = seasonalList.querySelector(`[data-name="${name}"]`)?.closest('.card')
+  if (!card) return
+  const input = card.querySelector('.seasonal-stock-input')
+  const stock = parseInt(input.value)
+  if (isNaN(stock) || stock < 0) { toast('Stock inválido.', 'error'); return }
+  try {
+    const r = await api('/gacha/admin/seasonal-characters-config/update-stock', { method: 'PUT', body: JSON.stringify({ name, stock }) })
+    toast(r.message, 'success')
+    loadSeasonalConfig()
+    loadCharacters()
+  } catch (err) { toast(err.message, 'error') }
+}
+
 function renderSeasonalCharacters(chars) {
   seasonalList.innerHTML = ''
   if (!chars || chars.length === 0) {
@@ -464,12 +478,20 @@ function renderSeasonalCharacters(chars) {
     card.className = 'card'
     card.innerHTML = `
       ${c.image_url ? `<img src="${c.image_url}" alt="">` : ''}
-      <div class="card-body"><h4>${c.name}</h4><p>Stock: ${c.stock}</p></div>
+      <div class="card-body">
+        <h4>${c.name}</h4>
+        <div class="stock-edit">
+          <label>Stock:</label>
+          <input type="number" class="seasonal-stock-input" value="${c.stock}" min="0" data-name="${c.name}">
+          <button class="btn btn-sm btn-primary btn-save-seasonal-stock" data-name="${c.name}">Guardar</button>
+        </div>
+      </div>
       <button class="btn btn-sm btn-danger btn-remove-seasonal" data-name="${c.name}">✕</button>
     `
     seasonalList.appendChild(card)
   })
   seasonalList.querySelectorAll('.btn-remove-seasonal').forEach(b => b.addEventListener('click', () => removeSeasonalCharacter(b.dataset.name)))
+  seasonalList.querySelectorAll('.btn-save-seasonal-stock').forEach(b => b.addEventListener('click', () => saveSeasonalCharacterStock(b.dataset.name)))
 }
 
 /* ─── Keys ─── */

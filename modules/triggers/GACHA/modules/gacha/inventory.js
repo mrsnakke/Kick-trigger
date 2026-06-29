@@ -52,23 +52,18 @@ async function spendKeys(userId, amount) {
 
 function getInventoryText(userId) {
   const u = store.state.inventories[userId]
-  if (!u) return 'No tienes personajes aún.'
-  const chars = []
-  for (const r of ['6_star', '5_star', '4_star', '3_star']) {
-    if (u[r] && u[r].length > 0) {
-      const label = r.replace('_star', '⭐')
-      chars.push(`${label}: ${u[r].join(', ')}`)
-    }
-  }
+  if (!u) return ['No tienes personajes aún.']
+
+  const keys = u.keys || 0
+  const totalPulls = u.total_pulls || 0
   const pity = u.pity || { '4_star': 0, '5_star': 0 }
-  const hp = store.state.pityData.pity_thresholds['5_star'].hard_pity
-  const pullsLeft = hp - pity['5_star']
+  const fourStars = (u['4_star'] || []).length
+  const fiveStars = (u['5_star'] || []).length
+  const sixStars = (u['6_star'] || []).length
+
   return [
-    `🔑 Keys: ${u.keys || 0}`,
-    `📊 Tiradas totales: ${u.total_pulls || 0}`,
-    `🎯 Pity 5⭐: ${pity['5_star']}/${hp} (${pullsLeft} hasta garantía)`,
-    ...chars,
-  ].join(' | ')
+    `🔑 Keys: ${keys}  ｜  📊 Tiradas: ${totalPulls}  ｜  🎯 Pity: ${pity['5_star']}/90 (Faltan ${90 - pity['5_star']})  ｜  🟣 4⭐: ${fourStars}  🟡 5⭐: ${fiveStars}  🔴 6⭐: ${sixStars}`
+  ]
 }
 
 module.exports = { ensureUser, addCharacters, getKeys, addKeys, spendKeys, getInventoryText }

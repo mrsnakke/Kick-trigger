@@ -420,6 +420,9 @@ tr:hover td { background: var(--cyan-glass) }
 .card-body { flex: 1; min-width: 0 }
 .card-body h4 { margin: 0 0 2px; font-size: 0.9rem; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .card-body p { margin: 0; font-size: 0.8rem; color: var(--text-muted) }
+.stock-edit { display: flex; align-items: center; gap: 6px; margin-top: 4px }
+.stock-edit label { font-size: 0.8rem; color: var(--text-muted) }
+.stock-edit input { width: 56px; padding: 2px 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); text-align: center; font-size: 0.8rem }
 
 /* ─── Empty State ─── */
 .empty-state {

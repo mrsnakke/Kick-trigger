@@ -181,6 +181,38 @@ Configurá `FORWARD_URL_*` en `.env`. Cada evento Kick válido se reenvía como 
 - Console TTS con logs en tiempo real
 - Shutdown al cerrar la pestaña
 
+## Overlays en otra PC (Stream PC)
+
+El módulo GACHA sirve sus archivos estáticos (HTML, CSS, JS, audio, imágenes) bajo `/gacha/`. Para usar los overlays en una segunda PC (ej. la de streaming):
+
+1. **Acceso de red**  
+   - Asegúrate de que el firewall de Windows en la PC del backend (ej. `192.168.50.254`) permita entrada en el puerto `3000` (TCP).  
+   - Ambas PCs deben estar en la misma LAN.
+
+2. **Abrir los overlays en la PC de stream**  
+   - En el navegador (o como *Browser Source* en OBS) abre:  
+     ```
+     http://192.168.50.254:3000/gacha/view.html   # vista de personaje (single pull)
+     http://192.168.50.254:3000/gacha/index.html  # animación de gacha (multi, gashapon, etc.)
+     ```
+   - Los archivos de audio (`/gacha/sounds/...`), CSS y JS se cargan con rutas relativas, así que funcionan directo.
+
+3. **WebSocket**  
+   - Los overlays usan `ws://<host>/ws/gacha` (construido con `window.location.host`). Al abrir la URL de arriba, el WebSocket conecta automáticamente al backend.
+
+4. **Si necesitas servir los archivos localmente en la PC de stream** (latencia mínima)  
+   - Copia la carpeta `modules/triggers/GACHA/web` a la PC de stream.  
+   - Sirve con cualquier servidor estático:  
+     ```bash
+     npx serve web -p 4000
+     # o: python -m http.server 4000
+     ```
+   - Edita `web/js/view.js` y `web/js/websocket.js`: cambia la URL del WebSocket a la IP fija del backend:  
+     ```js
+     const WS_ADDRESS = 'ws://192.168.50.254:3000/ws/gacha';
+     ```
+   - Abre `http://localhost:4000/view.html` y `index.html` en OBS.
+
 ## Estado compartido (`lib/state.js`)
 
 | Propiedad | Tipo | Descripción |
@@ -235,41 +267,53 @@ Los rewards se crean desde el dashboard de Kick (no via API pública):
 
 Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. El backend lo recibe, lo valida y lo emite al event bus. Los módulos escuchan este evento y filtran por comandos (mensajes que empiezan con `!`).
 
-### Lo que ya está configurado
+### Lista completa de comandos
 
-1. **Suscripción**: `chat.message.sent` — ya suscrito en `events.js`
-2. **Manejo del evento**: cualquier módulo puede escuchar `chat.message.sent` en el event bus
-3. **Enviar mensajes al chat**: usá `chat.send(content)` o `chat.sendAsBot(content, replyTo?)` desde cualquier módulo
-
-### Cómo escuchar comandos en tu módulo
-
-```js
-const eventBus = require('../../../lib/event-bus')
-
-eventBus.on('chat.message.sent', (data) => {
-  const msg = (data.payload.content || '').trim()
-  const user = data.payload.sender?.username
-
-  if (!msg.startsWith('!')) return
-
-  const parts = msg.slice(1).split(/\s+/)
-  const command = parts[0].toLowerCase()
-  const args = parts.slice(1)
-
-  switch (command) {
-    case 'hola':
-      console.log(`${user} saludó!`)
-      break
-    case 'ping':
-      // chat.send('pong!')  — requiere auth.ensureValidToken()
-      break
-  }
-})
-```
+| Módulo | Comando | Descripción | Permiso |
+|---|---|---|---|
+| **TTS** | `!sp &lt;texto&gt;` | Reproduce texto con la voz principal por Speaker.bot | User |
+| | `!sp &lt;alias&gt; &lt;texto&gt;` | Reproduce con la voz del alias (ej: `!sp ava hola`) | User |
+| | `!&lt;nombre_voz&gt;` | Asigna permanentemente esa voz al usuario (ej: `!ava`) | User |
+| | `!bonk` | Lanza un bonk al streamer | User |
+| | `!bonks` | Lanza ráfaga de bonks | User |
+| **VTuber AI** | `!grim &lt;pregunta&gt;` | Grim responde con IA en chat y voz | User |
+| **Gacha** | `!daily` | Reclama 10 llaves diarias | User |
+| | `!pull` / `!single` / `!tirada` | Gasta 1 llave para tirar un personaje | User |
+| | `!multi` / `!x10` | Gasta 10 llaves para 10 tiradas | User |
+| | `!inventario` / `!inventory` / `!inv` | Muestra llaves, tiradas, pity y personajes en el chat | User |
+| | `!Sinv` | Muestra inventario como tarjeta en el overlay (view.html) | User |
+| | `!pj &lt;personaje&gt;` | Muestra la carta del personaje en el overlay (view.html) | User |
+| | `!top` | Top 3 coleccionistas con más tiradas | User |
+| | `!trade &lt;tu_pj&gt; por &lt;su_pj&gt; @usuario` | Crea intercambio de 5★ | User |
+| | `!aceptar_trade` / `!accept_trade &lt;ID&gt;` | Acepta un trade | User |
+| | `!rechazar_trade` / `!reject_trade &lt;ID&gt;` | Cancela/rechaza un trade | User |
+| | `!keys @usuario &lt;cantidad&gt;` | Añade llaves a un usuario | Mod |
+| | `!givechar @usuario &lt;personaje&gt;` | Entrega personaje al inventario | Mod |
+| | `!takechar @usuario &lt;personaje&gt;` | Quita personaje del inventario | Mod |
+| | `!resetpity [@usuario] [4\|5]` | Resetea pity 4★ y/o 5★ | Mod |
+| | `!setprob &lt;rareza&gt; &lt;valor&gt;` | Ajusta probabilidad (ej: `5_star 0.006`) | Mod |
+| | `!setstock &lt;personaje&gt; &lt;stock&gt;` | Cambia stock de personaje 5★/6★ | Mod |
+| | `!banner &lt;standard\|seasonal&gt;` | Lista personajes del banner | Mod |
+| | `!seasonal add &lt;pj&gt; &lt;stock&gt;` | Añade personaje al banner seasonal | Mod |
+| | `!seasonal remove &lt;pj&gt;` | Quita personaje del banner seasonal | Mod |
+| | `!reload` | Recarga datos desde JSON | Mod |
+| | `!cleardata confirm` | BORRA todos los datos | Mod |
+| | `!gachaconfig` | Muestra probabilidades actuales | Mod |
+| | `!charinfo &lt;personaje&gt;` | Info del personaje (rareza, banner, stock) | Mod |
+| | `!announce &lt;mensaje&gt;` | Envía mensaje al chat como bot | Mod |
+| **Music** | `!song` | Muestra la canción actual | User |
+| | `!addsong &lt;nombre/URL&gt;` | Añade canción a la cola | User |
+| | `!skip` | Salta a la siguiente canción | User |
+| | `!stop` | Pausa/reanuda la reproducción | User |
+| | `!volume &lt;0-100&gt;` | Ajusta el volumen | User |
+| | `!like` | Da like a la canción actual | User |
+| **OBS-Actions** | Comandos dinámicos configurables desde el dashboard | — | Mod |
 
 ### Embeber comandos en el dashboard
 
-Si tu módulo tiene comandos de chat, podés exponerlos vía un endpoint `GET /api/commands` para que el dashboard los muestre. Ver `modules/triggers/GACHA/index.js:54` como ejemplo.
+Cada módulo expone sus comandos vía un endpoint `GET /api/commands` para que el dashboard los muestre en la pestaña **Comandos**. Ver `modules/triggers/GACHA/index.js:54` como ejemplo.
+
+> ⚠ **Importante**: Al añadir un nuevo comando en cualquier módulo, debe agregarse al endpoint `GET /api/commands` de ese módulo **y** también a la pestaña Comandos del dashboard (`public/index.html#tab-comandos`), ya sea hardcoded (TTS, VTuber, Music) o dinámico (Gacha).
 
 ---
 
