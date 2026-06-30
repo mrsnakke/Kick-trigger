@@ -120,17 +120,16 @@ async function autoFlow() {
     await ensureValidToken()
     saveTokens()
     await fetchChannelInfo()
+    state.authFailCount = 0
+    console.log('[AUTO] OK — canal:', state.channelSlug || 'desconocido')
     eventBus.emit('auth:ready', { slug: state.channelSlug })
     sse.broadcast({ type: 'auth', status: 'connected', slug: state.channelSlug })
-
-    // const tunnel = require('./tunnel')
-    // tunnel.startTunnel()
   } catch (err) {
     state.authFailCount++
     console.log('[AUTO]', err.message, `(intento ${state.authFailCount}/3)`)
     if (state.authFailCount >= 3) {
       state.tokens = null
-      try { fs.unlinkSync(config.TOKENS_PATH) } catch {}
+      // ponytail: no borramos el archivo, así un reinicio del server recupera si Kick fue un outage temporal
       eventBus.emit('auth:disconnected')
       sse.broadcast({ type: 'auth', status: 'disconnected' })
     }
@@ -142,6 +141,7 @@ async function botAutoFlow() {
   try {
     await ensureValidBotToken()
     saveBotTokens()
+    state.botAuthFailCount = 0
     console.log('[BOT AUTO] Bot autenticado')
     sse.broadcast({ type: 'bot-auth', status: 'connected' })
   } catch (err) {
@@ -149,7 +149,7 @@ async function botAutoFlow() {
     console.log('[BOT AUTO]', err.message, `(intento ${state.botAuthFailCount}/3)`)
     if (state.botAuthFailCount >= 3) {
       state.botTokens = null
-      try { fs.unlinkSync(config.BOT_TOKENS_PATH) } catch {}
+      // ponytail: mantener archivo, recuperable al reiniciar
     }
   }
 }
