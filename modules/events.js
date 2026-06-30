@@ -84,6 +84,21 @@ async function subscribeHandler(req, res) {
   res.json({ ok: allOk, results })
 }
 
-eventBus.on('tunnel:open', () => setTimeout(subscribeToEvents, 5000))
+async function subscribeWithRetry(maxRetries = 6, delay = 10000) {
+  for (let i = 0; i < maxRetries; i++) {
+    const results = await subscribeToEvents()
+    if (results.every(r => r.ok)) {
+      console.log(`[SUB] Suscripciones exitosas en intento ${i + 1}`)
+      return results
+    }
+    if (i < maxRetries - 1) {
+      console.warn(`[SUB] Intento ${i + 1}/${maxRetries} falló, reintentando en ${delay / 1000}s...`)
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+  console.error('[SUB] Fallaron todas las suscripciones después de', maxRetries, 'intentos')
+}
+
+eventBus.on('tunnel:open', () => subscribeWithRetry())
 
 module.exports = { listSubscriptions, subscribeToEvents, listHandler, subscribeHandler }

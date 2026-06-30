@@ -17,7 +17,7 @@ const DEFAULTS = {
   AUTO_NOTIFY: true,
   commands: {
     song: { enabled: true, trigger: '!song' },
-    addsong: { enabled: true, trigger: '!addsong' },
+    addsong: { enabled: true, trigger: ['!addsong', '!sr'] },
     skip: { enabled: true, trigger: '!skip' },
     stop: { enabled: true, trigger: '!stop' },
     volume: { enabled: true, trigger: '!volume' },
@@ -123,8 +123,11 @@ function getCommandConfig(name) { return cfg.commands[name] }
 function matchCommand(msg, name) {
   const cc = getCommandConfig(name)
   if (!cc || !cc.enabled) return null
-  if (!msg.startsWith(cc.trigger)) return null
-  return msg.slice(cc.trigger.length).trim()
+  const triggers = Array.isArray(cc.trigger) ? cc.trigger : [cc.trigger]
+  for (const t of triggers) {
+    if (msg.startsWith(t)) return msg.slice(t.length).trim()
+  }
+  return null
 }
 
 async function handleSong(data) {
@@ -143,7 +146,7 @@ async function handleSong(data) {
 }
 
 async function handleAddSong(data, args) {
-  if (!args) return sendToChat(`Uso: ${cfg.commands.addsong.trigger} <nombre o URL de YouTube>`)
+  if (!args) return sendToChat(`Uso: ${Array.isArray(cfg.commands.addsong.trigger) ? cfg.commands.addsong.trigger[0] : cfg.commands.addsong.trigger} <nombre o URL de YouTube>`)
   try {
     let videoId = client.videoIdFromUrl(args)
     if (!videoId) {
@@ -183,22 +186,32 @@ async function handleLike() {
 }
 
 function onChatMessage(data) {
-  const content = (data.payload?.content || '').trim()
-  if (!content.startsWith('!')) return
-  const user = data.payload?.sender?.username
-  const cmd = content.split(/\s+/)[0].toLowerCase()
+  try {
+    const content = (data.payload?.content || '').trim()
+    if (!content.startsWith('!')) return
+    const cmd = content.split(/\s+/)[0].toLowerCase()
 
-  const match = (name) => {
-    const cc = getCommandConfig(name)
-    return cc && cc.enabled && cmd === cc.trigger.toLowerCase() ? content.slice(cc.trigger.length).trim() : null
+    const match = (name) => {
+      const cc = getCommandConfig(name)
+      if (!cc || !cc.enabled) return null
+      const triggers = Array.isArray(cc.trigger) ? cc.trigger : [cc.trigger]
+      for (const t of triggers) {
+        if (cmd === t.toLowerCase()) return content.slice(t.length).trim()
+      }
+      return null
+    }
+
+    const run = (fn) => fn().catch(err => console.error('[MUSIC] command error:', err))
+
+    if (match('song') !== null) run(() => handleSong(data))
+    if (match('skip') !== null) run(() => handleSkip())
+    if (match('stop') !== null) run(() => handleStop())
+    const addArg = match('addsong'); if (addArg !== null) run(() => handleAddSong(data, addArg))
+    const volArg = match('volume'); if (volArg !== null) run(() => handleVolume(volArg))
+    if (match('like') !== null) run(() => handleLike())
+  } catch (err) {
+    console.error('[MUSIC] onChatMessage error:', err)
   }
-
-  if (match('song') !== null) return handleSong(data)
-  if (match('skip') !== null) return handleSkip()
-  if (match('stop') !== null) return handleStop()
-  const addArg = match('addsong'); if (addArg !== null) return handleAddSong(data, addArg)
-  const volArg = match('volume'); if (volArg !== null) return handleVolume(volArg)
-  if (match('like') !== null) return handleLike()
 }
 
 // --- API routes ---

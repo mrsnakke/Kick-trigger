@@ -1,0 +1,11 @@
+
+╔══════════════════════════════════════╗
+║   Kick Backend                      ║
+║   http://localhost:3000              ║
+╚══════════════════════════════════════╝
+
+[PK] Clave pública actualizada
+[SUB] 200 — OK
+  chat.message.sent: 01KW4CQAADJC0S8WS6EYTTZ75W
+  channel.subscription.new: 01KW4CQAAPFQKF2CVBTNC5F33B
+  channel.reward.redemption.updated: 01KW4CQAAZ2TDZEC0207S2DW2W

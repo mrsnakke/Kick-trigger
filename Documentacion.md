@@ -153,7 +153,8 @@ kick-backend/
 │       ├── GACHA/                # Sistema de gacha (personajes, overlays)
 │       ├── vtuber-ai/            # VTuber AI con DeepSeek
 │       ├── obs-actions/          # Control de OBS vía WebSocket
-│       └── Music/                # Control de reproductor YouTube
+│       ├── Music/                # Control de reproductor YouTube
+│       └── chatbot/              # Comandos personalizados + timers automáticos
 │
 ├── public/                       # Archivos estáticos
 │   ├── index.html                # Dashboard web single-page
@@ -507,6 +508,33 @@ GACHA/
 - `POST /music/api/music/config` — guardar config
 - Archivos estáticos en `public/`
 
+### 6.6 Chatbot (`triggers/chatbot/`) — Comandos personalizados + Timers
+
+**Archivos:**
+- `index.js` — router Express, event bus listener, timer engine
+- `store.js` — persistencia en `chatbot-data.json`
+- `public/index.html` — UI standalone
+
+**Funcionamiento:**
+- Escucha `chat.message.sent`, busca comandos personalizados en la store
+- Si el mensaje coincide con un comando habilitado, envía la respuesta configurada como bot
+- Soporta variable `{user}` en las respuestas (se reemplaza por el username)
+- Los comandos pueden emitir opcionalmente un evento al bus (`trigger`)
+- Los timers envían mensajes periódicamente al chat con intervalo configurable en minutos
+
+**Endpoints:**
+- `GET /chatbot/api/commands` — listar comandos
+- `POST /chatbot/api/commands` — crear comando
+- `PUT /chatbot/api/commands/:id` — actualizar comando
+- `DELETE /chatbot/api/commands/:id` — eliminar comando
+- `PATCH /chatbot/api/commands/:id/toggle` — activar/desactivar
+- `GET /chatbot/api/timers` — listar timers
+- `POST /chatbot/api/timers` — crear timer
+- `PUT /chatbot/api/timers/:id` — actualizar timer
+- `DELETE /chatbot/api/timers/:id` — eliminar timer
+- `PATCH /chatbot/api/timers/:id/toggle` — activar/desactivar
+- `GET /chatbot/api/status` — estado general
+
 ---
 
 ## 7. Dashboard web (`public/index.html`)
@@ -554,6 +582,7 @@ Single-page application en HTML + CSS + JS vanilla (~1490 líneas) que se conect
 | `/gacha/*` | varias | Sistema de gacha (API + overlays + estáticos) |
 | `/obs-actions/*` | varias | Control OBS (API + dashboard) |
 | `/music/*` | varias | Control música (API + dashboard) |
+| `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
 
 ---
 
@@ -664,6 +693,11 @@ Resumen de todos los comandos disponibles por módulo:
 | Comando | Descripción |
 |---|---|
 | Comandos dinámicos configurables desde el dashboard | Mod |
+
+### Chatbot
+| Comando | Descripción |
+|---|---|
+| Comandos personalizados configurables desde el dashboard | User/Mod |
 
 ---
 

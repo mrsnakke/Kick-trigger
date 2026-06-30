@@ -156,6 +156,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="comandos">Comandos</button>
     <button class="tab-btn" data-tab="vtuber">VTUBER</button>
     <button class="tab-btn" data-tab="obs">OBS</button>
+    <button class="tab-btn" data-tab="chatbot">Chatbot</button>
   </div>
 </header>
 
@@ -498,22 +499,71 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   <iframe src="/obs-actions/" style="width:100%;height:100%;border:none;background:#0d1117;flex:1" title="OBS Actions"></iframe>
 </div>
 
+<div id="tab-chatbot" class="tab-content hidden" style="flex:1;min-height:0">
+  <iframe src="/chatbot/" style="width:100%;height:100%;border:none;background:#0d1117;flex:1" title="Chatbot"></iframe>
+</div>
+
 <div id="tab-vtuber" class="tab-content hidden">
-  <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+  <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;height:100%">
+
     <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:#58a6ff">🤖 Configuración VTuber AI</div>
-      <div style="margin-bottom:12px">
-        <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">API Key de DeepSeek</label>
-        <div style="display:flex;gap:6px">
-          <input type="password" id="vtuber-apikey" placeholder="sk-..." style="flex:1;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px;font-family:monospace">
-          <button class="btn btn-primary" onclick="vtuberSaveApiKey()" id="btn-vtuber-save">Guardar</button>
-        </div>
-        <div style="color:#484f58;font-size:11px;margin-top:4px">También puedes usar la variable <code>DEEPSEEK_API_KEY</code> en <code>.env</code></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
         <span class="badge" id="badge-vtuber-tab">○ Sin configurar</span>
         <button class="btn" onclick="vtuberTest()" id="btn-vtuber-test">Probar</button>
       </div>
+
+      <form id="vtuber-config-form" onsubmit="vtuberSaveConfig(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">API Key de DeepSeek</label>
+            <input type="password" id="vtuber-apikey" placeholder="sk-..." style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px;font-family:monospace">
+            <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>DEEPSEEK_API_KEY</code></div>
+          </div>
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Nombre de la VTuber</label>
+            <input type="text" id="vtuber-name" placeholder="Grim" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+            <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_NAME</code></div>
+          </div>
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Comando de activación</label>
+            <input type="text" id="vtuber-command" placeholder="!grim" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px;font-family:monospace">
+            <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_COMMAND</code></div>
+          </div>
+          <div>
+<label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Temperatura <span style="color:#484f58;font-weight:400">(0.5 - 1.0)</span></label>
+<input type="number" id="vtuber-temperature" step="0.05" min="0.5" max="1" placeholder="0.85" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+            <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_TEMPERATURE</code></div>
+          </div>
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Max Tokens por respuesta</label>
+            <input type="number" id="vtuber-max-tokens" step="1" min="1" placeholder="500" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+            <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_MAX_TOKENS</code></div>
+          </div>
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Historial (turnos)</label>
+            <input type="number" id="vtuber-max-history" step="1" min="0" placeholder="5" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+            <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_MAX_HISTORY</code></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">
+            System Prompt
+            <span style="color:#f0883e;font-size:10px;font-weight:400">
+              ⚠️ DEBE contener <code style="background:#0d1117;padding:0 3px;border-radius:2px">{name}</code> (se reemplaza por el nombre)
+            </span>
+          </label>
+          <textarea id="vtuber-system-prompt" rows="10" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:12px;font-family:monospace;resize:vertical;line-height:1.5"></textarea>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button type="button" class="btn btn-sm" onclick="vtuberResetSystemPrompt()" style="font-size:11px;color:#8b949e">Restaurar default</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;border-top:1px solid #30363d;padding-top:12px">
+          <button type="submit" class="btn btn-primary" id="btn-vtuber-save">💾 Guardar todo</button>
+        </div>
+      </form>
     </div>
 
     <div id="vtuber-test-result" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px">
@@ -526,6 +576,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <div style="font-weight:600;margin-bottom:6px;color:#58a6ff">📖 Cómo usar</div>
       <ol style="margin-left:18px;display:flex;flex-direction:column;gap:4px">
         <li>Pon tu API Key de <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:#58a6ff">DeepSeek</a> arriba y guarda</li>
+        <li>Configura el prompt y los parámetros a tu gusto</li>
         <li>Presiona <strong>Probar</strong> para verificar que funciona</li>
         <li>En el chat de Kick escribe: <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">!grim hola</code></li>
         <li>Grim responderá en el chat y se escuchará por Speaker.bot con la voz "Ava"</li>
@@ -1418,33 +1469,60 @@ function renderContent(content, emotes) {
 // -- VTUBER --
 function vtuberLoadConfig() {
   fetch('/api/vtuber/config').then(r => r.json()).then(d => {
+    document.getElementById('vtuber-apikey').value = '';
+    document.getElementById('vtuber-name').value = d.VTUBER_NAME || 'Grim';
+    document.getElementById('vtuber-command').value = d.COMMAND || '!grim';
+    document.getElementById('vtuber-temperature').value = d.TEMPERATURE;
+    document.getElementById('vtuber-max-tokens').value = d.MAX_TOKENS;
+    document.getElementById('vtuber-max-history').value = d.MAX_HISTORY_TURNS;
+    document.getElementById('vtuber-system-prompt').value = d.SYSTEM_PROMPT;
     const badge = document.getElementById('badge-vtuber-tab');
     if (d.API_KEY_SET) {
       badge.className = 'badge badge-ok';
       badge.textContent = '● Configurado';
+    } else {
+      badge.className = 'badge badge-off';
+      badge.textContent = '○ Sin API key';
     }
   }).catch(() => {});
 }
 
-function vtuberSaveApiKey() {
-  const key = document.getElementById('vtuber-apikey').value.trim();
-  if (!key) { alert('Ingresa una API key'); return }
+function vtuberSaveConfig(event) {
+  event.preventDefault();
   const btn = document.getElementById('btn-vtuber-save');
   btn.disabled = true; btn.textContent = 'Guardando...';
+  const body = {
+    API_KEY: document.getElementById('vtuber-apikey').value.trim() || undefined,
+    TEMPERATURE: parseFloat(document.getElementById('vtuber-temperature').value),
+    MAX_TOKENS: parseInt(document.getElementById('vtuber-max-tokens').value, 10),
+    MAX_HISTORY_TURNS: parseInt(document.getElementById('vtuber-max-history').value, 10),
+    VTUBER_NAME: document.getElementById('vtuber-name').value.trim(),
+    COMMAND: document.getElementById('vtuber-command').value.trim(),
+    SYSTEM_PROMPT: document.getElementById('vtuber-system-prompt').value.trim() || null
+  };
   fetch('/api/vtuber/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ API_KEY: key })
+    body: JSON.stringify(body)
   }).then(r => r.json()).then(d => {
     if (d.ok) {
-      document.getElementById('badge-vtuber-tab').className = 'badge badge-ok';
-      document.getElementById('badge-vtuber-tab').textContent = '● Configurado';
       document.getElementById('vtuber-apikey').value = '';
-      alert('API key guardada');
+      vtuberLoadConfig();
     } else {
       alert('Error: ' + d.message);
     }
   }).catch(err => alert('Error de red: ' + err.message))
-  .finally(() => { btn.disabled = false; btn.textContent = 'Guardar' });
+  .finally(() => { btn.disabled = false; btn.textContent = '💾 Guardar todo' });
+}
+
+function vtuberResetSystemPrompt() {
+  if (!confirm('¿Restaurar el system prompt por defecto? Los cambios no guardados se perderán.')) return;
+  fetch('/api/vtuber/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ SYSTEM_PROMPT: null })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) vtuberLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message));
 }
 
 function vtuberTest() {
@@ -1482,9 +1560,7 @@ fetch('/api/vtuber/status').then(r => r.json()).then(d => {
   else setBadge('badge-vtuber', d.apiKeySet ? 'badge-off' : 'badge-gray', d.apiKeySet ? '○ VTUBER' : '○ VTUBER');
 }).catch(() => setBadge('badge-vtuber', 'badge-gray', '○ VTUBER'));
 obsCheckStatus();
-window.addEventListener('beforeunload', () => {
-  fetch('/api/shutdown', { method: 'POST', keepalive: true });
-});
+
 </script>
 </body>
 </html>

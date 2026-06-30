@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { loadSystemPrompt } = require('./config');
+const { loadSystemPrompt, setSystemPrompt, resetSystemPrompt } = require('./config');
 const { createDeepSeekClient } = require('./deepseek-client');
 const { logMessage, getConversation } = require('./logger');
 const eventBus = require('../../../lib/event-bus');
@@ -11,9 +11,9 @@ const CONFIG_PATH = path.join(__dirname, 'vtuber-data.json');
 const { env } = process;
 
 const defaults = {
-  TEMPERATURE: parseFloat(env.VTUBER_TEMPERATURE || '1.3'),
-    MAX_HISTORY_TURNS: parseInt(env.VTUBER_MAX_HISTORY || '5', 10),
-    MAX_TOKENS: parseInt(env.VTUBER_MAX_TOKENS || '512', 10),
+  TEMPERATURE: parseFloat(env.VTUBER_TEMPERATURE || '1.0'),
+  MAX_HISTORY_TURNS: parseInt(env.VTUBER_MAX_HISTORY || '5', 10),
+  MAX_TOKENS: parseInt(env.VTUBER_MAX_TOKENS || '500', 10),
   VTUBER_NAME: env.VTUBER_NAME || 'Grim',
   COMMAND: (env.VTUBER_COMMAND || '!grim').toLowerCase()
 };
@@ -29,19 +29,35 @@ function loadConfig() {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
     const saved = JSON.parse(raw);
     if (saved.API_KEY) cfg.API_KEY = saved.API_KEY;
+    if (saved.TEMPERATURE != null) cfg.TEMPERATURE = saved.TEMPERATURE;
+    if (saved.MAX_TOKENS != null) cfg.MAX_TOKENS = saved.MAX_TOKENS;
+    if (saved.MAX_HISTORY_TURNS != null) cfg.MAX_HISTORY_TURNS = saved.MAX_HISTORY_TURNS;
+    if (saved.VTUBER_NAME) cfg.VTUBER_NAME = saved.VTUBER_NAME;
+    if (saved.COMMAND) cfg.COMMAND = saved.COMMAND.toLowerCase();
+    cfg.SYSTEM_PROMPT = saved.SYSTEM_PROMPT || null;
+    if (saved.SYSTEM_PROMPT) setSystemPrompt(saved.SYSTEM_PROMPT);
+    else resetSystemPrompt();
   } catch {}
 }
 
 function saveConfig() {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify({ API_KEY: cfg.API_KEY }, null, 2), 'utf-8');
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify({
+    API_KEY: cfg.API_KEY,
+    TEMPERATURE: cfg.TEMPERATURE,
+    MAX_TOKENS: cfg.MAX_TOKENS,
+    MAX_HISTORY_TURNS: cfg.MAX_HISTORY_TURNS,
+    VTUBER_NAME: cfg.VTUBER_NAME,
+    COMMAND: cfg.COMMAND,
+    SYSTEM_PROMPT: cfg.SYSTEM_PROMPT
+  }, null, 2), 'utf-8');
 }
 
 function getSystemPrompt() {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('es-ES', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
-  return loadSystemPrompt().replace('{name}', cfg.VTUBER_NAME) +
-    `\n\n## Fecha y hora actual\n\nHoy es ${dateStr} y son las ${timeStr} (Pacific Time).`;
+  return loadSystemPrompt().replace('{name}', cfg.VTUBER_NAME);
+}
+
+function sanitizeUserId(name) {
+  return name.replace(/[^a-zA-Z0-9\-_]/g, '_').slice(0, 512);
 }
 
 function emitStatus() {
@@ -49,7 +65,9 @@ function emitStatus() {
     _source: 'vtuber',
     type: 'vtuber:status',
     connected: !!(cfg.API_KEY && deepseek),
-    apiKeySet: !!cfg.API_KEY
+    apiKeySet: !!cfg.API_KEY,
+    command: cfg.COMMAND,
+    name: cfg.VTUBER_NAME
   });
 }
 
@@ -88,19 +106,25 @@ async function processMessage(username, content) {
 
   console.log(`[VTUBER-AI] ${username}: ${content}`);
 
-  await logMessage({ username, role: 'user', content });
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('es-ES', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
+  const datePrefix = `[Fecha: ${dateStr}, ${timeStr} Pacific Time]\n`;
+  const datedContent = datePrefix + content;
 
   const history = await getConversation(username, cfg.MAX_HISTORY_TURNS);
   const messages = [
     { role: 'system', content: getSystemPrompt() },
     ...history.map(e => ({ role: e.role, content: e.content })),
-    { role: 'user', content }
+    { role: 'user', content: datedContent }
   ];
+
+  await logMessage({ username, role: 'user', content });
 
   try {
     const start = Date.now();
     const result = await deepseek.complete({
-      messages, temperature: cfg.TEMPERATURE, maxTokens: cfg.MAX_TOKENS
+      messages, temperature: cfg.TEMPERATURE, maxTokens: cfg.MAX_TOKENS, userId: sanitizeUserId(username)
     });
     const elapsed = Date.now() - start;
 
@@ -116,13 +140,28 @@ async function processMessage(username, content) {
     await logMessage({ username, role: 'assistant', content: result.text });
 
     const prefix = '!sp '
-    const maxLen = 500 - prefix.length
-    const text = result.text.length > maxLen
-      ? result.text.slice(0, maxLen - 3) + '...'
-      : result.text
-    if (text !== result.text) console.warn(`[VTUBER-AI] Respuesta truncada de ${result.text.length} a ${text.length} caracteres`)
-    const chatSent = await sendChatMessage(prefix + text);
-    console.log(`[VTUBER-AI] Chat ${chatSent ? 'enviado ✅' : 'falló ❌'}`);
+    const maxLen = 400 - prefix.length
+    const text = result.text
+    const chunks = []
+    for (let i = 0; i < text.length; ) {
+      if (i + maxLen >= text.length) {
+        chunks.push(text.slice(i))
+        break
+      }
+      let end = text.lastIndexOf(' ', i + maxLen)
+      if (end <= i) end = i + maxLen
+      chunks.push(text.slice(i, end))
+      i = end + 1
+    }
+    // ponytail: naive slice replaced with word-boundary split; words >397 chars still hard-cut
+    if (chunks.length > 1) console.warn(`[VTUBER-AI] Respuesta larga (${text.length} chars), dividiendo en ${chunks.length} mensajes`)
+    let chatSent = false
+    for (const chunk of chunks) {
+      const sent = await sendChatMessage(prefix + chunk)
+      if (sent) chatSent = true
+      else break
+    }
+    console.log(`[VTUBER-AI] Chat ${chatSent ? 'enviado ✅' : 'falló ❌'} (${chunks.length} parte(s))`);
 
     return { ok: true, text: result.text, usage: result.usage, chatSent };
   } catch (err) {
@@ -158,28 +197,40 @@ function handleGetConfig(req, res) {
     MAX_HISTORY_TURNS: cfg.MAX_HISTORY_TURNS,
     MAX_TOKENS: cfg.MAX_TOKENS,
     VTUBER_NAME: cfg.VTUBER_NAME,
-    COMMAND: cfg.COMMAND
+    COMMAND: cfg.COMMAND,
+    SYSTEM_PROMPT: loadSystemPrompt()
   });
 }
 
 function handleSaveConfig(req, res) {
-  const { API_KEY } = req.body;
+  const { API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT } = req.body;
+
   if (API_KEY && typeof API_KEY === 'string' && API_KEY.trim()) {
     cfg.API_KEY = API_KEY.trim();
-    saveConfig();
-    // reinitialize deepseek client
     if (cfg.API_KEY) {
       deepseek = createDeepSeekClient(cfg.API_KEY);
       if (!eventBus.listenerCount('chat.message.sent')) {
         eventBus.on('chat.message.sent', onChatMessage);
       }
     }
-    emitStatus();
-    console.log('[VTUBER-AI] API key actualizada ✅');
-    res.json({ ok: true, message: 'API key guardada' });
-  } else {
-    res.status(400).json({ ok: false, message: 'API key inválida' });
   }
+
+  if (TEMPERATURE != null) cfg.TEMPERATURE = parseFloat(TEMPERATURE);
+  if (MAX_TOKENS != null) cfg.MAX_TOKENS = parseInt(MAX_TOKENS, 10);
+  if (MAX_HISTORY_TURNS != null) cfg.MAX_HISTORY_TURNS = parseInt(MAX_HISTORY_TURNS, 10);
+  if (VTUBER_NAME) cfg.VTUBER_NAME = VTUBER_NAME;
+  if (COMMAND) cfg.COMMAND = COMMAND.toLowerCase().trim();
+
+  if (SYSTEM_PROMPT !== undefined) {
+    cfg.SYSTEM_PROMPT = SYSTEM_PROMPT || null;
+    if (cfg.SYSTEM_PROMPT) setSystemPrompt(cfg.SYSTEM_PROMPT);
+    else resetSystemPrompt();
+  }
+
+  saveConfig();
+  emitStatus();
+  console.log('[VTUBER-AI] Configuración guardada ✅');
+  res.json({ ok: true, message: 'Configuración guardada' });
 }
 
 async function handleTest(req, res) {
@@ -187,15 +238,20 @@ async function handleTest(req, res) {
     return res.status(400).json({ ok: false, message: 'Configura una API key primero' });
   }
   const content = req.body?.content || 'Hola!';
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('es-ES', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
+  const datedContent = `[Fecha: ${dateStr}, ${timeStr} Pacific Time]\n` + content;
   try {
     const start = Date.now();
     const result = await deepseek.complete({
       messages: [
         { role: 'system', content: getSystemPrompt() },
-        { role: 'user', content }
+        { role: 'user', content: datedContent }
       ],
       temperature: cfg.TEMPERATURE,
-      maxTokens: cfg.MAX_TOKENS
+      maxTokens: cfg.MAX_TOKENS,
+      userId: 'test'
     });
     const elapsed = Date.now() - start;
 

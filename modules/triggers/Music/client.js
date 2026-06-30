@@ -20,7 +20,9 @@ async function search(query) {
     body: JSON.stringify({ query })
   })
   if (!resp.ok) throw new Error(`search error: ${resp.status}`)
-  return resp.json()
+  if (resp.status === 204) return null
+  const text = await resp.text()
+  return text ? JSON.parse(text) : null
 }
 
 async function addToQueue(videoId) {
@@ -30,7 +32,9 @@ async function addToQueue(videoId) {
     body: JSON.stringify({ videoId, insertPosition: 'INSERT_AFTER_CURRENT_VIDEO' })
   })
   if (!resp.ok) throw new Error(`queue error: ${resp.status}`)
-  return resp.json()
+  if (resp.status === 204 || resp.headers.get('content-length') === '0') return null
+  const text = await resp.text()
+  return text ? JSON.parse(text) : null
 }
 
 async function getQueue() {

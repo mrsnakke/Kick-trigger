@@ -604,4 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSeasonalConfig()
   loadUserKeys()
   loadTrades()
+  // ponytail: polling cada 3s/5s — WebSocket si hace falta latencia real
+  setInterval(loadUserKeys, 3000)
+  setInterval(loadTrades, 5000)
 })
