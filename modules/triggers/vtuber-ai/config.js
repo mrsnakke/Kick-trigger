@@ -14,4 +14,12 @@ function loadSystemPrompt() {
   return cachedPrompt;
 }
 
-module.exports = { loadSystemPrompt };
+function setSystemPrompt(content) {
+  cachedPrompt = content;
+}
+
+function resetSystemPrompt() {
+  cachedPrompt = null;
+}
+
+module.exports = { loadSystemPrompt, setSystemPrompt, resetSystemPrompt };

@@ -39,7 +39,7 @@ function createDeepSeekClient(apiKey) {
   }
 
   return {
-    async complete({ messages, temperature = 1.3, maxTokens = 512 }) {
+    async complete({ messages, temperature = 1.3, maxTokens = 512, userId }) {
       const tools = [
         {
           type: 'function',
@@ -69,6 +69,7 @@ function createDeepSeekClient(apiKey) {
           stream: false,
           extra_body: { thinking: { type: 'disabled' } },
         };
+        if (userId) p.extra_body.user_id = userId;
         if (withTools) p.tools = tools;
         return client.chat.completions.create(p);
       }

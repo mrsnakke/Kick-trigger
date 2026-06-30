@@ -1,0 +1,6 @@
+tunnel: 29ebf968-933d-4426-9bce-9035f9cc05a9
+credentials-file: C:/Users/MrSna/.cloudflared/29ebf968-933d-4426-9bce-9035f9cc05a9.json
+originRequest:
+  connectTimeout: 30s
+ingress:
+  - service: http://localhost:3000

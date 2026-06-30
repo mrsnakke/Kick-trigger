@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+header { background: #161b22; border-bottom: 1px solid #30363d; padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.badge-ok { background: #0d5e2e; color: #7ee787; }
+.badge-off { background: #3d1f1f; color: #f85149; }
+.page { display: flex; flex: 1; overflow: hidden; }
+.col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.col:first-child { border-right: 1px solid #30363d; }
+.col-header { padding: 8px 16px; background: #161b22; border-bottom: 1px solid #30363d; font-size: 12px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; justify-content: space-between; }
+.list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+.card-header { display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.card-cmd { font-weight: 600; color: #58a6ff; font-family: monospace; }
+.card-msg { color: #c9d1d9; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+.card-meta { font-size: 10px; color: #8b949e; margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+.card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.btn { padding: 4px 10px; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 11px; font-weight: 500; }
+.btn:hover { background: #30363d; }
+.btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+.btn-primary:hover { background: #388bfd; }
+.btn-danger { border-color: #f85149; color: #f85149; }
+.btn-danger:hover { background: #3d1f1f; }
+.btn-sm { padding: 2px 8px; font-size: 10px; }
+.btn-success { background: #238636; border-color: #238636; color: #fff; }
+.btn-success:hover { background: #2ea043; }
+.toggle-on { background: #238636; border-color: #238636; color: #fff; }
+.toggle-off { background: #21262d; border-color: #30363d; color: #8b949e; }
+.form-panel { background: #161b22; border-bottom: 1px solid #30363d; padding: 10px 16px; display: none; flex-direction: column; gap: 8px; }
+.form-panel.open { display: flex; }
+.form-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.form-row label { font-size: 10px; color: #8b949e; font-weight: 500; display: block; margin-bottom: 2px; }
+.form-row input, .form-row textarea, .form-row select { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 5px 8px; color: #c9d1d9; font-size: 12px; font-family: inherit; }
+.form-row input:focus, .form-row textarea:focus { outline: none; border-color: #58a6ff; }
+.form-row textarea { resize: vertical; min-height: 50px; font-family: monospace; font-size: 11px; }
+.form-actions { display: flex; gap: 6px; align-items: end; }
+.empty { text-align: center; padding: 30px; color: #484f58; font-size: 13px; }
+.badge-green { background: #0d5e2e; color: #7ee787; }
+.badge-red { background: #3d1f1f; color: #f85149; }
+.trigger-input { font-family: monospace; font-size: 11px; width: 160px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Chatbot</h1>
+  <span id="status-badge" class="badge badge-ok">● Activo</span>
+  <span style="font-size:11px;color:#8b949e" id="count-info">0 comandos · 0 timers</span>
+</header>
+<div class="page">
+  <div class="col">
+    <div class="col-header">
+      <span>Comandos</span>
+      <button class="btn btn-sm btn-primary" onclick="toggleForm('cmd-form')">+ Nuevo</button>
+    </div>
+    <div id="cmd-form" class="form-panel">
+      <div class="form-row">
+        <div><label>Comando (ej: !hola)</label><input type="text" id="cmd-input" placeholder="!comando" style="width:140px"></div>
+        <div style="flex:1"><label>Respuesta</label><textarea id="resp-input" rows="2" placeholder="Mensaje que responderá el bot... (usa {user} para el nombre)"></textarea></div>
+        <div><label>Trigger (opcional)</label><input type="text" id="trigger-input" class="trigger-input" placeholder="evento del bus, ej: mi:evento"></div>
+        <div class="form-actions">
+          <button class="btn btn-sm btn-success" onclick="saveCmd()">Guardar</button>
+          <button class="btn btn-sm" onclick="cancelForm('cmd-form')">Cancelar</button>
+        </div>
+      </div>
+      <input type="hidden" id="edit-cmd-id" value="">
+    </div>
+    <div id="cmd-list" class="list"></div>
+  </div>
+  <div class="col">
+    <div class="col-header">
+      <span>Timers</span>
+      <button class="btn btn-sm btn-primary" onclick="toggleForm('timer-form')">+ Nuevo</button>
+    </div>
+    <div id="timer-form" class="form-panel">
+      <div class="form-row">
+        <div style="flex:1"><label>Mensaje</label><textarea id="timer-msg-input" rows="2" placeholder="Mensaje que el bot escribirá periódicamente..."></textarea></div>
+        <div><label>Cada cuántos minutos</label><input type="number" id="timer-interval-input" min="1" value="5" style="width:80px"></div>
+        <div class="form-actions">
+          <button class="btn btn-sm btn-success" onclick="saveTimer()">Guardar</button>
+          <button class="btn btn-sm" onclick="cancelForm('timer-form')">Cancelar</button>
+        </div>
+      </div>
+      <input type="hidden" id="edit-timer-id" value="">
+    </div>
+    <div id="timer-list" class="list"></div>
+  </div>
+</div>
+
+<script>
+const API = '/chatbot/api'
+
+let evtSource = null
+
+function connectSSE() {
+  if (evtSource) evtSource.close()
+  evtSource = new EventSource('/api/events')
+  evtSource.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data)
+      if (d._source === 'chatbot' || d.type === 'chatbot:updated') {
+        loadCommands()
+        loadTimers()
+      }
+    } catch {}
+  }
+}
+
+function toggleForm(id) {
+  const el = document.getElementById(id)
+  el.classList.toggle('open')
+  if (!el.classList.contains('open')) {
+    const editId = id === 'cmd-form' ? 'edit-cmd-id' : 'edit-timer-id'
+    document.getElementById(editId).value = ''
+    el.querySelectorAll('input, textarea').forEach(i => { if (i.type !== 'hidden') i.value = '' })
+  }
+}
+
+function cancelForm(id) {
+  document.getElementById(id).classList.remove('open')
+  const editId = id === 'cmd-form' ? 'edit-cmd-id' : 'edit-timer-id'
+  document.getElementById(editId).value = ''
+  document.querySelectorAll('#' + id + ' input, #' + id + ' textarea').forEach(i => { if (i.type !== 'hidden') i.value = '' })
+}
+
+async function api(url, opts) {
+  const r = await fetch(API + url, { headers: { 'Content-Type': 'application/json' }, ...opts })
+  return r.json()
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div')
+  d.textContent = s
+  return d.innerHTML
+}
+
+async function loadCommands() {
+  const cmds = await api('/commands')
+  const el = document.getElementById('cmd-list')
+  if (!cmds.length) { el.innerHTML = '<div class="empty">Sin comandos todavía. Creá uno arriba.</div>'; updateCounts(); return }
+  el.innerHTML = cmds.map(c => `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-cmd">${escapeHtml(c.command)}</div>
+          <div class="card-msg">${escapeHtml(c.response)}</div>
+          <div class="card-meta">
+            <span class="${c.enabled ? 'badge-green' : 'badge-red'}" style="padding:1px 6px;border-radius:10px;font-size:10px">${c.enabled ? 'Activo' : 'Inactivo'}</span>
+            ${c.trigger ? '<span style="color:#d2a8ff">evento: ' + escapeHtml(c.trigger) + '</span>' : ''}
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-sm ${c.enabled ? 'toggle-on' : 'toggle-off'}" onclick="toggleCmd('${c.id}')">${c.enabled ? 'ON' : 'OFF'}</button>
+          <button class="btn btn-sm" onclick="editCmd('${c.id}')">Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteCmd('${c.id}')">×</button>
+        </div>
+      </div>
+    </div>`).join('')
+  updateCounts()
+}
+
+async function loadTimers() {
+  const timers = await api('/timers')
+  const el = document.getElementById('timer-list')
+  if (!timers.length) { el.innerHTML = '<div class="empty">Sin timers todavía. Creá uno arriba.</div>'; updateCounts(); return }
+  el.innerHTML = timers.map(t => {
+    const mins = Math.round(t.intervalMs / 60000)
+    return `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-msg">${escapeHtml(t.message)}</div>
+          <div class="card-meta">
+            <span class="${t.enabled ? 'badge-green' : 'badge-red'}" style="padding:1px 6px;border-radius:10px;font-size:10px">${t.enabled ? 'Activo' : 'Inactivo'}</span>
+            <span>Cada ${mins} min</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-sm ${t.enabled ? 'toggle-on' : 'toggle-off'}" onclick="toggleTimer('${t.id}')">${t.enabled ? 'ON' : 'OFF'}</button>
+          <button class="btn btn-sm" onclick="editTimer('${t.id}')">Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteTimer('${t.id}')">×</button>
+        </div>
+      </div>
+    </div>`}).join('')
+  updateCounts()
+}
+
+async function updateCounts() {
+  const s = await api('/status')
+  document.getElementById('count-info').textContent = s.commands + ' comandos · ' + s.timers + ' timers'
+  const badge = document.getElementById('status-badge')
+  badge.textContent = s.timersActive ? '● Activo' : '○ Inactivo'
+  badge.className = 'badge ' + (s.timersActive ? 'badge-ok' : 'badge-off')
+}
+
+async function saveCmd() {
+  const id = document.getElementById('edit-cmd-id').value
+  const body = {
+    command: document.getElementById('cmd-input').value.trim(),
+    response: document.getElementById('resp-input').value.trim(),
+    trigger: document.getElementById('trigger-input').value.trim()
+  }
+  if (!body.command || !body.response) return alert('Comando y respuesta son obligatorios')
+  if (id) {
+    await api('/commands/' + id, { method: 'PUT', body: JSON.stringify(body) })
+  } else {
+    await api('/commands', { method: 'POST', body: JSON.stringify(body) })
+  }
+  cancelForm('cmd-form')
+  loadCommands()
+}
+
+function editCmd(id) {
+  const el = document.getElementById('cmd-form')
+  el.classList.add('open')
+  document.getElementById('edit-cmd-id').value = id
+  fetch(API + '/commands').then(r => r.json()).then(cmds => {
+    const c = cmds.find(x => x.id === id)
+    if (!c) return
+    document.getElementById('cmd-input').value = c.command
+    document.getElementById('resp-input').value = c.response
+    document.getElementById('trigger-input').value = c.trigger || ''
+  })
+}
+
+async function deleteCmd(id) {
+  if (!confirm('¿Eliminar este comando?')) return
+  await api('/commands/' + id, { method: 'DELETE' })
+  loadCommands()
+}
+
+async function toggleCmd(id) {
+  await api('/commands/' + id + '/toggle', { method: 'PATCH' })
+  loadCommands()
+}
+
+async function saveTimer() {
+  const id = document.getElementById('edit-timer-id').value
+  const body = {
+    message: document.getElementById('timer-msg-input').value.trim(),
+    intervalMin: parseInt(document.getElementById('timer-interval-input').value)
+  }
+  if (!body.message || !body.intervalMin || body.intervalMin < 1) return alert('Mensaje e intervalo (min 1 min) son obligatorios')
+  if (id) {
+    await api('/timers/' + id, { method: 'PUT', body: JSON.stringify(body) })
+  } else {
+    await api('/timers', { method: 'POST', body: JSON.stringify(body) })
+  }
+  cancelForm('timer-form')
+  loadTimers()
+}
+
+function editTimer(id) {
+  const el = document.getElementById('timer-form')
+  el.classList.add('open')
+  document.getElementById('edit-timer-id').value = id
+  fetch(API + '/timers').then(r => r.json()).then(timers => {
+    const t = timers.find(x => x.id === id)
+    if (!t) return
+    document.getElementById('timer-msg-input').value = t.message
+    document.getElementById('timer-interval-input').value = Math.round(t.intervalMs / 60000)
+  })
+}
+
+async function deleteTimer(id) {
+  if (!confirm('¿Eliminar este timer?')) return
+  await api('/timers/' + id, { method: 'DELETE' })
+  loadTimers()
+}
+
+async function toggleTimer(id) {
+  await api('/timers/' + id + '/toggle', { method: 'PATCH' })
+  loadTimers()
+}
+
+connectSSE()
+loadCommands()
+loadTimers()
+</script>
+</body>
+</html>

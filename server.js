@@ -15,6 +15,7 @@ const gacha = require('./modules/triggers/GACHA')
 const vtuber = require('./modules/triggers/vtuber-ai')
 const obsActions = require('./modules/triggers/obs-actions')
 const music = require('./modules/triggers/Music')
+const chatbot = require('./modules/triggers/chatbot')
 
 const app = express()
 const server = http.createServer(app)
@@ -106,6 +107,10 @@ obsActions.init()
 app.use('/music', music.router)
 music.init()
 
+// -- Chatbot --
+app.use('/chatbot', chatbot.router)
+chatbot.init()
+
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true })
@@ -137,6 +142,9 @@ async function heartbeat() {
     console.log('[HEARTBEAT]', err.message)
   }
 }
+
+process.on('uncaughtException', err => console.error('[FATAL] uncaughtException:', err))
+process.on('unhandledRejection', err => console.error('[FATAL] unhandledRejection:', err))
 
 // -- Arranque --
 server.listen(config.PORT, async () => {

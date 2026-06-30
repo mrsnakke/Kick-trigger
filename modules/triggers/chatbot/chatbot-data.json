@@ -1,0 +1,12 @@
+{
+  "commands": [
+    {
+      "id": "43a385d5",
+      "command": "!comando",
+      "response": "lista de comandos...",
+      "trigger": "",
+      "enabled": true
+    }
+  ],
+  "timers": []
+}

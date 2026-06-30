@@ -27,7 +27,8 @@ kick-backend/
 │       ├── tts/               # Text-to-Speech con Speaker.bot
 │       ├── obs-actions/       # Control de OBS vía WebSocket
 │       ├── GACHA/             # Sistema de gacha (personajes, overlays)
-│       └── vtuber-ai/         # Integración con VTuber AI
+│       ├── vtuber-ai/         # Integración con VTuber AI
+│       └── chatbot/           # Comandos personalizados + timers automáticos
 │
 ├── server.js                  # Express setup + montaje de rutas
 ├── public/index.html          # Dashboard web (SSE, chat, TTS panel)
@@ -90,6 +91,7 @@ Abrir `http://localhost:3000`, autorizar con Kick e iniciar el túnel.
 | `/api/vtuber/*` | varias | Configuración de VTuber AI |
 | `/gacha/*` | varias | Sistema de gacha + overlays |
 | `/obs-actions/*` | varias | Panel de control de OBS |
+| `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
 | `/api/shutdown` | POST | Detener servidor + túnel |
 
 ## Event Bus
@@ -308,6 +310,7 @@ Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. E
 | | `!volume &lt;0-100&gt;` | Ajusta el volumen | User |
 | | `!like` | Da like a la canción actual | User |
 | **OBS-Actions** | Comandos dinámicos configurables desde el dashboard | — | Mod |
+| **Chatbot** | Comandos personalizados configurables desde el dashboard | — | User/Mod |
 
 ### Embeber comandos en el dashboard
 

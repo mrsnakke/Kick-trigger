@@ -34,6 +34,7 @@ function handle(req, res) {
     status: state.botTokens ? 'connected' : 'disconnected'
   })}\n\n`)
   eventBus.emit('tts:request_status')
+  res.on('error', () => {})
   req.on('close', () => {
     const i = state.sseClients.indexOf(client)
     if (i !== -1) state.sseClients.splice(i, 1)
