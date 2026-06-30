@@ -278,6 +278,14 @@ Mantiene una lista de clientes conectados (`state.sseClients`). Cuando se conect
 2. Solicita estado TTS via evento `tts:request_status`
 3. Permanece abierto; broadcast envía mensajes a todos los clientes
 
+⚠️ **Importante:** El tipo `status` está reservado para el estado del servidor
+(auth, túnel, bot). Ningún módulo debe emitir eventos SSE con `type: 'status'`,
+porque el frontend interpreta esos campos (`authenticated`, `botAuthenticated`,
+`tunnelUrl`) para actualizar los badges. Si un módulo necesita enviar estado
+periódico (ej: reproductor de música), debe usar su propio `type` (ej:
+`music-status`) o incluir `_source: 'music'` y manejarlo separadamente en el
+frontend. Ver [`updateStatus()` en el dashboard](#7-dashboard-web-publicindexhtml).
+
 ### 5.6 `events.js` — Suscripción a eventos de Kick
 
 **Funcionalidad:**
@@ -551,6 +559,12 @@ Single-page application en HTML + CSS + JS vanilla (~1490 líneas) que se conect
 - Console TTS con logs en tiempo real
 - Pestañas: Eventos, Chat, TTS, VTuber, OBS, Música, Comandos
 - Shutdown al cerrar la pestaña
+
+**`updateStatus()`** maneja los eventos SSE de tipo `status`. Esta función
+ignora cualquier evento que no incluya explícitamente los campos
+`authenticated`, `botAuthenticated` o `tunnelUrl`. Esto previene que módulos
+que emiten eventos con `type: 'status'` (como el reproductor de música)
+pisinen los badges de autenticación del dashboard.
 
 ---
 

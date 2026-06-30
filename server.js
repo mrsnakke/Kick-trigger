@@ -125,6 +125,7 @@ async function heartbeat() {
   if (!state.tokens) return
   try {
     await auth.ensureValidToken()
+    state.authFailCount = 0
     if (!state.tunnelUrl || !tunnel.getTunnelProcess()) {
       await tunnel.startTunnel()
       return
@@ -137,7 +138,6 @@ async function heartbeat() {
     } else {
       console.log('[HEARTBEAT] OK')
     }
-    state.authFailCount = 0
   } catch (err) {
     console.log('[HEARTBEAT]', err.message)
   }
@@ -160,9 +160,10 @@ server.listen(config.PORT, async () => {
     console.log('[FWD] Reenviando eventos a:', config.FORWARD_URLS.join(', '))
   }
 
-  await webhook.fetchPublicKey()
+  // Cargar tokens ANTES de fetchPublicKey para evitar race condition con SSE
   if (auth.loadTokens()) auth.autoFlow().catch(() => {})
   if (auth.loadBotTokens()) auth.botAutoFlow().catch(() => {})
+  await webhook.fetchPublicKey()
 
   // Iniciar módulo GACHA
   gacha.init().catch(e => console.error('[GACHA] Error init:', e.message))

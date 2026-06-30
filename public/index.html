@@ -138,7 +138,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
 <header>
   <h1>Kick Backend</h1>
   <div class="status-group">
-    <span id="badge-auth" class="badge badge-off">○ No autorizado</span>
+    <span id="badge-auth" class="badge badge-gray">○ Cargando...</span>
     <span id="badge-tunnel" class="badge badge-off">○ Sin túnel</span>
     <span id="badge-sb" class="badge badge-off">○ SP.BOT</span>
     <span id="badge-gacha" class="badge badge-off">○ GACHA</span>
@@ -147,8 +147,8 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <span id="badge-bot" class="badge badge-off">○ BOT</span>
   </div>
   <span id="channel-name" class="channel-name"></span>
-  <button id="btn-auth" class="btn btn-primary" onclick="authorize()">Autorizar con Kick</button>
-  <button id="btn-bot-auth" class="btn btn-primary" onclick="authorizeBot()">Autorizar Bot</button>
+  <button id="btn-auth" class="btn btn-primary" onclick="authorize()">🔑 Autorizar Streamer en Kick</button>
+  <button id="btn-bot-auth" class="btn btn-primary" onclick="authorizeBot()">🤖 Autorizar Bot en Kick</button>
   <div class="tab-bar" id="tab-bar">
     <button class="tab-btn active" data-tab="eventos">Eventos</button>
     <button class="tab-btn" data-tab="tts">TTS</button>
@@ -602,13 +602,27 @@ let ttsUserAliases = {};
 let gachaCmds = [];
 
 // -- SSE --
+let statusPollInterval = null;
+
 function connectSSE() {
   if (evtSource) evtSource.close();
   evtSource = new EventSource('/api/events');
   evtSource.onmessage = e => {
     try { handleEvent(JSON.parse(e.data)) } catch {}
   };
+  evtSource.onerror = () => {
+    // SSE cayó — el navegador reintenta solo, pero nosotros refrescamos status por si tarda
+    setTimeout(fetchStatus, 2000);
+  };
 }
+
+function fetchStatus() {
+  fetch('/api/status').then(r => r.json()).then(d => updateStatus(d)).catch(() => {});
+}
+
+// Polling periódico como respaldo por si SSE no se recupera
+if (statusPollInterval) clearInterval(statusPollInterval);
+statusPollInterval = setInterval(fetchStatus, 30000);
 
 function handleEvent(d) {
   if (d._source === 'tts') { handleTtsEvent(d); return }
@@ -620,21 +634,27 @@ function handleEvent(d) {
       updateStatus(d);
       break;
     case 'auth':
+      console.log('[EVENT] auth:', d.status)
       if (d.status === 'connected') {
-        setBadge('badge-auth', 'badge-ok', `● ${d.slug || 'Conectado'}`);
+        setBadge('badge-auth', 'badge-ok', `● Streamer: ${d.slug || 'OK'}`);
         document.getElementById('btn-auth').style.display = 'none';
         document.getElementById('channel-name').textContent = d.slug ? `/${d.slug}` : '';
       } else {
-        setBadge('badge-auth', 'badge-off', '○ No autorizado');
+        setBadge('badge-auth', 'badge-off', '○ Streamer ✗');
         document.getElementById('btn-auth').style.display = '';
         document.getElementById('btn-auth').disabled = false;
-        document.getElementById('btn-auth').textContent = 'Re-autorizar con Kick';
+        document.getElementById('btn-auth').textContent = '🔑 Re-autorizar Streamer';
       }
       break;
     case 'bot-auth':
-      setBadge('badge-bot', d.status === 'connected' ? 'badge-ok' : 'badge-off', d.status === 'connected' ? '● BOT' : '○ BOT');
-      if (d.status === 'connected') document.getElementById('btn-bot-auth').style.display = 'none';
-      else document.getElementById('btn-bot-auth').style.display = '';
+      console.log('[EVENT] bot-auth:', d.status)
+      if (d.status === 'connected') {
+        setBadge('badge-bot', 'badge-ok', '● Bot ✓');
+        document.getElementById('btn-bot-auth').style.display = 'none';
+      } else {
+        setBadge('badge-bot', 'badge-off', '○ Bot ✗');
+        document.getElementById('btn-bot-auth').style.display = '';
+      }
       break;
     case 'event':
       addEvent(d);
@@ -1168,20 +1188,35 @@ function switchTtsTab(tabId) {
 
 // -- Status --
 function updateStatus(d) {
-  if (d.authenticated) {
-    setBadge('badge-auth', 'badge-ok', `● ${d.channelSlug || 'Conectado'}`);
-    document.getElementById('btn-auth').style.display = 'none';
-    if (d.channelSlug) document.getElementById('channel-name').textContent = `/${d.channelSlug}`;
-  } else {
-    setBadge('badge-auth', 'badge-off', '○ No autorizado');
+  if (d.authenticated !== undefined) {
+    if (d.authenticated) {
+      setBadge('badge-auth', 'badge-ok', `● Streamer: ${d.channelSlug || 'OK'}`);
+      document.getElementById('btn-auth').style.display = 'none';
+      if (d.channelSlug) document.getElementById('channel-name').textContent = `/${d.channelSlug}`;
+    } else {
+      setBadge('badge-auth', 'badge-off', '○ Streamer ✗');
+      document.getElementById('btn-auth').style.display = '';
+      document.getElementById('btn-auth').disabled = false;
+      document.getElementById('btn-auth').textContent = '🔑 Autorizar Streamer en Kick';
+    }
   }
-  if (d.tunnelUrl) {
-    tunnelActive = true;
-    setBadge('badge-tunnel', 'badge-ok', `● ${d.tunnelUrl.replace('https://','')}`);
+  if (d.tunnelUrl !== undefined) {
+    if (d.tunnelUrl) {
+      tunnelActive = true;
+      setBadge('badge-tunnel', 'badge-ok', `● ${d.tunnelUrl.replace('https://','')}`);
+    } else {
+      tunnelActive = false;
+      setBadge('badge-tunnel', 'badge-off', '○ Sin túnel');
+    }
   }
-  if (d.botAuthenticated) {
-    setBadge('badge-bot', 'badge-ok', '● BOT');
-    document.getElementById('btn-bot-auth').style.display = 'none';
+  if (d.botAuthenticated !== undefined) {
+    if (d.botAuthenticated) {
+      setBadge('badge-bot', 'badge-ok', '● Bot ✓');
+      document.getElementById('btn-bot-auth').style.display = 'none';
+    } else {
+      setBadge('badge-bot', 'badge-off', '○ Bot ✗');
+      document.getElementById('btn-bot-auth').style.display = '';
+    }
   }
 }
 
@@ -1549,8 +1584,9 @@ function vtuberTest() {
 }
 
 // -- Init --
+window.addEventListener('beforeunload', () => { if (statusPollInterval) clearInterval(statusPollInterval); });
 connectSSE();
-fetch('/api/status').then(r => r.json()).then(d => updateStatus(d)).catch(() => {});
+fetchStatus();
 fetch('/api/tts/status').then(r => r.json()).then(d => {
   setBadge('badge-sb', d.speakerbotActive ? 'badge-ok' : 'badge-off', d.speakerbotActive ? '● SP.BOT' : '○ SP.BOT');
 }).catch(() => {});
