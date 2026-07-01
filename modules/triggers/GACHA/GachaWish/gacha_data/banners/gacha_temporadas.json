@@ -1,0 +1,167 @@
+{
+  "seasons": [
+    {
+      "id": 1,
+      "label": "Temporada 1",
+      "month": "2025-09",
+      "start_date": "2025-09-01",
+      "end_date": "2025-09-30",
+      "characters": [
+        {
+          "name": "Alice Thymefield",
+          "rarity": "4_star",
+          "stock": 5
+        },
+        {
+          "name": "Danjin",
+          "rarity": "4_star",
+          "stock": 5
+        },
+        {
+          "name": "Zero Two",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Hatsune Miku",
+          "rarity": "5_star",
+          "stock": 0
+        },
+        {
+          "name": "Yuna (IA)",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Marin Kitagawa",
+          "rarity": "5_star",
+          "stock": 0
+        },
+        {
+          "name": "Meredith",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Frieren",
+          "rarity": "5_star",
+          "stock": 2
+        },
+        {
+          "name": "Phoebe",
+          "rarity": "5_star",
+          "stock": 2
+        },
+        {
+          "name": "Chisa",
+          "rarity": "5_star",
+          "stock": 2
+        },
+        {
+          "name": "Astolfo",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Dorothy",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Musashi",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "kanami",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Fern",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Megumin",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Hitori Gotoh",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Elegg",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Saber",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Mai Sakurajima",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Nami",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Power",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "2B",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Nezuko",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Emilia",
+          "rarity": "5_star",
+          "stock": 4
+        },
+        {
+          "name": "Mika Misono",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Camellya",
+          "rarity": "5_star",
+          "stock": 3
+        },
+        {
+          "name": "Ishtar",
+          "rarity": "5_star",
+          "stock": 5
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "label": "Temporada 2",
+      "month": "2026-06",
+      "start_date": "2026-06-01",
+      "end_date": "2026-06-30",
+      "characters": [
+        {
+          "name": "Promeia",
+          "rarity": "5_star",
+          "stock": 5
+        }
+      ]
+    }
+  ]
+}

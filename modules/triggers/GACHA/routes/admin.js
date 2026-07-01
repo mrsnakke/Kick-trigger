@@ -10,6 +10,8 @@ const upload = multer({ storage: multer.memoryStorage() })
 
 const { uploadImageToGitHub } = require('../lib/imageUploader')
 
+function stockVal(name) { return store.getStock(name) }
+
 // ─── characters ───
 
 router.get('/characters', (req, res) => {
@@ -30,42 +32,41 @@ router.get('/character-details/:name', (req, res) => {
 router.post('/character', upload.single('image'), async (req, res) => {
   const { name, rarity, banner, stock } = req.body
   if (!name || !rarity || !banner) return res.status(400).json({ error: 'name, rarity, banner required' })
+  if (!req.file) return res.status(400).json({ error: 'Image file is required' })
 
   const safe = name.replace(/[\\/:*?"<>|]/g, '')
   if (store.state.characterData[name]) return res.status(409).json({ error: 'Character already exists' })
 
   let imageUrl = ''
-  if (req.file) {
-    try {
-      const ext = path.extname(req.file.originalname)
-      imageUrl = await uploadImageToGitHub(`${safe}${ext}`, req.file.buffer, rarity)
-    } catch (e) {
-      return res.status(500).json({ error: 'Image upload failed: ' + e.message })
-    }
+  try {
+    const ext = path.extname(req.file.originalname)
+    imageUrl = await uploadImageToGitHub(`${safe}${ext}`, req.file.buffer, rarity)
+  } catch (e) {
+    return res.status(500).json({ error: 'Image upload failed: ' + e.message })
   }
+
+  const isSeasonal = rarity === '5_star' && banner === 'seasonal_banner'
+  const charStock = isSeasonal ? 5 : undefined
 
   const newChar = {
     name, rarity,
     image_url: imageUrl,
-    description: `Un nuevo personaje de ${rarity.replace('_star', ' estrellas')}.`,
-    stock: (rarity === '5_star' || rarity === '6_star') && banner === 'seasonal_banner' ? (parseInt(stock) || 0) : undefined,
   }
 
+  if (charStock !== undefined) newChar.stock = charStock
   await store.saveCharacterFile(safe, newChar)
   store.state.characterData[name] = newChar
+  newChar.stock = charStock
+
+  if (charStock !== undefined) {
+    const season = store.getOrCreateSeason()
+    if (!season.characters.find(c => c.name === name)) { season.characters.push({ name, rarity, stock: charStock }); await store.saveSeasonData() }
+  }
 
   const target = banner === 'standard_banner' ? store.state.standardBanner : store.state.seasonalBanner
   if (!target[rarity]) target[rarity] = []
   if (!target[rarity].includes(name)) target[rarity].push(name)
   await store.saveBanner(banner === 'standard_banner' ? 'standard_banner' : 'seasonal')
-
-  if (newChar.stock !== undefined) {
-    if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
-    store.state.gachaConfig.character_stocks[name] = newChar.stock
-    await store.saveGachaConfig()
-    const sc = store.state.seasonalCharactersConfig.characters
-    if (!sc.find(c => c.name === name)) { sc.push({ name, stock: newChar.stock }); await store.saveSeasonalChars() }
-  }
 
   logger.log(TAG, `Created: ${name}`)
   res.status(201).json({ message: `Personaje '${name}' creado.`, character: newChar })
@@ -96,8 +97,9 @@ router.put('/character/:oldName', upload.single('image'), async (req, res) => {
     }
   }
 
-  const updated = { ...oldChar, name, rarity, image_url: imageUrl,
-    stock: (rarity === '5_star' || rarity === '6_star') && banner === 'seasonal_banner' ? (parseInt(stock) || 0) : undefined }
+  const newStockVal = rarity === '5_star' && banner === 'seasonal_banner' ? (parseInt(stock) || 5) : undefined
+  const updated = { ...oldChar, name, rarity, image_url: imageUrl }
+  if (newStockVal !== undefined) updated.stock = newStockVal
 
   delete store.state.characterData[oldName]
   store.state.characterData[name] = updated
@@ -112,24 +114,30 @@ router.put('/character/:oldName', upload.single('image'), async (req, res) => {
   await store.saveBanner('standard_banner')
   await store.saveBanner('seasonal')
 
-  if (store.state.gachaConfig.character_stocks) {
-    if (oldName !== name && store.state.gachaConfig.character_stocks[oldName] !== undefined) {
-      store.state.gachaConfig.character_stocks[name] = store.state.gachaConfig.character_stocks[oldName]
-      delete store.state.gachaConfig.character_stocks[oldName]
+  const isSeasonal = rarity === '5_star' && banner === 'seasonal_banner'
+  const foundInAny = []
+  for (const s of store.state.seasonData.seasons) {
+    const sci = s.characters.findIndex(c => c.name === oldName)
+    if (sci !== -1) {
+      s.characters[sci].name = name
+      s.characters[sci].rarity = rarity
+      s.characters[sci].stock = newStockVal
+      foundInAny.push(s)
     }
-    if (updated.stock !== undefined) store.state.gachaConfig.character_stocks[name] = updated.stock
-    else delete store.state.gachaConfig.character_stocks[name]
-    await store.saveGachaConfig()
   }
+  if (isSeasonal && foundInAny.length === 0) {
+    const season = store.getOrCreateSeason()
+    if (!season.characters.find(c => c.name === name)) season.characters.push({ name, rarity, stock: newStockVal })
+  }
+  if (!isSeasonal) {
+    for (const s of store.state.seasonData.seasons) {
+      s.characters = s.characters.filter(c => c.name !== name)
+    }
+  }
+  await store.saveSeasonData()
 
-  const sc = store.state.seasonalCharactersConfig.characters
-  const sci = sc.findIndex(c => c.name === oldName)
-  if (sci !== -1) { sc[sci].name = name; sc[sci].stock = updated.stock }
-  else if ((rarity === '5_star' || rarity === '6_star') && banner === 'seasonal_banner') { sc.push({ name, stock: updated.stock }) }
-  if (!((rarity === '5_star' || rarity === '6_star') && banner === 'seasonal_banner')) {
-    store.state.seasonalCharactersConfig.characters = sc.filter(c => c.name !== name)
-  }
-  await store.saveSeasonalChars()
+  // sync characterData stock from stockMap (source of truth)
+  updated.stock = store.getStock(name)
 
   logger.log(TAG, `Updated: ${oldName} -> ${name}`)
   res.json({ message: `Personaje '${name}' actualizado.`, character: updated })
@@ -140,13 +148,13 @@ router.delete('/character/:name', async (req, res) => {
   if (!store.state.characterData[name]) return res.status(404).json({ error: 'Not found' })
   await store.deleteCharacterFile(name)
   delete store.state.characterData[name]
+  delete store.state.stockMap[name]
   for (const rk in store.state.standardBanner) store.state.standardBanner[rk] = store.state.standardBanner[rk].filter(c => c !== name)
   for (const rk in store.state.seasonalBanner) store.state.seasonalBanner[rk] = store.state.seasonalBanner[rk].filter(c => c !== name)
   await store.saveBanner('standard_banner')
   await store.saveBanner('seasonal')
-  if (store.state.gachaConfig.character_stocks) { delete store.state.gachaConfig.character_stocks[name]; await store.saveGachaConfig() }
-  store.state.seasonalCharactersConfig.characters = store.state.seasonalCharactersConfig.characters.filter(c => c.name !== name)
-  await store.saveSeasonalChars()
+  for (const s of store.state.seasonData.seasons) s.characters = s.characters.filter(c => c.name !== name)
+  await store.saveSeasonData()
   logger.log(TAG, `Deleted: ${name}`)
   res.json({ message: `Personaje '${name}' eliminado.` })
 })
@@ -154,6 +162,18 @@ router.delete('/character/:name', async (req, res) => {
 // ─── gacha config ───
 
 router.get('/gacha-config', (req, res) => res.json(store.state.gachaConfig))
+
+router.get('/pity-data', (req, res) => res.json(store.state.pityData))
+
+router.put('/pity-data', async (req, res) => {
+  const { '4_star': s4, '5_star': s5 } = req.body
+  if (!s4 || !s5) return res.status(400).json({ error: '4_star and 5_star required' })
+  if (s4.soft_pity >= s4.hard_pity || s5.soft_pity >= s5.hard_pity) return res.status(400).json({ error: 'soft_pity must be less than hard_pity' })
+  store.state.pityData.pity_thresholds['4_star'] = { soft_pity: s4.soft_pity, hard_pity: s4.hard_pity }
+  store.state.pityData.pity_thresholds['5_star'] = { soft_pity: s5.soft_pity, hard_pity: s5.hard_pity }
+  await store.savePityData()
+  res.json({ message: 'Pity thresholds updated.' })
+})
 
 router.put('/gacha-config/rarity-probabilities', async (req, res) => {
   const probs = req.body
@@ -175,70 +195,77 @@ router.put('/gacha-config/banner-probabilities', async (req, res) => {
 })
 
 router.put('/gacha-config/character-stocks', async (req, res) => {
-  store.state.gachaConfig.character_stocks = req.body
-  await store.saveGachaConfig()
   for (const [name, stock] of Object.entries(req.body)) {
-    if (store.state.characterData[name]) store.state.characterData[name].stock = stock
-    const sc = store.state.seasonalCharactersConfig.characters
-    const idx = sc.findIndex(c => c.name === name)
-    if (idx !== -1) sc[idx].stock = stock
+    await store.setStock(name, stock)
   }
-  await store.saveSeasonalChars()
   res.json({ message: 'Stocks updated.' })
 })
 
-// ─── seasonal ───
+// ─── seasons ───
 
-router.get('/seasonal-characters-config', (req, res) => {
-  const chars = (store.state.seasonalCharactersConfig.characters || []).map(c => {
-    const d = store.state.characterData[c.name] || {}
-    const s = store.state.gachaConfig.character_stocks?.[c.name] ?? c.stock
-    return { name: c.name, stock: s, image_url: d.image_url || '' }
-  })
-  res.json({ season_duration: store.state.seasonalCharactersConfig.season_duration, characters: chars })
+router.get('/seasons', (req, res) => {
+  const seasons = store.state.seasonData.seasons.map(s => ({
+    ...s,
+    characters: s.characters.map(c => {
+      const d = store.state.characterData[c.name] || {}
+      return { name: c.name, stock: store.getStock(c.name) ?? c.stock, image_url: d.image_url || '' }
+    })
+  }))
+  res.json(seasons)
 })
 
-router.put('/seasonal-characters-config/duration', async (req, res) => {
-  store.state.seasonalCharactersConfig.season_duration = req.body.season_duration
-  await store.saveSeasonalChars()
-  res.json({ message: 'Duration updated.' })
-})
-
-router.post('/seasonal-characters-config/add-character', async (req, res) => {
-  const { name, stock } = req.body
-  if (!name || stock === undefined || !store.state.characterData[name]) return res.status(400).json({ error: 'Invalid' })
-  if (store.state.seasonalCharactersConfig.characters.find(c => c.name === name)) return res.status(409).json({ error: 'Already in seasonal' })
-  const s = parseInt(stock)
-  store.state.seasonalCharactersConfig.characters.push({ name, stock: s })
-  if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
-  store.state.gachaConfig.character_stocks[name] = s
-  await store.saveSeasonalChars()
-  await store.saveGachaConfig()
-  res.status(201).json({ message: `'${name}' added to seasonal.` })
-})
-
-router.delete('/seasonal-characters-config/remove-character/:name', async (req, res) => {
-  const { name } = req.params
-  const len = store.state.seasonalCharactersConfig.characters.length
-  store.state.seasonalCharactersConfig.characters = store.state.seasonalCharactersConfig.characters.filter(c => c.name !== name)
-  if (store.state.seasonalCharactersConfig.characters.length === len) return res.status(404).json({ error: 'Not found' })
-  await store.saveSeasonalChars()
-  res.json({ message: `'${name}' removed from seasonal.` })
-})
-
-router.put('/seasonal-characters-config/update-stock', async (req, res) => {
+router.put('/seasons/:id/stock', async (req, res) => {
+  const id = parseInt(req.params.id)
   const { name, stock } = req.body
   if (!name || stock === undefined) return res.status(400).json({ error: 'name and stock required' })
-  const sc = store.state.seasonalCharactersConfig.characters
-  const idx = sc.findIndex(c => c.name === name)
-  if (idx === -1) return res.status(404).json({ error: 'Not in seasonal' })
-  sc[idx].stock = parseInt(stock)
-  if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
-  store.state.gachaConfig.character_stocks[name] = parseInt(stock)
-  if (store.state.characterData[name]) store.state.characterData[name].stock = parseInt(stock)
-  await store.saveSeasonalChars()
-  await store.saveGachaConfig()
-  res.json({ message: `Stock de '${name}' actualizado a ${stock}.` })
+  const season = store.state.seasonData.seasons.find(s => s.id === id)
+  if (!season) return res.status(404).json({ error: 'Season not found' })
+  const idx = season.characters.findIndex(c => c.name === name)
+  if (idx === -1) return res.status(404).json({ error: 'Character not in this season' })
+  const s = parseInt(stock)
+  await store.setStock(name, s)
+  res.json({ message: `Stock de '${name}' = ${s}` })
+})
+
+router.put('/seasons/:id/mass-stock', async (req, res) => {
+  const id = parseInt(req.params.id)
+  const { amount } = req.body
+  if (amount === undefined || isNaN(amount)) return res.status(400).json({ error: 'amount required' })
+  const season = store.state.seasonData.seasons.find(s => s.id === id)
+  if (!season) return res.status(404).json({ error: 'Season not found' })
+  const a = parseInt(amount)
+  for (const c of season.characters) {
+    await store.setStock(c.name, (store.getStock(c.name) ?? c.stock ?? 0) + a)
+  }
+  res.json({ message: `+${a} stock a ${season.characters.length} personajes de ${season.label}` })
+})
+
+router.post('/seasons/:id/add-character', async (req, res) => {
+  const id = parseInt(req.params.id)
+  const { name, stock } = req.body
+  if (!name) return res.status(400).json({ error: 'name required' })
+  if (!store.state.characterData[name]) return res.status(400).json({ error: 'Character does not exist' })
+  const season = store.state.seasonData.seasons.find(s => s.id === id)
+  if (!season) return res.status(404).json({ error: 'Season not found' })
+  if (season.characters.find(c => c.name === name)) return res.status(409).json({ error: 'Already in this season' })
+  const charData = store.state.characterData[name]
+  const rarity = typeof charData.rarity === 'number' ? `${charData.rarity}_star` : (charData.rarity || '5_star')
+  const s = parseInt(stock) || 5
+  season.characters.push({ name, rarity, stock: s })
+  await store.saveSeasonData()
+  res.status(201).json({ message: `'${name}' añadido a ${season.label}` })
+})
+
+router.delete('/seasons/:id/remove-character/:name', async (req, res) => {
+  const id = parseInt(req.params.id)
+  const { name } = req.params
+  const season = store.state.seasonData.seasons.find(s => s.id === id)
+  if (!season) return res.status(404).json({ error: 'Season not found' })
+  const len = season.characters.length
+  season.characters = season.characters.filter(c => c.name !== name)
+  if (season.characters.length === len) return res.status(404).json({ error: 'Character not in this season' })
+  await store.saveSeasonData()
+  res.json({ message: `'${name}' quitado de ${season.label}` })
 })
 
 // ─── user keys ───
@@ -262,15 +289,27 @@ router.post('/user-keys/add', async (req, res) => {
   res.json({ message: `Added ${keys} keys to ${username}. Total: ${u.keys}` })
 })
 
+router.post('/user-keys/add-all', async (req, res) => {
+  const { keys } = req.body
+  if (keys === undefined || isNaN(keys) || keys <= 0) return res.status(400).json({ error: 'Invalid amount' })
+  const amount = parseInt(keys)
+  let count = 0
+  for (const u of Object.values(store.state.inventories)) {
+    u.keys = (u.keys || 0) + amount
+    count++
+  }
+  await store.saveInventories()
+  res.json({ message: `Added ${amount} keys to ${count} users.` })
+})
+
 // ─── endpoints info ───
 
 router.get('/endpoints', (req, res) => {
   res.json({
     admin: [
-      `Admin panel: /admin.html`,
+      `Admin panel: Integrated in main dashboard at / (⚙️ Administrar Gacha)`,
       `Clear all data: /admin/clear-all-data?confirm=true`,
     ],
-    trade: `/trades.html`,
     keys: [
       `Get user keys: GET /admin/user-keys`,
       `Add keys: POST /admin/user-keys/add { username, keys }`,

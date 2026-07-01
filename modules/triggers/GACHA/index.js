@@ -44,7 +44,7 @@ router.get('/api/stats', (req, res) => {
   const totalKeys = users.reduce((s, uid) => s + (inv[uid].keys || 0), 0)
   const totalChars = users.reduce((s, uid) => {
     let c = 0
-    for (const r of ['3_star', '4_star', '5_star', '6_star']) c += (inv[uid][r] || []).length
+    for (const r of ['3_star', '4_star', '5_star']) c += (inv[uid][r] || []).length
     return s + c
   }, 0)
   res.json({ users: users.length, totalPulls, totalKeys, totalChars })
@@ -59,7 +59,8 @@ router.get('/api/commands', (req, res) => {
     { cmd: '!inventario / !inventory / !inv', desc: 'Muestra llaves, tiradas, pity y personajes', perm: 'user', mod: 'gacha' },
     { cmd: '!Sinv', desc: 'Muestra inventario en overlay (view.html)', perm: 'user', mod: 'gacha' },
     { cmd: '!pj <personaje>', desc: 'Muestra carta del personaje en overlay (view.html)', perm: 'user', mod: 'gacha' },
-    { cmd: '!top', desc: 'Top 3 coleccionistas con más tiradas', perm: 'user', mod: 'gacha' },
+    { cmd: '!lista', desc: 'Lista personajes disponibles 4★ y 5★ del banner + promocionales', perm: 'user', mod: 'gacha' },
+    { cmd: '!top', desc: 'Top 3 coleccionistas con más personajes', perm: 'user', mod: 'gacha' },
     { cmd: '!trade <tu_personaje> por <su_personaje> @usuario', desc: 'Crea intercambio de 5★', perm: 'user', mod: 'gacha' },
     { cmd: '!aceptar_trade / !accept_trade <ID>', desc: 'Acepta un trade (debes ser destinatario)', perm: 'user', mod: 'gacha' },
     { cmd: '!rechazar_trade / !reject_trade <ID>', desc: 'Cancela/rechaza un trade', perm: 'user', mod: 'gacha' },

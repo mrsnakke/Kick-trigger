@@ -1,6 +1,5 @@
 {
   "3_star": [
-    "chainsaw",
     "Fantime",
     "Mjolnir",
     "Cepillos Dental",
@@ -18,12 +17,13 @@
     "Stocking",
     "Lenja"
   ],
-    "5_star": [
-        "albedo",
-        "Jean",
-        "umaSnak",
-        "diluc",
-        "zani",
-        "Fubuki"
-    ]
+  "5_star": [
+    "albedo",
+    "Jean",
+    "umaSnak",
+    "diluc",
+    "zani",
+    "Fubuki",
+    "Hong Meiling"
+  ]
 }

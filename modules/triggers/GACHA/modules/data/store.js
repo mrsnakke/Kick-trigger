@@ -17,12 +17,40 @@ const state = {
   gachaConfig: {},
   pityData: {},
   characterData: {},
+  stockMap: {},      // name -> stock number | undefined (undefined = unlimited)
   standardBanner: {},
   seasonalBanner: {},
-  seasonalCharactersConfig: {},
-  inventories: {},   // userId -> { userName, '3_star':[], '4_star':[], '5_star':[], '6_star':[], total_pulls, keys, pity: { '4_star':0, '5_star':0 } }
+  seasonData: { seasons: [] },
+  inventories: {},   // userId -> { userName, '3_star':[], '4_star':[], '5_star':[], total_pulls, keys, pity: { '4_star':0, '5_star':0 } }
   trades: {},        // tradeId -> trade
   tradeHistory: [],
+}
+
+function normalizeRarity(r) {
+  if (typeof r === 'number') return `${r}_star`
+  if (typeof r === 'string' && r.includes('_star')) return r
+  if (typeof r === 'string' && /^\d+$/.test(r)) return `${r}_star`
+  return r || '5_star'
+}
+
+function buildBannerFromSeasons(seasonData, charData) {
+  const banner = {}
+  const seen = new Set()
+  for (const s of (seasonData.seasons || [])) {
+    for (const c of (s.characters || [])) {
+      if (!seen.has(c.name)) {
+        seen.add(c.name)
+        let rarity = c.rarity
+        if (!rarity && charData && charData[c.name]) {
+          rarity = normalizeRarity(charData[c.name].rarity)
+        }
+        rarity = rarity || '5_star'
+        if (!banner[rarity]) banner[rarity] = []
+        banner[rarity].push(c.name)
+      }
+    }
+  }
+  return banner
 }
 
 async function loadJson(filePath, fallback = {}) {
@@ -40,8 +68,46 @@ async function init() {
   state.gachaConfig = await loadJson(WP('gacha_config.json'))
   state.pityData = await loadJson(p('pity_data.json'))
   state.standardBanner = await loadJson(path.join(BANNERS, 'standard_banner.json'))
-  state.seasonalBanner = await loadJson(path.join(BANNERS, 'seasonal_banner.json'))
-  state.seasonalCharactersConfig = await loadJson(path.join(BANNERS, 'seasonal_characters.json'))
+  state.seasonData = await loadJson(path.join(BANNERS, 'gacha_temporadas.json'), { seasons: [] })
+
+  // migration: from old seasonal_characters.json / seasonal_banner.json to gacha_temporadas.json
+  if (!state.seasonData.seasons || state.seasonData.seasons.length === 0) {
+    const oldData = await loadJson(path.join(BANNERS, 'seasonal_characters.json'), null)
+    const oldBannerData = await loadJson(path.join(BANNERS, 'seasonal_banner.json'), null)
+    const charNames = new Set()
+    if (oldData && oldData.characters) oldData.characters.forEach(c => charNames.add(c.name))
+    if (oldBannerData) {
+      for (const arr of Object.values(oldBannerData)) {
+        if (Array.isArray(arr)) arr.forEach(n => charNames.add(n))
+      }
+    }
+    if (charNames.size > 0) {
+      const raw = oldData?.season_duration || ''
+      const month = raw.slice(0, 7) || new Date().toISOString().slice(0, 7)
+      const [year, m] = month.split('-')
+      const endDate = new Date(parseInt(year), parseInt(m), 0).toISOString().slice(0, 10)
+      state.seasonData = {
+        seasons: [{
+          id: 1,
+          label: 'Temporada 1',
+          month,
+          start_date: `${month}-01`,
+          end_date: endDate,
+          characters: Array.from(charNames).map(name => {
+            let rarity = '5_star'
+            try {
+              const cf = JSON.parse(require('fs').readFileSync(path.join(CHARS, `${name}.json`), 'utf8'))
+              rarity = normalizeRarity(cf.rarity || '5_star')
+            } catch {}
+            const oldEntry = oldData?.characters?.find(c => c.name === name)
+            return { name, rarity, stock: 5 }
+          }),
+        }]
+      }
+      await saveSeasonData()
+      logger.log(TAG, `Migrated ${charNames.size} chars to gacha_temporadas.json with stock=5`)
+    }
+  }
 
   // startup validation
   validateConfig()
@@ -55,7 +121,7 @@ async function init() {
   function migratePity(oldData, inv) {
     if (!oldData.pity_counters) return
     for (const [uid, pc] of Object.entries(oldData.pity_counters)) {
-      if (!inv[uid]) inv[uid] = { userName: uid, '3_star': [], '4_star': [], '5_star': [], '6_star': [], total_pulls: 0, keys: 0 }
+      if (!inv[uid]) inv[uid] = { userName: uid, '3_star': [], '4_star': [], '5_star': [], total_pulls: 0, keys: 0 }
       if (!inv[uid].pity) inv[uid].pity = { '4_star': pc['4_star'] || 0, '5_star': pc['5_star'] || 0 }
     }
   }
@@ -68,16 +134,21 @@ async function init() {
     ...(state.standardBanner['3_star'] || []),
     ...(state.standardBanner['4_star'] || []),
     ...(state.standardBanner['5_star'] || []),
-    ...(state.seasonalBanner['4_star'] || []),
-    ...(state.seasonalBanner['5_star'] || []),
-    ...(state.seasonalBanner['6_star'] || []),
-    ...(state.seasonalCharactersConfig.characters || []).map(c => c.name),
+    ...(state.seasonData.seasons || []).flatMap(s => (s.characters || []).map(c => c.name)),
   ])
+
+  // stockMap: source of truth is gacha_temporadas.json
+  for (const s of (state.seasonData.seasons || [])) {
+    for (const c of (s.characters || [])) {
+      state.stockMap[c.name] = c.stock
+    }
+  }
 
   for (const name of allCharNames) {
     try {
       const c = JSON.parse(await fs.readFile(path.join(CHARS, `${name}.json`), 'utf8'))
-      c.stock = (state.gachaConfig.character_stocks || {})[name] ?? c.stock
+      // stock comes from season data, not character files
+      c.stock = state.stockMap[c.name || name]
       // ponytail: index by the JSON's "name" field (canonical display name), not the filename
       const canonicalKey = c.name || name
       state.characterData[canonicalKey] = c
@@ -89,6 +160,9 @@ async function init() {
       logger.warn(TAG, `Could not load character: ${name}`)
     }
   }
+
+  // build seasonal banner from season data (single source of truth)
+  state.seasonalBanner = buildBannerFromSeasons(state.seasonData, state.characterData)
 
   sanitizeInventories()
 
@@ -104,7 +178,7 @@ function sanitizeInventories() {
     if (!u || typeof u !== 'object') continue
     const looksNumericId = /^\d+$/.test(uid) && u.userName === uid
     if (looksNumericId) orphanIds.push(uid)
-    for (const r of ['3_star', '4_star', '5_star', '6_star']) {
+    for (const r of ['3_star', '4_star', '5_star']) {
       if (!Array.isArray(u[r])) { u[r] = []; continue }
       const before = u[r].length
       u[r] = u[r].filter(n => valid[n])
@@ -118,7 +192,7 @@ function sanitizeInventories() {
     if (!Array.isArray(u['3_star'])) u['3_star'] = []
     if (!Array.isArray(u['4_star'])) u['4_star'] = []
     if (!Array.isArray(u['5_star'])) u['5_star'] = []
-    if (!Array.isArray(u['6_star'])) u['6_star'] = []
+
   }
   if (purged > 0) logger.warn(TAG, `Sanitized ${purged} invalid character entries from inventories`)
   if (orphanIds.length > 0) logger.warn(TAG, `Orphan numeric userIds without userName: ${orphanIds.join(', ')}`)
@@ -161,7 +235,60 @@ async function saveInventories() { await persist('user_inventory.json', state.in
 async function saveTrades()       { await persist('trades.json', state.trades) }
 async function saveTradeHistory() { await persist('trade_history.json', state.tradeHistory) }
 async function saveGachaConfig()  { await fs.writeFile(WP('gacha_config.json'), JSON.stringify(state.gachaConfig, null, 2)) }
-async function saveSeasonalChars(){ await persist('gacha_data/banners/seasonal_characters.json', state.seasonalCharactersConfig) }
+async function saveSeasonData() {
+  await persist('gacha_data/banners/gacha_temporadas.json', state.seasonData)
+  // rebuild stockMap from seasons
+  state.stockMap = {}
+  for (const s of (state.seasonData.seasons || [])) {
+    for (const c of (s.characters || [])) {
+      state.stockMap[c.name] = c.stock
+    }
+  }
+  // sync to characterData so engine lookups stay correct
+  for (const [name, data] of Object.entries(state.characterData)) {
+    data.stock = state.stockMap[name]
+  }
+}
+
+// stock helpers
+function getStock(charName) {
+  return state.stockMap[charName]
+}
+
+async function setStock(charName, value) {
+  state.stockMap[charName] = value
+  if (state.characterData[charName]) state.characterData[charName].stock = value
+  for (const s of state.seasonData.seasons) {
+    const idx = s.characters.findIndex(c => c.name === charName)
+    if (idx !== -1) { s.characters[idx].stock = value; break }
+  }
+  await saveSeasonData()
+}
+
+// --- season helpers ---
+function getOrCreateSeason(month) {
+  if (!month) month = new Date().toISOString().slice(0, 7)
+  let season = state.seasonData.seasons.find(s => s.month === month)
+  if (!season) {
+    const id = state.seasonData.seasons.length + 1
+    const [year, m] = month.split('-')
+    const endDate = new Date(parseInt(year), parseInt(m), 0).toISOString().slice(0, 10)
+    season = { id, label: `Temporada ${id}`, month, start_date: `${month}-01`, end_date: endDate, characters: [] }
+    state.seasonData.seasons.push(season)
+  }
+  return season
+}
+
+function getAllSeasonalCharacters() {
+  const seen = new Set()
+  const result = []
+  for (const s of state.seasonData.seasons) {
+    for (const c of s.characters || []) {
+      if (!seen.has(c.name)) { seen.add(c.name); result.push(c) }
+    }
+  }
+  return result
+}
 
 // --- character helpers ---
 function normalizeImageUrl(url) {
@@ -177,6 +304,10 @@ async function saveCharacterFile(name, data) {
   await fs.writeFile(charFilePath(name), JSON.stringify(data, null, 2))
 }
 
+async function savePityData() {
+  await persist('pity_data.json', state.pityData)
+}
+
 async function deleteCharacterFile(name) {
   try { await fs.unlink(charFilePath(name)) } catch {}
 }
@@ -186,7 +317,7 @@ function getUser(userId) {
   if (!state.inventories[userId]) {
     state.inventories[userId] = {
       userName: userId,
-      '3_star': [], '4_star': [], '5_star': [], '6_star': [],
+      '3_star': [], '4_star': [], '5_star': [],
       total_pulls: 0, keys: 0,
       pity: { '4_star': 0, '5_star': 0 },
     }
@@ -212,9 +343,14 @@ function findBannerForChar(charName) {
 }
 
 async function saveBanner(type) {
-  const file = type === 'standard_banner' ? 'standard_banner.json' : 'seasonal_banner.json'
-  const data = type === 'standard_banner' ? state.standardBanner : state.seasonalBanner
-  await fs.writeFile(path.join(BANNERS, file), JSON.stringify(data, null, 2))
+  if (type === 'seasonal') {
+    // seasonal banner is derived from gacha_temporadas.json
+    await saveSeasonData()
+    state.seasonalBanner = buildBannerFromSeasons(state.seasonData, state.characterData)
+    return
+  }
+  const file = 'standard_banner.json'
+  await fs.writeFile(path.join(BANNERS, file), JSON.stringify(state.standardBanner, null, 2))
 }
 
 module.exports = {
@@ -224,13 +360,18 @@ module.exports = {
   saveTrades,
   saveTradeHistory,
   saveGachaConfig,
-  saveSeasonalChars,
+  saveSeasonData,
+  getOrCreateSeason,
+  getAllSeasonalCharacters,
   normalizeImageUrl,
   saveCharacterFile,
+  savePityData,
   deleteCharacterFile,
   getUser,
   getPity,
   findBannerForChar,
   saveBanner,
   charFilePath,
+  getStock,
+  setStock,
 }

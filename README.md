@@ -285,7 +285,8 @@ Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. E
 | | `!inventario` / `!inventory` / `!inv` | Muestra llaves, tiradas, pity y personajes en el chat | User |
 | | `!Sinv` | Muestra inventario como tarjeta en el overlay (view.html) | User |
 | | `!pj &lt;personaje&gt;` | Muestra la carta del personaje en el overlay (view.html) | User |
-| | `!top` | Top 3 coleccionistas con más tiradas | User |
+| | `!lista` | Lista personajes disponibles 4★ y 5★ del banner + promocionales | User |
+| | `!top` | Top 3 coleccionistas con más personajes | User |
 | | `!trade &lt;tu_pj&gt; por &lt;su_pj&gt; @usuario` | Crea intercambio de 5★ | User |
 | | `!aceptar_trade` / `!accept_trade &lt;ID&gt;` | Acepta un trade | User |
 | | `!rechazar_trade` / `!reject_trade &lt;ID&gt;` | Cancela/rechaza un trade | User |

@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lines.push(`🔑 Keys: ${data.keys}`);
         lines.push(`📊 Tiradas: ${data.totalPulls}`);
         lines.push(`🎯 Pity 4★: ${data.pity4} | 5★: ${data.pity5}/${data.hardPity} (${data.pullsLeft} falta)`);
-        lines.push(`📦 3★: ${data.charCounts['3_star']} | 4★: ${data.charCounts['4_star']} | 5★: ${data.charCounts['5_star']} | 6★: ${data.charCounts['6_star']}`);
+        lines.push(`📦 3★: ${data.charCounts['3_star']} | 4★: ${data.charCounts['4_star']} | 5★: ${data.charCounts['5_star']}`);
 
         charNameElem.textContent = `INVENTARIO — ${data.userName.toUpperCase()}`;
         charImageElem.src = '';

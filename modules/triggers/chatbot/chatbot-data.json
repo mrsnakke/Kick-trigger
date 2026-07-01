@@ -8,5 +8,13 @@
       "enabled": true
     }
   ],
-  "timers": []
+  "timers": [
+    {
+      "id": "f8d38f87",
+      "message": "Usa el comando !daily para obtener llaves 10 🔑 para el !pull o !multi",
+      "intervalMs": 300000,
+      "enabled": true,
+      "lastSent": null
+    }
+  ]
 }

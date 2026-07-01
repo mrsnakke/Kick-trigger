@@ -32,7 +32,7 @@ router.get('/view-character', async (req, res) => {
 
   for (const [uid, uinv] of Object.entries(inv)) {
     let count = 0
-    for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+    for (const r of ['5_star', '4_star', '3_star']) {
       if (uinv[r]) count += uinv[r].filter(n => n.toLowerCase() === norm).length
     }
     if (count > 0) {
@@ -48,7 +48,6 @@ router.get('/view-character', async (req, res) => {
       name: c.name.toUpperCase(),
       image,
       quality,
-      description: c.description || 'No hay descripción disponible.',
     },
     userOwnsCharacter,
     totalInInventories,
@@ -56,7 +55,7 @@ router.get('/view-character', async (req, res) => {
   })
 })
 
-// user trades for trades.html
+// user trades API (for user-facing trades view)
 router.get('/trades/:userName', (req, res) => {
   const userName = req.params.userName.toLowerCase()
   const entry = Object.entries(store.state.inventories).find(([id, u]) => u.userName?.toLowerCase() === userName)
@@ -104,7 +103,6 @@ router.get('/show-character', async (req, res) => {
         name: c.name.toUpperCase(),
         image: store.normalizeImageUrl(c.image_url),
         quality: typeof c.rarity === 'string' ? parseInt(c.rarity.match(/^(\d+)/)?.[1] || '0') : (c.rarity || 0),
-        description: c.description || '',
       },
       userOwnsCharacter: false,
       totalInInventories: 0,
