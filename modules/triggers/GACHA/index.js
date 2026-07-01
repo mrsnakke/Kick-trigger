@@ -2,13 +2,10 @@
 const express = require('express')
 const { Router } = require('express')
 const path = require('path')
-const config = require('./lib/config')
-const logger = require('./lib/logger')
 const wsPush = require('./lib/ws-push')
 const store = require('./modules/data/store')
 const sse = require('../../sse')
 
-const TAG = 'GACHA'
 const router = Router()
 const overlayRouter = Router()
 let initialized = false
@@ -90,7 +87,7 @@ async function init() {
   initialized = true
 
   await store.init()
-  logger.log(TAG, 'Data loaded')
+  console.log('[GACHA] Data loaded')
 
   // register event handlers (commands.js hooks into event bus directly)
   require('./modules/events/commands')
@@ -107,7 +104,7 @@ async function init() {
     }
   }
 
-  logger.log(TAG, 'Module initialized')
+  console.log('[GACHA] Module initialized')
 }
 
 module.exports = { init, initWs, router, webDir, overlayRouter }

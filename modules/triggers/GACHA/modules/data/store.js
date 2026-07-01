@@ -2,9 +2,6 @@
 const fs = require('fs').promises
 const path = require('path')
 const config = require('../../lib/config')
-const logger = require('../../lib/logger')
-
-const TAG = 'STORE'
 
 // --- paths ---
 const p = (file) => path.join(config.dataDir, file)
@@ -63,7 +60,7 @@ async function loadJson(filePath, fallback = {}) {
 }
 
 async function init() {
-  logger.log(TAG, 'Loading data...')
+  console.log('[STORE] Loading data...')
 
   state.gachaConfig = await loadJson(WP('gacha_config.json'))
   state.pityData = await loadJson(p('pity_data.json'))
@@ -105,7 +102,7 @@ async function init() {
         }]
       }
       await saveSeasonData()
-      logger.log(TAG, `Migrated ${charNames.size} chars to gacha_temporadas.json with stock=5`)
+      console.log('[STORE] Migrated', charNames.size, 'chars to gacha_temporadas.json with stock=5')
     }
   }
 
@@ -157,7 +154,7 @@ async function init() {
         Object.defineProperty(state.characterData[canonicalKey], '_fileKey', { value: name, enumerable: false })
       }
     } catch {
-      logger.warn(TAG, `Could not load character: ${name}`)
+      console.warn('[STORE] Could not load character:', name)
     }
   }
 
@@ -166,7 +163,7 @@ async function init() {
 
   sanitizeInventories()
 
-  logger.log(TAG, `Loaded ${Object.keys(state.characterData).length} characters`)
+  console.log('[STORE] Loaded', Object.keys(state.characterData).length, 'characters')
 }
 
 // ponytail: drop junk on load — characters not in characterData, bogus fields inside pity, orphan numeric userNames
@@ -194,8 +191,8 @@ function sanitizeInventories() {
     if (!Array.isArray(u['5_star'])) u['5_star'] = []
 
   }
-  if (purged > 0) logger.warn(TAG, `Sanitized ${purged} invalid character entries from inventories`)
-  if (orphanIds.length > 0) logger.warn(TAG, `Orphan numeric userIds without userName: ${orphanIds.join(', ')}`)
+  if (purged > 0) console.warn('[STORE] Sanitized', purged, 'invalid character entries from inventories')
+  if (orphanIds.length > 0) console.warn('[STORE] Orphan numeric userIds without userName:', orphanIds.join(', '))
 }
 
 function validateConfig() {

@@ -1,8 +1,5 @@
 // ponytail: inventory CRUD — keys, char tracking, add-to-inventory
 const store = require('../data/store')
-const logger = require('../../lib/logger')
-
-const TAG = 'INV'
 
 function ensureUser(userId, userName) {
   const u = store.getUser(userId)
@@ -15,14 +12,14 @@ async function addCharacters(userId, characters, userName) {
   let dropped = 0
   for (const c of characters) {
     if (!store.state.characterData[c.name]) {
-      logger.warn(TAG, `Rejected unknown character: ${c.name} (rarity=${c.rarity})`)
+      console.warn('[INV] Rejected unknown character:', c.name, '(rarity=' + c.rarity + ')')
       dropped++
       continue
     }
     const arr = u[c.rarity]
     if (arr && !arr.includes(c.name)) {
       arr.push(c.name)
-      logger.log(TAG, `Added ${c.name} (${c.rarity}) to ${userName || userId}`)
+      console.log('[INV] Added', c.name, '(' + c.rarity + ') to', userName || userId)
     }
   }
   u.total_pulls = (u.total_pulls || 0) + characters.length

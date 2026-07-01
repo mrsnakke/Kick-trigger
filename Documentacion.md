@@ -154,7 +154,8 @@ kick-backend/
 │       ├── vtuber-ai/            # VTuber AI con DeepSeek
 │       ├── obs-actions/          # Control de OBS vía WebSocket
 │       ├── Music/                # Control de reproductor YouTube
-│       └── chatbot/              # Comandos personalizados + timers automáticos
+│       ├── chatbot/              # Comandos personalizados + timers automáticos
+│       └── event-actions/        # Detección de primer mensaje + miniprompts por evento
 │
 ├── public/                       # Archivos estáticos
 │   ├── index.html                # Dashboard web single-page
@@ -352,6 +353,7 @@ frontend. Ver [`updateStatus()` en el dashboard](#7-dashboard-web-publicindexhtm
 
 **Funcionamiento:**
 - Escucha `chat.message.sent`, filtra por comando `!grim <pregunta>`
+- Exporta `processMessage(username, content)` para que otros módulos (como Event Actions) puedan enviar mensajes directamente a la IA sin pasar por el comando `!grim`
 - Envía a DeepSeek API (modelo `deepseek-v4-flash`)
 - Soporta tool calling: `web_search` via DuckDuckGo
 - Envía respuesta al chat de Kick como bot (prefijada con `!sp` para que TTS la lea)
@@ -543,6 +545,64 @@ GACHA/
 - `PATCH /chatbot/api/timers/:id/toggle` — activar/desactivar
 - `GET /chatbot/api/status` — estado general
 
+### 6.7 Event Actions (`triggers/event-actions/`) — Detección de primer mensaje + miniprompts
+
+Módulo que intercepta eventos de Kick y los canaliza hacia la VTuber AI con contexto adicional. Detecta cuándo un usuario escribe por primera vez y reacciona a eventos del canal con miniprompts configurables.
+
+**Archivos:**
+- `index.js` — lógica principal, handlers HTTP, integración con event bus
+- `chatters.json` — persistencia de usuarios que ya han escrito (se crea automáticamente)
+- `event-actions-config.json` — miniprompts por evento (se crea automáticamente)
+
+**Funcionamiento:**
+
+Escucha estos eventos del bus y llama a `vtuber-ai.processMessage()` con contexto:
+
+| Evento | Acción |
+|---|---|
+| `chat.message.sent` | Si es el **primer mensaje** del usuario, lo envía a la VTuber AI con prefijo `chat.message.sent. PRIMER MENSAJE DEL DIA DE @user: msg`. Si el mensaje parece promoción/bot, alerta a `@MrsnakeVT` en el chat. |
+| `channel.followed` | Envía a la VTuber AI el miniprompt configurado para nuevo seguidor |
+| `channel.subscription.new` | Envía a la VTuber AI el miniprompt configurado para nueva suscripción |
+| `channel.subscription.renewal` | Envía a la VTuber AI el miniprompt configurado para renovación |
+| `channel.subscription.gifts` | Envía a la VTuber AI el miniprompt configurado para subs regaladas |
+| `channel.reward.redemption.updated` | Envía a la VTuber AI el miniprompt con `{reward_title}` |
+| `livestream.metadata.updated` | Envía a la VTuber AI el miniprompt con `{title}` |
+| `kicks.gifted` | Envía a la VTuber AI el miniprompt configurado para KICKS |
+
+**Detección de primer mensaje:**
+- Los username se guardan en `chatters.json` (en disco) para persistir entre reinicios de la app
+- Si la app se reinicia a mitad de stream, los usuarios ya registrados no reciben doble saludo
+- El botón **"Reiniciar Chatters"** en el dashboard borra el archivo en caliente
+- Ignora mensajes de bots conocidos: `botrix`, `GrimVTbot`, `mersnakevt` (case insensitive)
+- Si el primer mensaje empieza con `!grim`, se agrega a chatters pero NO se llama a la AI (lo maneja `vtuber-ai` directamente), evitando doble respuesta
+
+**Detección de bots de promoción:**
+- Analiza el primer mensaje contra keywords: URLs, "compra", "venta", "descuento", "visita mi", etc.
+- Si detecta un mensaje promocional, envía al chat: `@MrsnakeVT ponte a chambear hay un bot haciendo promoción en chat: @user: "mensaje"`
+
+**Miniprompts configurables:**
+Cada evento tiene un texto editable desde el dashboard. Variables disponibles:
+- `{username}` — se reemplaza por el nombre del usuario (todos los eventos)
+- `{reward_title}` — título de la recompensa (solo `channel.reward.redemption.updated`)
+- `{title}` — título del stream (solo `livestream.metadata.updated`)
+
+**Miniprompts por defecto:**
+
+| Evento | Miniprompt default |
+|---|---|
+| `channel.followed` | `chat.message.sent. [EVENTO: Nuevo seguidor] @{username} acaba de seguir el canal en Kick. Dale una bienvenida cálida y agradécele el follow.` |
+| `channel.subscription.new` | `chat.message.sent. [EVENTO: Nueva suscripción] @{username} acaba de suscribirse al canal por primera vez...` |
+| `channel.subscription.renewal` | `chat.message.sent. [EVENTO: Renovación de suscripción] @{username} ha renovado su suscripción mensual...` |
+| `channel.subscription.gifts` | `chat.message.sent. [EVENTO: Suscripciones regaladas] @{username} ha regalado suscripciones a la comunidad...` |
+| `channel.reward.redemption.updated` | `chat.message.sent. [EVENTO: Canje de recompensa] @{username} ha canjeado "{reward_title}" con puntos de canal...` |
+| `livestream.metadata.updated` | `chat.message.sent. [EVENTO: Stream actualizado] Se cambió el título o categoría del stream...` |
+| `kicks.gifted` | `chat.message.sent. [EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal...` |
+
+**Endpoints:**
+- `GET /api/event-actions/config` — obtener miniprompts + contador de chatters
+- `POST /api/event-actions/config` — guardar miniprompts
+- `POST /api/event-actions/reset-chatters` — reiniciar lista de chatters
+
 ---
 
 ## 7. Dashboard web (`public/index.html`)
@@ -557,7 +617,8 @@ Single-page application en HTML + CSS + JS vanilla (~1490 líneas) que se conect
 - Botón de inicio/parada del túnel
 - Panel TTS completo (config, toggle, logs)
 - Console TTS con logs en tiempo real
-- Pestañas: Eventos, Chat, TTS, VTuber, OBS, Música, Comandos
+- Pestañas: Eventos, TTS, Gacha, Comandos, VTuber, OBS, Chatbot, **Event Actions**
+- Panel Event Actions: edición de miniprompts por evento + botón "Reiniciar Chatters"
 - Shutdown al cerrar la pestaña
 
 **`updateStatus()`** maneja los eventos SSE de tipo `status`. Esta función
@@ -597,6 +658,9 @@ pisinen los badges de autenticación del dashboard.
 | `/obs-actions/*` | varias | Control OBS (API + dashboard) |
 | `/music/*` | varias | Control música (API + dashboard) |
 | `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
+| `/api/event-actions/config` | GET | Obtener miniprompts + contador de chatters |
+| `/api/event-actions/config` | POST | Guardar miniprompts |
+| `/api/event-actions/reset-chatters` | POST | Reiniciar lista de chatters (primer mensaje) |
 
 ---
 
@@ -652,6 +716,8 @@ eventBus.on('chat.message.sent', (data) => {
 | `tts:request_status` | — | Solicitar estado TTS (al conectar SSE) |
 | `tts:config_updated` | `{ config, bannedWords }` | Config TTS actualizada |
 | `tts:user_aliases_updated` | `{ userAliases }` | Alias de TTS actualizados |
+| `event-actions:status` | `{ chattersCount }` | Estado del módulo Event Actions |
+| `event-actions:reset` | `{ chattersCount: 0 }` | Chatters reiniciados desde el dashboard |
 
 ---
 

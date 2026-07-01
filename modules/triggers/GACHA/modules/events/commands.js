@@ -1,11 +1,10 @@
 // ponytail: chat commands + reward redemption handling via event bus
-const bus = require('../../lib/event-bus')
-const logger = require('../../lib/logger')
+const bus = require('../../../../../lib/event-bus')
 const store = require('../data/store')
 const engine = require('../gacha/engine')
 const inventory = require('../gacha/inventory')
 const trades = require('../trades/manager')
-const chat = require('../chat/sender')
+const { sendAsBot } = require('../../../../../modules/chat')
 const wsPush = require('../../lib/ws-push')
 const broadcast = (...args) => wsPush.broadcast(...args)
 
@@ -41,7 +40,7 @@ async function processRedemptionQueue() {
     try {
       await handleRedemption(payload, userId, userName, rewardTitle)
     } catch (e) {
-      logger.error(TAG, `Redemption queue error: ${e.message}`)
+      console.error('[CMDS] Redemption queue error:', e.message)
     }
   }
   processingQueue = false
@@ -98,7 +97,9 @@ function parseCmd(text) {
 }
 
 // send a reply to chat
-function reply(msg) { chat.send(msg) }
+async function reply(msg) {
+  try { await sendAsBot(msg) } catch (e) { console.error('[CMDS] Failed to send chat message:', e.message) }
+}
 
 // ─── register event handlers ───
 
@@ -551,7 +552,7 @@ case 'multi':
         break
     }
   } catch (e) {
-    logger.error(TAG, `Error handling cmd ${cmd}: ${e.message}`)
+    console.error('[CMDS] Error handling cmd', cmd + ':', e.message)
   }
 })
 // ponytail: channel-point redemptions disabled — pulls only via chat commands (!pull/!multi/!tirada/!x10)
@@ -573,25 +574,25 @@ case 'multi':
 
 // ─── skeleton handlers for remaining known events ───
 bus.on('channel.followed', (data) => {
-  logger.log(TAG, `Follow: ${data.payload?.followed?.username || 'unknown'}`)
+  console.log('[CMDS] Follow:', data.payload?.followed?.username || 'unknown')
 })
 bus.on('channel.subscription.new', (data) => {
-  logger.log(TAG, `New sub: ${data.payload?.subscriber?.username || 'unknown'} (${data.payload?.subscriber_tier || '?'})`)
+  console.log('[CMDS] New sub:', data.payload?.subscriber?.username || 'unknown', '(' + (data.payload?.subscriber_tier || '?') + ')')
 })
 bus.on('channel.subscription.renewal', (data) => {
-  logger.log(TAG, `Sub renewal: ${data.payload?.subscriber?.username || 'unknown'}`)
+  console.log('[CMDS] Sub renewal:', data.payload?.subscriber?.username || 'unknown')
 })
 bus.on('channel.subscription.gifts', (data) => {
-  logger.log(TAG, `Sub gifts: ${data.payload?.gifter?.username || 'unknown'} x${data.payload?.amount || '?'}`)
+  console.log('[CMDS] Sub gifts:', data.payload?.gifter?.username || 'unknown', 'x' + (data.payload?.amount || '?'))
 })
 bus.on('livestream.status.updated', (data) => {
-  logger.log(TAG, `Livestream: ${data.payload?.livestream?.is_live ? 'ONLINE' : 'OFFLINE'}`)
+  console.log('[CMDS] Livestream:', data.payload?.livestream?.is_live ? 'ONLINE' : 'OFFLINE')
 })
 bus.on('moderation.banned', (data) => {
-  logger.log(TAG, `Ban: ${data.payload?.user?.username || 'unknown'}`)
+  console.log('[CMDS] Ban:', data.payload?.user?.username || 'unknown')
 })
 bus.on('kicks.gifted', (data) => {
-  logger.log(TAG, `Kicks gifted by ${data.payload?.gifter?.username || 'unknown'}`)
+  console.log('[CMDS] Kicks gifted by', data.payload?.gifter?.username || 'unknown')
 })
 
-logger.log(TAG, 'All event handlers registered')
+console.log('[CMDS] All event handlers registered')

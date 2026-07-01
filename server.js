@@ -13,6 +13,7 @@ const forwarder = require('./lib/forwarder')
 const ttsTrigger = require('./modules/triggers/tts')
 const gacha = require('./modules/triggers/GACHA')
 const vtuber = require('./modules/triggers/vtuber-ai')
+const eventActions = require('./modules/triggers/event-actions')
 const obsActions = require('./modules/triggers/obs-actions')
 const music = require('./modules/triggers/Music')
 const chatbot = require('./modules/triggers/chatbot')
@@ -94,6 +95,12 @@ app.get('/api/vtuber/status', vtuber.handleGetStatus)
 app.get('/api/vtuber/config', vtuber.handleGetConfig)
 app.post('/api/vtuber/config', express.json(), vtuber.handleSaveConfig)
 app.post('/api/vtuber/test', express.json(), vtuber.handleTest)
+
+// -- Event Actions --
+app.get('/api/event-actions/config', eventActions.handleGetConfig)
+app.post('/api/event-actions/config', express.json(), eventActions.handleSaveConfig)
+app.post('/api/event-actions/reset-chatters', express.json(), eventActions.handleResetChatters)
+app.post('/api/event-actions/toggle', express.json(), eventActions.handleToggle)
 
 // -- GACHA --
 gacha.initWs(server)

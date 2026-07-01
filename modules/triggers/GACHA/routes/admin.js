@@ -2,9 +2,6 @@ const { Router } = require('express')
 const path = require('path')
 const multer = require('multer')
 const store = require('../modules/data/store')
-const logger = require('../lib/logger')
-
-const TAG = 'ADMIN'
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage() })
 
@@ -68,7 +65,7 @@ router.post('/character', upload.single('image'), async (req, res) => {
   if (!target[rarity].includes(name)) target[rarity].push(name)
   await store.saveBanner(banner === 'standard_banner' ? 'standard_banner' : 'seasonal')
 
-  logger.log(TAG, `Created: ${name}`)
+  console.log('[ADMIN] Created:', name)
   res.status(201).json({ message: `Personaje '${name}' creado.`, character: newChar })
 })
 
@@ -139,7 +136,7 @@ router.put('/character/:oldName', upload.single('image'), async (req, res) => {
   // sync characterData stock from stockMap (source of truth)
   updated.stock = store.getStock(name)
 
-  logger.log(TAG, `Updated: ${oldName} -> ${name}`)
+  console.log('[ADMIN] Updated:', oldName, '->', name)
   res.json({ message: `Personaje '${name}' actualizado.`, character: updated })
 })
 
@@ -155,7 +152,7 @@ router.delete('/character/:name', async (req, res) => {
   await store.saveBanner('seasonal')
   for (const s of store.state.seasonData.seasons) s.characters = s.characters.filter(c => c.name !== name)
   await store.saveSeasonData()
-  logger.log(TAG, `Deleted: ${name}`)
+  console.log('[ADMIN] Deleted:', name)
   res.json({ message: `Personaje '${name}' eliminado.` })
 })
 
@@ -321,7 +318,7 @@ router.get('/clear-all-data', async (req, res) => {
   if (req.query.confirm !== 'true') return res.status(400).send('?confirm=true required')
   store.state.inventories = {}
   await store.saveInventories()
-  logger.log(TAG, 'All data cleared')
+  console.log('[ADMIN] All data cleared')
   res.send('Cleared.')
 })
 
@@ -349,7 +346,7 @@ router.delete('/trades/:id', async (req, res) => {
   if (trade.status !== 'pending') return res.status(400).json({ error: 'Only pending trades can be cancelled by admin' })
   trade.status = 'cancelled'
   await store.saveTrades()
-  logger.log(TAG, `Admin cancelled trade ${id}`)
+  console.log('[ADMIN] Admin cancelled trade', id)
   res.json({ message: `Trade ${id.slice(0, 8)} cancelled.` })
 })
 

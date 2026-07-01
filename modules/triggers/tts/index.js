@@ -48,6 +48,25 @@ function handleChatMessage(data) {
       configManager.setUserAlias(user, aliases[key])
       logMessage(`Asignada voz "${aliases[key]}" a ${user}`, 'system')
     }
+    // ponytail: also read !grim messages via TTS
+    if (cmd.startsWith('!grim')) {
+      const grimText = message.slice('!grim'.length).trim()
+      if (grimText.length) {
+        if (configManager.containsBannedWords(grimText)) {
+          logMessage(`Mensaje bloqueado de @${user} (palabras prohibidas)`, 'error')
+        } else {
+          const maxLen = config.MAX_TEXT_LENGTH
+          const toSpeak = maxLen && grimText.length > maxLen ? grimText.slice(0, maxLen) + '...' : grimText
+          logMessage(toSpeak, 'chat_tts_kick', user)
+          const clean = toSpeak.replace(/\[emote:\d+:[^\]]+\]/g, '').trim()
+          if (clean.length) {
+            const ok = speakerbot.sendToSpeakerBot(clean, user, config.VOICE_NAME)
+            if (ok) logMessage(`[!grim] Enviado a Speaker.bot`, 'success')
+            else logMessage(`[!grim] Speaker.bot desconectado`, 'error')
+          }
+        }
+      }
+    }
     return
   }
 
