@@ -58,7 +58,7 @@ app.get('/View', async (req, res) => {
 
   for (const [uid, uinv] of Object.entries(inv)) {
     let count = 0
-    for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+    for (const r of ['5_star', '4_star', '3_star']) {
       if (uinv[r]) count += uinv[r].filter(n => n.toLowerCase() === norm).length
     }
     if (count > 0) {
@@ -73,7 +73,7 @@ app.get('/View', async (req, res) => {
   wsPush.broadcast({
     type: 'showCharacter',
     data: {
-      character: { name: c.name, image, quality, description: c.description || 'No hay descripción disponible.' },
+      character: { name: c.name, image, quality },
       userOwnsCharacter: userOwns,
       totalInInventories: total,
       owners,
@@ -88,11 +88,10 @@ store.init().then(() => {
   // load event handlers
   require('./modules/events/commands')
 
-  server.listen(config.port, '0.0.0.0', () => {
+server.listen(config.port, '0.0.0.0', () => {
     logger.log(TAG, `Gacha server running on http://0.0.0.0:${config.port}`)
     logger.log(TAG, `Overlay: http://localhost:${config.port}/`)
-    logger.log(TAG, `Admin:  http://localhost:${config.port}/admin.html`)
-    logger.log(TAG, `Trades: http://localhost:${config.port}/trades.html`)
+    logger.log(TAG, `Overlay (view): http://localhost:${config.port}/view.html`)
     logger.log(TAG, `Receiving events at POST /kick-events`)
   })
 }).catch((e) => {

@@ -239,7 +239,7 @@ async function displayMultiPull(redeemer, characters) {
         duration: 450
     }, '-=500');
 
-    const revealOrder = ['3_star', '4_star', '5_star', '6_star'];
+    const revealOrder = ['3_star', '4_star', '5_star'];
     revealOrder.forEach(rarity => {
         const targets = bubbles.filter(b => b.dataset.rarity === rarity);
         if (targets.length === 0) return;

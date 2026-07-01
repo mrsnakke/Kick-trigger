@@ -20,6 +20,8 @@ const defaults = {
 
 let cfg = { ...defaults };
 cfg.API_KEY = env.DEEPSEEK_API_KEY || env.VTUBER_API_KEY || '';
+cfg.SYSTEM_PROMPT_BASE = null;
+cfg.SYSTEM_PROMPT_CUSTOM = null;
 
 let deepseek = null;
 let initialized = false;
@@ -34,9 +36,10 @@ function loadConfig() {
     if (saved.MAX_HISTORY_TURNS != null) cfg.MAX_HISTORY_TURNS = saved.MAX_HISTORY_TURNS;
     if (saved.VTUBER_NAME) cfg.VTUBER_NAME = saved.VTUBER_NAME;
     if (saved.COMMAND) cfg.COMMAND = saved.COMMAND.toLowerCase();
-    cfg.SYSTEM_PROMPT = saved.SYSTEM_PROMPT || null;
-    if (saved.SYSTEM_PROMPT) setSystemPrompt(saved.SYSTEM_PROMPT);
+    cfg.SYSTEM_PROMPT_BASE = saved.SYSTEM_PROMPT_BASE || null;
+    if (saved.SYSTEM_PROMPT_BASE) setSystemPrompt(saved.SYSTEM_PROMPT_BASE);
     else resetSystemPrompt();
+    cfg.SYSTEM_PROMPT_CUSTOM = saved.SYSTEM_PROMPT_CUSTOM || null;
   } catch {}
 }
 
@@ -48,12 +51,16 @@ function saveConfig() {
     MAX_HISTORY_TURNS: cfg.MAX_HISTORY_TURNS,
     VTUBER_NAME: cfg.VTUBER_NAME,
     COMMAND: cfg.COMMAND,
-    SYSTEM_PROMPT: cfg.SYSTEM_PROMPT
+    SYSTEM_PROMPT_BASE: cfg.SYSTEM_PROMPT_BASE,
+    SYSTEM_PROMPT_CUSTOM: cfg.SYSTEM_PROMPT_CUSTOM
   }, null, 2), 'utf-8');
 }
 
 function getSystemPrompt() {
-  return loadSystemPrompt().replace('{name}', cfg.VTUBER_NAME);
+  const base = loadSystemPrompt()
+    .replace('{name}', cfg.VTUBER_NAME);
+  const custom = cfg.SYSTEM_PROMPT_CUSTOM || '';
+  return base + (custom ? '\n\n' + custom : '');
 }
 
 function sanitizeUserId(name) {
@@ -106,17 +113,14 @@ async function processMessage(username, content) {
 
   console.log(`[VTUBER-AI] ${username}: ${content}`);
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('es-ES', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
-  const datePrefix = `[Fecha: ${dateStr}, ${timeStr} Pacific Time]\n`;
-  const datedContent = datePrefix + content;
-
   const history = await getConversation(username, cfg.MAX_HISTORY_TURNS);
   const messages = [
     { role: 'system', content: getSystemPrompt() },
-    ...history.map(e => ({ role: e.role, content: e.content })),
-    { role: 'user', content: datedContent }
+    ...history.map(e => ({
+      role: e.role,
+      content: e.role === 'user' ? `${e.username}: ${e.content}` : e.content
+    })),
+    { role: 'user', content: `${username}: ${content}` }
   ];
 
   await logMessage({ username, role: 'user', content });
@@ -198,12 +202,13 @@ function handleGetConfig(req, res) {
     MAX_TOKENS: cfg.MAX_TOKENS,
     VTUBER_NAME: cfg.VTUBER_NAME,
     COMMAND: cfg.COMMAND,
-    SYSTEM_PROMPT: loadSystemPrompt()
+    SYSTEM_PROMPT_BASE: loadSystemPrompt(),
+    SYSTEM_PROMPT_CUSTOM: cfg.SYSTEM_PROMPT_CUSTOM
   });
 }
 
 function handleSaveConfig(req, res) {
-  const { API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT } = req.body;
+  const { API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM } = req.body;
 
   if (API_KEY && typeof API_KEY === 'string' && API_KEY.trim()) {
     cfg.API_KEY = API_KEY.trim();
@@ -221,10 +226,14 @@ function handleSaveConfig(req, res) {
   if (VTUBER_NAME) cfg.VTUBER_NAME = VTUBER_NAME;
   if (COMMAND) cfg.COMMAND = COMMAND.toLowerCase().trim();
 
-  if (SYSTEM_PROMPT !== undefined) {
-    cfg.SYSTEM_PROMPT = SYSTEM_PROMPT || null;
-    if (cfg.SYSTEM_PROMPT) setSystemPrompt(cfg.SYSTEM_PROMPT);
+  if (SYSTEM_PROMPT_BASE !== undefined) {
+    cfg.SYSTEM_PROMPT_BASE = SYSTEM_PROMPT_BASE || null;
+    if (cfg.SYSTEM_PROMPT_BASE) setSystemPrompt(cfg.SYSTEM_PROMPT_BASE);
     else resetSystemPrompt();
+  }
+
+  if (SYSTEM_PROMPT_CUSTOM !== undefined) {
+    cfg.SYSTEM_PROMPT_CUSTOM = SYSTEM_PROMPT_CUSTOM || null;
   }
 
   saveConfig();
@@ -238,16 +247,12 @@ async function handleTest(req, res) {
     return res.status(400).json({ ok: false, message: 'Configura una API key primero' });
   }
   const content = req.body?.content || 'Hola!';
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('es-ES', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
-  const datedContent = `[Fecha: ${dateStr}, ${timeStr} Pacific Time]\n` + content;
   try {
     const start = Date.now();
     const result = await deepseek.complete({
       messages: [
         { role: 'system', content: getSystemPrompt() },
-        { role: 'user', content: datedContent }
+        { role: 'user', content }
       ],
       temperature: cfg.TEMPERATURE,
       maxTokens: cfg.MAX_TOKENS,

@@ -15,7 +15,6 @@ function selectRarity(pity) {
 
   const r = Math.random()
   let cum = 0
-  if (probs['6_star'] && r < (cum += probs['6_star'])) return '6_star'
   if (r < (cum += probs['5_star'])) return '5_star'
   if (r < (cum += probs['4_star'])) return '4_star'
   return '3_star'
@@ -50,9 +49,6 @@ function selectCharacter(rarity, userId) {
 
   if (rarity === '3_star') {
     pool = sd.standardBanner['3_star']
-  } else if (rarity === '6_star') {
-    pool = sd.seasonalBanner['6_star']
-    bannerSource = 'seasonal'
   } else if (rarity === '4_star') {
     const isSeasonal = Math.random() < 0.4
     pool = isSeasonal ? sd.seasonalBanner['4_star'] : sd.standardBanner['4_star']
@@ -99,23 +95,16 @@ async function performPull(userId) {
   const char = selectCharacter(rarity, userId)
   if (!char) return null
 
-  // track stock decrement
+  // track stock decrement (source of truth: gacha_temporadas.json via stockMap)
   const isNew = !store.state.inventories[userId]?.[rarity]?.includes(char.name)
   if (isNew && char.stock !== undefined && char.stock > 0) {
-    char.stock = Math.max(0, char.stock - 1)
-    if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
-    store.state.gachaConfig.character_stocks[char.name] = char.stock
-    store.state.characterData[char.name].stock = char.stock
-    // sync seasonal config
-    const sc = store.state.seasonalCharactersConfig.characters
-    const idx = sc.findIndex(c => c.name === char.name)
-    if (idx !== -1) sc[idx].stock = char.stock
+    const newStock = Math.max(0, char.stock - 1)
+    await store.setStock(char.name, newStock)
+    char.stock = newStock
   }
 
   updatePity(pity, rarity)
   await store.saveInventories()
-  await store.saveGachaConfig()
-  await store.saveSeasonalChars()
 
   const result = {
     ...char,

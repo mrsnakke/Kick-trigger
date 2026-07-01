@@ -84,9 +84,9 @@ async function handleRedemption(payload, userId, userName, rewardTitle) {
     },
   })
 
-  const high = characters.filter(c => c.rarity === '5_star' || c.rarity === '6_star')
+  const high = characters.filter(c => c.rarity === '5_star')
   if (high.length > 0) {
-    reply(`🎉 @${userName} tiró ${high.length} 5⭐/6⭐: ${high.map(c => `${c.name} (${c.rarity.replace('_star', '⭐')})`).join(', ')}!`)
+    reply(`🎉 @${userName} tiró ${high.length} 5⭐: ${high.map(c => `${c.name}`).join(', ')}!`)
   }
 }
 
@@ -136,15 +136,23 @@ bus.on('chat.message.sent', async (data) => {
       }
 
       case 'top': {
+        function charCount(u) {
+          const s = new Set()
+          for (const r of ['5_star', '4_star', '3_star'])
+            for (const n of (u[r] || [])) s.add(n)
+          return s.size
+        }
         const sorted = Object.entries(store.state.inventories)
-          .sort((a, b) => (b[1].total_pulls || 0) - (a[1].total_pulls || 0))
+          .sort((a, b) => (charCount(b[1]) - charCount(a[1])))
           .slice(0, 3)
-        if (sorted.length === 0) { reply(`@${userName} no hay tiradas aún.`); break }
+        if (sorted.length === 0) { reply(`@${userName} no hay coleccionistas aún.`); break }
 
         const medals = ['🥇', '🥈', '🥉']
-        const lines = sorted.map(([id, u], i) => `${medals[i]} ${u.userName || id}: ${u.total_pulls || 0} tiradas`)
+        const lines = sorted.map(([id, u], i) => `${medals[i]} ${u.userName || id}: ${charCount(u)} personajes`)
 
-        const myRank = sorted.findIndex(([id]) => id === userId)
+        const allByChars = Object.entries(store.state.inventories)
+          .sort((a, b) => (charCount(b[1]) - charCount(a[1])))
+        const myRank = allByChars.findIndex(([id]) => id === userId)
         const rankStr = myRank !== -1 ? ` ｜ Tu puesto: #${myRank + 1}` : ''
 
         reply(`@${userName} 🏆 Top Coleccionistas ｜ ${lines.join('  •  ')}${rankStr}`)
@@ -160,8 +168,8 @@ bus.on('chat.message.sent', async (data) => {
         if (!c) { reply(`@${userName} error al realizar la tirada.`); break }
         await inventory.addCharacters(userId, [c], userName)
         broadcast({ event: 'gacha_wish', data: { pull_type: 'single', userId, userName, character: c } })
-        if (c.rarity === '5_star' || c.rarity === '6_star') {
-          reply(`🎉 @${userName} tiró ${c.name} (${c.rarity.replace('_star', '⭐')})!`)
+        if (c.rarity === '5_star') {
+          reply(`🎉 @${userName} tiró ${c.name} (5⭐)!`)
         } else {
           reply(`@${userName} obtuviste ${c.name} (${c.rarity.replace('_star', '⭐')})`)
         }
@@ -176,9 +184,9 @@ case 'multi':
         if (chars.length === 0) { reply(`@${userName} error al realizar la tirada.`); break }
         await inventory.addCharacters(userId, chars, userName)
         broadcast({ event: 'gacha_wish', data: { pull_type: 'multi', userId, userName, characters: chars } })
-        const high = chars.filter(x => x.rarity === '5_star' || x.rarity === '6_star')
+        const high = chars.filter(x => x.rarity === '5_star')
         const msg = high.length > 0
-          ? `🎉 @${userName} multi-tirada! Obtuviste ${high.length} 5⭐/6⭐: ${high.map(x => `${x.name} (${x.rarity.replace('_star', '⭐')})`).join(', ')}`
+          ? `🎉 @${userName} multi-tirada! Obtuviste ${high.length} 5⭐: ${high.map(x => `${x.name}`).join(', ')}`
           : `@${userName} multi-tirada completada. Revisa !inventario`
         reply(msg)
         break
@@ -319,13 +327,7 @@ case 'multi':
         const stock = parseInt(stockStr, 10)
         if (!charName3 || isNaN(stock)) { reply(`@${userName} uso: !setstock <personaje> <stock>`); break }
         if (!store.state.characterData[charName3]) { reply(`@${userName} personaje no existe.`); break }
-        if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
-        store.state.gachaConfig.character_stocks[charName3] = stock
-        store.state.characterData[charName3].stock = stock
-        await store.saveGachaConfig()
-        const sc = store.state.seasonalCharactersConfig.characters
-        const idx = sc.findIndex(c => c.name === charName3)
-        if (idx !== -1) { sc[idx].stock = stock; await store.saveSeasonalChars() }
+        await store.setStock(charName3, stock)
         reply(`@${userName} stock ${charName3} = ${stock}`)
         break
       }
@@ -347,25 +349,22 @@ case 'multi':
           const charName4 = rest[0]
           const stock4 = parseInt(rest[1], 10)
           if (!store.state.characterData[charName4]) { reply(`@${userName} personaje no existe.`); break }
-          const sc = store.state.seasonalCharactersConfig.characters
-          if (sc.find(c => c.name === charName4)) { reply(`@${userName} ya está en seasonal.`); break }
-          sc.push({ name: charName4, stock: stock4 })
-          if (!store.state.gachaConfig.character_stocks) store.state.gachaConfig.character_stocks = {}
-          store.state.gachaConfig.character_stocks[charName4] = stock4
-          if (!store.state.seasonalBanner['5_star']) store.state.seasonalBanner['5_star'] = []
-          if (!store.state.seasonalBanner['5_star'].includes(charName4)) store.state.seasonalBanner['5_star'].push(charName4)
-          await store.saveSeasonalChars()
-          await store.saveGachaConfig()
+          const all = store.getAllSeasonalCharacters()
+          if (all.find(c => c.name === charName4)) { reply(`@${userName} ya está en seasonal.`); break }
+          const charData = store.state.characterData[charName4]
+          const rarity = typeof charData.rarity === 'number' ? `${charData.rarity}_star` : (charData.rarity || '5_star')
+          const season = store.getOrCreateSeason()
+          season.characters.push({ name: charName4, rarity, stock: stock4 })
+          if (!store.state.seasonalBanner[rarity]) store.state.seasonalBanner[rarity] = []
+          if (!store.state.seasonalBanner[rarity].includes(charName4)) store.state.seasonalBanner[rarity].push(charName4)
+          await store.saveSeasonData()
           await store.saveBanner('seasonal')
-          reply(`@${userName} ${charName4} añadido a seasonal (stock ${stock4})`)
+          reply(`@${userName} ${charName4} añadido a ${season.label} (stock ${stock4})`)
         } else if (action === 'remove' && rest[0]) {
           const charName5 = rest[0]
-          store.state.seasonalCharactersConfig.characters = store.state.seasonalCharactersConfig.characters.filter(c => c.name !== charName5)
-          delete store.state.gachaConfig.character_stocks?.[charName5]
+          for (const s of store.state.seasonData.seasons) s.characters = s.characters.filter(c => c.name !== charName5)
           store.state.seasonalBanner['5_star'] = (store.state.seasonalBanner['5_star'] || []).filter(c => c !== charName5)
-          store.state.seasonalBanner['6_star'] = (store.state.seasonalBanner['6_star'] || []).filter(c => c !== charName5)
-          await store.saveSeasonalChars()
-          await store.saveGachaConfig()
+          await store.saveSeasonData()
           await store.saveBanner('seasonal')
           reply(`@${userName} ${charName5} quitado de seasonal`)
         } else {
@@ -408,7 +407,7 @@ case 'multi':
         const c = store.state.characterData[name]
         if (!c) { reply(`@${userName} personaje no encontrado.`); break }
         const banner = store.findBannerForChar(name) || 'unknown'
-        reply(`@${userName} ${c.name} | ${c.rarity} | ${banner} | stock: ${c.stock ?? '∞'} | ${c.description?.slice(0, 80)}`)
+        reply(`@${userName} ${c.name} | ${c.rarity} | ${banner} | stock: ${c.stock ?? '∞'}`)
         break
       }
 
@@ -432,7 +431,7 @@ case 'multi':
         const owners = []
         for (const [uid, uinv] of Object.entries(inv)) {
           let count = 0
-          for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+          for (const r of ['5_star', '4_star', '3_star']) {
             if (uinv[r]) count += uinv[r].filter(n => n.toLowerCase() === norm).length
           }
           if (count > 0) {
@@ -449,7 +448,6 @@ case 'multi':
               name: c.name || cKey,
               image: store.normalizeImageUrl(c.image_url),
               quality: typeof c.rarity === 'string' ? parseInt(c.rarity.match(/^(\d+)/)?.[1] || '0') : (c.rarity || 0),
-              description: c.description || '',
             },
             userOwnsCharacter,
             totalInInventories,
@@ -468,7 +466,7 @@ case 'multi':
         const pullsLeft = hp - pity['5_star']
         const owned = []
         const ownedSet = new Set()
-        for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+        for (const r of ['5_star', '4_star', '3_star']) {
           if (u[r]) {
             for (const n of u[r]) {
               if (!ownedSet.has(n)) { ownedSet.add(n); owned.push(n) }
@@ -494,11 +492,57 @@ case 'multi':
               '3_star': (u['3_star'] || []).length,
               '4_star': (u['4_star'] || []).length,
               '5_star': (u['5_star'] || []).length,
-              '6_star': (u['6_star'] || []).length,
             },
           },
         })
         reply(`@${userName} mostrando inventario en overlay.`)
+        break
+      }
+
+      case 'lista': {
+        function sendChunks(msg) {
+          if (msg.length <= 480) { reply(msg); return }
+          const chunks = []
+          let rem = msg
+          while (rem.length > 0) {
+            const target = 460
+            if (rem.length <= target) { chunks.push(rem); break }
+            let cut = rem.lastIndexOf(' ', target)
+            if (cut === -1) cut = target
+            chunks.push(rem.slice(0, cut))
+            rem = rem.slice(cut + 1)
+          }
+          for (let i = 0; i < chunks.length; i++) {
+            const s = chunks.length > 1 ? ` (parte ${i + 1}/${chunks.length})` : ''
+            reply(chunks[i] + s)
+          }
+        }
+
+        const std = store.state.standardBanner
+        const std4 = (std['4_star'] || []).join(', ')
+        const std5 = (std['5_star'] || []).join(', ')
+        sendChunks(`@${userName} 📋 4⭐: ${std4} | 5⭐: ${std5}`)
+
+        function hasStock(name) {
+          const s = store.getStock(name)
+          if (s !== undefined) return s > 0
+          const all = store.getAllSeasonalCharacters()
+          const entry = all.find(c => c.name === name)
+          return entry ? entry.stock > 0 : true
+        }
+
+        const sea = store.state.seasonalBanner
+        const sea4 = (sea['4_star'] || []).filter(hasStock)
+        const sea5 = (sea['5_star'] || []).filter(hasStock)
+        if (sea4.length + sea5.length === 0) {
+          reply(`@${userName} No hay personajes promocionales disponibles de momento.`)
+        } else {
+          const parts = []
+          if (sea4.length) parts.push(`4⭐: ${sea4.join(', ')}`)
+          if (sea5.length) parts.push(`5⭐: ${sea5.join(', ')}`)
+
+          sendChunks(`@${userName} 🎉 Promocional: ${parts.join(' | ')}`)
+        }
         break
       }
 

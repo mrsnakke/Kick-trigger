@@ -62,7 +62,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
 .tab-btn { padding: 5px 14px; border: 1px solid #30363d; border-radius: 6px 6px 0 0; background: #21262d; color: #8b949e; cursor: pointer; font-size: 12px; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tab-btn:hover { color: #c9d1d9; background: #30363d; }
 .tab-btn.active { color: #58a6ff; border-bottom-color: #58a6ff; background: #0d1117; }
-.tab-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.tab-content { display: flex; flex-direction: column; flex: 1; overflow-x: hidden; overflow-y: auto; }
 .tab-content.hidden { display: none; }
 
 /* -- TTS (unchanged) -- */
@@ -129,8 +129,6 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
 .gacha-subtab.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
 .subtab-panel { display: none; }
 .subtab-panel.active { display: block; }
-#gacha-admin-section details > summary { list-style: none; }
-#gacha-admin-section details > summary::-webkit-details-marker { display: none; }
 </style>
 </head>
 <body>
@@ -292,8 +290,6 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <div class="gacha-overlay-links">
       <a class="gacha-overlay-link" href="/gacha/" target="_blank">🎴 Principal (animaciones)</a>
       <a class="gacha-overlay-link" href="/gacha/view.html" target="_blank">👤 Vista Personaje</a>
-      <a class="gacha-overlay-link" href="/gacha/trades.html" target="_blank">🤝 Panel Trades</a>
-      <a class="gacha-overlay-link" href="/gacha/admin.html" target="_blank">⚙️ Admin Panel</a>
     </div>
   </div>
 
@@ -305,8 +301,8 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   </div>
 
   <!-- ─── Gacha Admin (integrado) ─── -->
-  <details id="gacha-admin-section" style="margin-top:20px;border:1px solid #30363d;border-radius:8px;overflow:hidden">
-    <summary style="padding:12px 16px;background:#161b22;cursor:pointer;font-weight:600;font-size:14px;color:#58a6ff;user-select:none">⚙️ Administrar Gacha</summary>
+  <div id="gacha-admin-section" style="margin-top:20px;border:1px solid #30363d;border-radius:8px">
+    <div style="padding:12px 16px;background:#161b22;font-weight:600;font-size:14px;color:#58a6ff">⚙️ Administrar Gacha</div>
     <div style="padding:16px;background:#0d1117">
       <div class="gacha-subtabs" style="display:flex;gap:2px;margin-bottom:12px;flex-wrap:wrap">
         <button class="gacha-subtab active" data-subtab="admin-chars">Personajes</button>
@@ -325,13 +321,16 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
         <div id="admin-char-form" style="display:none;background:#161b22;padding:12px;border-radius:6px;margin-bottom:8px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <input type="text" id="admin-char-name" placeholder="Nombre" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-            <select id="admin-char-rarity" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-              <option value="3_star">3⭐</option><option value="4_star">4⭐</option><option value="5_star">5⭐</option><option value="6_star">6⭐</option>
+            <select id="admin-char-rarity" onchange="adminToggleStockField()" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+              <option value="3_star">3⭐</option><option value="4_star">4⭐</option><option value="5_star">5⭐</option>
             </select>
-            <select id="admin-char-banner" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+            <select id="admin-char-banner" onchange="adminToggleStockField()" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
               <option value="standard_banner">Estándar</option><option value="seasonal_banner">Temporada</option>
             </select>
-            <input type="number" id="admin-char-stock" placeholder="Stock (solo 5⭐/6⭐ seasonal)" min="0" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+            <input type="number" id="admin-char-stock" placeholder="Stock (solo 5⭐/6⭐ seasonal)" min="0" value="5" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+          </div>
+          <div style="margin-top:8px">
+            <input type="file" id="admin-char-image" accept="image/*" style="color:#c9d1d9;font-size:12px">
           </div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn btn-sm btn-primary" onclick="adminSaveChar()">Guardar</button>
@@ -357,45 +356,39 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <div id="subtab-admin-config" class="subtab-panel">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div style="background:#161b22;padding:12px;border-radius:6px">
-            <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Probabilidades Rareza</div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Probabilidades (%)</div>
             <div id="admin-prob-fields"></div>
             <button class="btn btn-sm btn-primary" onclick="adminSaveProbs()" style="margin-top:8px">Guardar</button>
           </div>
           <div style="background:#161b22;padding:12px;border-radius:6px">
-            <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Prob. Banner (4⭐+)</div>
-            <div id="admin-banner-prob-fields"></div>
-            <button class="btn btn-sm btn-primary" onclick="adminSaveBannerProbs()" style="margin-top:8px">Guardar</button>
+            <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Pity (tiradas)</div>
+            <div id="admin-pity-fields"></div>
+            <button class="btn btn-sm btn-primary" onclick="adminSavePity()" style="margin-top:8px">Guardar Pity</button>
           </div>
         </div>
         <div style="background:#161b22;padding:12px;border-radius:6px;margin-top:8px">
-          <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Stocks Personajes</div>
-          <div id="admin-stocks-fields"></div>
-          <button class="btn btn-sm btn-primary" onclick="adminSaveStocks()" style="margin-top:8px">Guardar Stocks</button>
+          <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Prob. Banner (4⭐+)</div>
+          <div id="admin-banner-prob-fields"></div>
+          <button class="btn btn-sm btn-primary" onclick="adminSaveBannerProbs()" style="margin-top:8px">Guardar</button>
         </div>
       </div>
 
-      <!-- Seasonal -->
+      <!-- Temporadas -->
       <div id="subtab-admin-seasonal" class="subtab-panel">
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-          <input type="date" id="admin-season-start" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-          <span style="color:#484f58">→</span>
-          <input type="date" id="admin-season-end" style="padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-          <button class="btn btn-sm" onclick="adminSaveSeasonDuration()">Guardar Duración</button>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-          <select id="admin-seasonal-char-select" style="flex:1;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px"></select>
-          <input type="number" id="admin-seasonal-stock" placeholder="Stock" min="0" value="1" style="width:80px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-          <button class="btn btn-sm btn-primary" onclick="adminAddSeasonal()">Añadir</button>
-        </div>
-        <div id="admin-seasonal-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px"></div>
+        <div id="admin-seasonal-container"></div>
       </div>
 
       <!-- Keys -->
       <div id="subtab-admin-keys" class="subtab-panel">
+        <div style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap;align-items:center">
+          <input type="text" id="admin-keys-user" placeholder="Usuario" style="flex:1;min-width:100px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+          <input type="number" id="admin-keys-amount" placeholder="Cantidad" min="1" style="width:90px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+          <button class="btn btn-sm btn-primary" onclick="adminAddKeys()">Añadir</button>
+        </div>
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-          <input type="text" id="admin-keys-user" placeholder="Usuario" style="flex:1;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-          <input type="number" id="admin-keys-amount" placeholder="Cantidad" min="1" style="width:100px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
-          <button class="btn btn-sm btn-primary" onclick="adminAddKeys()">Añadir Keys</button>
+          <input type="number" id="admin-keys-all-amount" placeholder="Cantidad" min="1" style="width:90px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+          <button class="btn btn-sm btn-primary" onclick="adminAddKeysAll()">+ Añadir a Todos</button>
+          <button class="btn btn-sm" onclick="adminLoadKeys()">↻ Refrescar</button>
         </div>
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -432,7 +425,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       </div>
 
     </div>
-  </details>
+  </div>
 </div>
 
 <div id="tab-comandos" class="tab-content hidden">
@@ -495,25 +488,34 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   </div>
 </div>
 
-<div id="tab-obs" class="tab-content hidden" style="flex:1;min-height:0">
-  <iframe src="/obs-actions/" style="width:100%;height:100%;border:none;background:#0d1117;flex:1" title="OBS Actions"></iframe>
+<div id="tab-obs" class="tab-content hidden">
+  <iframe src="/obs-actions/" style="width:100%;border:none;background:#0d1117;flex:1" title="OBS Actions"></iframe>
 </div>
 
-<div id="tab-chatbot" class="tab-content hidden" style="flex:1;min-height:0">
-  <iframe src="/chatbot/" style="width:100%;height:100%;border:none;background:#0d1117;flex:1" title="Chatbot"></iframe>
+<div id="tab-chatbot" class="tab-content hidden">
+  <iframe src="/chatbot/" style="width:100%;border:none;background:#0d1117;flex:1" title="Chatbot"></iframe>
 </div>
 
 <div id="tab-vtuber" class="tab-content hidden">
-  <div style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;height:100%">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1">
 
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px">
-      <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:#58a6ff">🤖 Configuración VTuber AI</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-        <span class="badge" id="badge-vtuber-tab">○ Sin configurar</span>
-        <button class="btn" onclick="vtuberTest()" id="btn-vtuber-test">Probar</button>
-      </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="badge" id="badge-vtuber-tab">○ Sin configurar</span>
+      <button class="btn" onclick="vtuberTest()" id="btn-vtuber-test">Probar</button>
+    </div>
 
-      <form id="vtuber-config-form" onsubmit="vtuberSaveConfig(event)">
+    <style>
+      details.collapsible { background:#161b22; border:1px solid #30363d; border-radius:8px; overflow:hidden; }
+      details.collapsible summary { padding:12px 16px; cursor:pointer; font-weight:600; color:#58a6ff; font-size:13px; display:flex; align-items:center; gap:6px; user-select:none; }
+      details.collapsible summary::-webkit-details-marker { display:none; }
+      details.collapsible summary::before { content:'▶'; color:#8b949e; font-size:10px; transition:transform .2s; }
+      details.collapsible[open] summary::before { content:'▼'; }
+      details.collapsible .body { padding:0 16px 16px; }
+    </style>
+
+    <details class="collapsible" open>
+      <summary>⚙️ Variables de configuración</summary>
+      <div class="body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
           <div>
             <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">API Key de DeepSeek</label>
@@ -531,8 +533,8 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
             <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_COMMAND</code></div>
           </div>
           <div>
-<label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Temperatura <span style="color:#484f58;font-weight:400">(0.5 - 1.0)</span></label>
-<input type="number" id="vtuber-temperature" step="0.05" min="0.5" max="1" placeholder="0.85" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Temperatura <span style="color:#484f58;font-weight:400">(0.5 - 1.0)</span></label>
+            <input type="number" id="vtuber-temperature" step="0.05" min="0.5" max="1" placeholder="0.85" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
             <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_TEMPERATURE</code></div>
           </div>
           <div>
@@ -546,25 +548,32 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
             <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_MAX_HISTORY</code></div>
           </div>
         </div>
+        <button type="button" class="btn btn-primary" onclick="vtuberSaveConfig()">💾 Guardar configuración</button>
+      </div>
+    </details>
 
-        <div style="margin-bottom:12px">
-          <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">
-            System Prompt
-            <span style="color:#f0883e;font-size:10px;font-weight:400">
-              ⚠️ DEBE contener <code style="background:#0d1117;padding:0 3px;border-radius:2px">{name}</code> (se reemplaza por el nombre)
-            </span>
-          </label>
-          <textarea id="vtuber-system-prompt" rows="10" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:12px;font-family:monospace;resize:vertical;line-height:1.5"></textarea>
-          <div style="display:flex;gap:6px;margin-top:4px">
-            <button type="button" class="btn btn-sm" onclick="vtuberResetSystemPrompt()" style="font-size:11px;color:#8b949e">Restaurar default</button>
-          </div>
+    <details class="collapsible">
+      <summary>📝 System Prompt Base <span style="color:#8b949e;font-weight:400;font-size:11px">(personalidad, reglas TTS, {name})</span></summary>
+      <div class="body">
+        <div style="color:#484f58;font-size:11px;margin-bottom:6px">⚠️ Contiene <code>{name}</code> (se reemplaza automáticamente). Edita solo si sabes lo que haces.</div>
+        <textarea id="vtuber-system-prompt-base" style="width:100%;height:180px;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:12px;font-family:monospace;resize:vertical;line-height:1.5;overflow-y:auto"></textarea>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button type="button" class="btn btn-sm" onclick="vtuberSaveBasePrompt()" style="color:#58a6ff">💾 Guardar base</button>
+          <button type="button" class="btn btn-sm" onclick="vtuberResetSystemPrompt()" style="color:#8b949e">Restaurar default</button>
         </div>
+      </div>
+    </details>
 
-        <div style="display:flex;gap:8px;border-top:1px solid #30363d;padding-top:12px">
-          <button type="submit" class="btn btn-primary" id="btn-vtuber-save">💾 Guardar todo</button>
+    <details class="collapsible" open>
+      <summary>✏️ Instrucciones extra <span style="color:#8b949e;font-weight:400;font-size:11px">(SYSTEM_PROMPT_CUSTOM)</span></summary>
+      <div class="body">
+        <div style="color:#484f58;font-size:11px;margin-bottom:6px">Esto se añade al final del base prompt. Puedes poner instrucciones adicionales sin miedo a romper las reglas del personaje.</div>
+        <textarea id="vtuber-system-prompt-custom" style="width:100%;height:240px;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:12px;font-family:monospace;resize:vertical;line-height:1.5;overflow-y:auto"></textarea>
+        <div style="margin-top:6px">
+          <button type="button" class="btn btn-sm" onclick="vtuberSaveCustomPrompt()" style="color:#58a6ff">💾 Guardar custom</button>
         </div>
-      </form>
-    </div>
+      </div>
+    </details>
 
     <div id="vtuber-test-result" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px">
       <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#8b949e">Respuesta de prueba</div>
@@ -572,16 +581,18 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <div id="vtuber-test-meta" style="font-size:10px;color:#484f58;margin-top:6px"></div>
     </div>
 
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;font-size:12px;color:#8b949e">
-      <div style="font-weight:600;margin-bottom:6px;color:#58a6ff">📖 Cómo usar</div>
-      <ol style="margin-left:18px;display:flex;flex-direction:column;gap:4px">
-        <li>Pon tu API Key de <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:#58a6ff">DeepSeek</a> arriba y guarda</li>
-        <li>Configura el prompt y los parámetros a tu gusto</li>
-        <li>Presiona <strong>Probar</strong> para verificar que funciona</li>
-        <li>En el chat de Kick escribe: <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">!grim hola</code></li>
-        <li>Grim responderá en el chat y se escuchará por Speaker.bot con la voz "Ava"</li>
-      </ol>
-    </div>
+    <details class="collapsible">
+      <summary>📖 Cómo usar</summary>
+      <div class="body">
+        <ol style="margin-left:18px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:#8b949e">
+          <li>Pon tu API Key de <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:#58a6ff">DeepSeek</a> arriba y guarda</li>
+          <li>Configura el prompt y los parámetros a tu gusto</li>
+          <li>Presiona <strong>Probar</strong> para verificar que funciona</li>
+          <li>En el chat de Kick escribe: <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">!grim hola</code></li>
+          <li>Grim responderá en el chat y se escuchará por Speaker.bot con la voz "Ava"</li>
+        </ol>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -690,7 +701,7 @@ function switchMainTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('hidden', c.id !== 'tab-' + tab));
   if (tab === 'tts' && !ttsLoaded) ttsLoadConfig();
-  if (tab === 'gacha') gachaLoadStats();
+  if (tab === 'gacha') { gachaLoadStats(); adminLoadChars(); }
   if (tab === 'comandos') gachaLoadCommands();
   if (tab === 'vtuber') vtuberLoadConfig();
   if (tab === 'obs') obsCheckStatus();
@@ -744,6 +755,7 @@ function handleGachaEvent(d) {
     }
     if (feed.children.length > 50) feed.removeChild(feed.lastChild);
     gachaRefreshStats();
+    adminLoadKeys();
   }
 }
 
@@ -802,9 +814,6 @@ function filterCommands() {
 // -- Gacha Admin (integrado) --
 let adminChars = null;
 let adminCharEditing = null;
-document.getElementById('gacha-admin-section')?.addEventListener('toggle', function() {
-  if (this.open && !adminChars) adminLoadChars();
-});
 
 document.querySelector('.gacha-subtabs')?.addEventListener('click', e => {
   const btn = e.target.closest('.gacha-subtab');
@@ -816,7 +825,7 @@ document.querySelector('.gacha-subtabs')?.addEventListener('click', e => {
   if (panel) panel.classList.add('active');
   if (btn.dataset.subtab === 'admin-chars') adminLoadChars();
   if (btn.dataset.subtab === 'admin-config') adminLoadConfig();
-  if (btn.dataset.subtab === 'admin-seasonal') adminLoadSeasonal();
+  if (btn.dataset.subtab === 'admin-seasonal') adminLoadSeasons();
   if (btn.dataset.subtab === 'admin-keys') adminLoadKeys();
   if (btn.dataset.subtab === 'admin-trades') adminLoadTrades();
 });
@@ -845,78 +854,145 @@ async function adminLoadChars() {
       <td style="padding:4px 8px">${c.rarity?.replace('_star', '⭐')}</td>
       <td style="padding:4px 8px">${c.banner}</td>
       <td style="padding:4px 8px">${c.stock !== undefined ? c.stock : '∞'}</td>
-      <td style="padding:4px 8px"><button class="btn btn-sm" onclick="adminEditChar('${escapeHtml(c.name)}')" style="font-size:10px">✎</button> <button class="btn btn-sm" onclick="adminDeleteChar('${escapeHtml(c.name)}')" style="font-size:10px;color:#f85149">✕</button></td>
+      <td style="padding:4px 8px"><button class="btn btn-sm" onclick='adminEditChar(${JSON.stringify(c.name)})' style="font-size:10px">✎</button> <button class="btn btn-sm" onclick='adminDeleteChar(${JSON.stringify(c.name)})' style="font-size:10px;color:#f85149">✕</button></td>
     </tr>`).join('');
   } catch (e) { console.error(e); }
 }
 function adminShowCharForm() {
+  adminCharEditing = null;
+  document.getElementById('admin-char-name').value = '';
+  document.getElementById('admin-char-rarity').value = '3_star';
+  document.getElementById('admin-char-banner').value = 'standard_banner';
+  document.getElementById('admin-char-stock').value = '5';
+  document.getElementById('admin-char-image').value = '';
   document.getElementById('admin-char-form').style.display = 'block';
+  adminToggleStockField();
 }
 function adminHideCharForm() {
   document.getElementById('admin-char-form').style.display = 'none';
   adminCharEditing = null;
 }
+function adminToggleStockField() {
+  const rarity = document.getElementById('admin-char-rarity').value;
+  const banner = document.getElementById('admin-char-banner').value;
+  const stockInput = document.getElementById('admin-char-stock');
+  const show = rarity === '5_star' && banner === 'seasonal_banner';
+  stockInput.style.display = show ? '' : 'none';
+  stockInput.value = '5';
+}
+adminToggleStockField();
+
 async function adminSaveChar() {
   const name = document.getElementById('admin-char-name').value.trim();
   const rarity = document.getElementById('admin-char-rarity').value;
   const banner = document.getElementById('admin-char-banner').value;
-  const stock = parseInt(document.getElementById('admin-char-stock').value) || 0;
+  const stock = parseInt(document.getElementById('admin-char-stock').value) || 5;
   if (!name) { alert('Nombre requerido'); return }
+  const imageInput = document.getElementById('admin-char-image');
+  if (!adminCharEditing && (!imageInput.files || imageInput.files.length === 0)) { alert('Debes subir una imagen'); return }
   try {
     const url = adminCharEditing ? `/gacha/admin/character/${encodeURIComponent(adminCharEditing)}` : '/gacha/admin/character';
     const method = adminCharEditing ? 'PUT' : 'POST';
     const fd = new FormData();
     fd.append('name', name); fd.append('rarity', rarity); fd.append('banner', banner);
-    if ((rarity === '5_star' || rarity === '6_star') && banner === 'seasonal_banner') fd.append('stock', stock);
-    await fetch(url, { method, body: fd });
+    if (rarity === '5_star' && banner === 'seasonal_banner') fd.append('stock', stock);
+    if (imageInput.files && imageInput.files[0]) fd.append('image', imageInput.files[0]);
+    const res = await fetch(url, { method, body: fd });
+    if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Error del servidor' })); alert(err.error || 'Error'); return }
     adminHideCharForm();
     adminLoadChars();
-  } catch (e) { console.error(e); alert('Error'); }
+  } catch (e) { console.error(e); alert('Error de red'); }
 }
+function normalizeRarity(r) {
+  if (r === '3' || r === 3 || r === '3_star') return '3_star';
+  if (r === '4' || r === 4 || r === '4_star') return '4_star';
+  if (r === '5' || r === 5 || r === '5_star') return '5_star';
+
+  return String(r || '3_star');
+}
+
 function adminEditChar(name) {
   adminCharEditing = name;
   const c = adminChars?.character_details?.[name];
-  if (!c) return;
+  if (!c) { console.error('Character not in details:', name); alert('Error: personaje no encontrado. Recarga la página.'); adminCharEditing = null; return; }
+  const inSeasonal = adminChars?.seasonal_banner && Object.values(adminChars.seasonal_banner).some(arr => arr.includes(name));
+  const banner = inSeasonal ? 'seasonal_banner' : 'standard_banner';
   document.getElementById('admin-char-name').value = name;
-  document.getElementById('admin-char-rarity').value = c.rarity || '3_star';
-  document.getElementById('admin-char-banner').value = 'standard_banner';
-  document.getElementById('admin-char-stock').value = c.stock ?? 0;
+  document.getElementById('admin-char-rarity').value = normalizeRarity(c.rarity);
+  document.getElementById('admin-char-banner').value = banner;
+  document.getElementById('admin-char-stock').value = c.stock ?? 5;
+  adminToggleStockField();
   adminShowCharForm();
 }
 async function adminDeleteChar(name) {
   if (!confirm(`Eliminar "${name}"?`)) return;
   try {
-    await fetch(`/gacha/admin/character/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const res = await fetch(`/gacha/admin/character/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Error del servidor' })); alert(err.error || 'Error'); return }
     adminLoadChars();
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error(e); alert('Error de red'); }
 }
 
 // -- Config --
 let adminConfig = null;
 async function adminLoadConfig() {
   try {
-    const r = await fetch('/gacha/admin/gacha-config');
-    adminConfig = await r.json();
-    const probs = adminConfig.gacha_rules?.rarity_probabilities || { '3_star': 0.7, '4_star': 0.25, '5_star': 0.05 };
+    const [cfgR, pityR] = await Promise.all([
+      fetch('/gacha/admin/gacha-config'),
+      fetch('/gacha/admin/pity-data')
+    ]);
+    adminConfig = await cfgR.json();
+    const pityData = await pityR.json();
+    const probs = adminConfig.gacha_rules?.rarity_probabilities || { '3_star': 0.93, '4_star': 0.06, '5_star': 0.01 };
     document.getElementById('admin-prob-fields').innerHTML = Object.entries(probs).map(([k, v]) =>
-      `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><span style="width:60px;font-size:12px;color:#8b949e">${k}</span><input type="number" class="admin-prob" data-key="${k}" value="${v}" step="0.001" min="0" max="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px"></div>`
+      `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><span style="width:60px;font-size:12px;color:#8b949e">${k}</span><input type="number" class="admin-prob" data-key="${k}" value="${(v * 100).toFixed(1)}" step="0.1" min="0" max="100" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px"> <span style="font-size:11px;color:#484f58">%</span></div>`
     ).join('');
-    const bp = adminConfig.gacha_rules?.banner_selection_probabilities?.['4_star_and_above'] || { standard: 0.6, seasonal: 0.4 };
+    const pt = pityData.pity_thresholds || {};
+    const p4 = pt['4_star'] || { soft_pity: 8, hard_pity: 10 };
+    const p5 = pt['5_star'] || { soft_pity: 73, hard_pity: 90 };
+    document.getElementById('admin-pity-fields').innerHTML = `
+      <div style="font-size:11px;color:#8b949e;margin-bottom:6px">4⭐</div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
+        <span style="width:50px;font-size:11px;color:#8b949e">Soft</span>
+        <input type="number" id="admin-pity-4-soft" value="${p4.soft_pity}" min="1" step="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px">
+        <span style="width:50px;font-size:11px;color:#8b949e">Hard</span>
+        <input type="number" id="admin-pity-4-hard" value="${p4.hard_pity}" min="1" step="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+      </div>
+      <div style="font-size:11px;color:#8b949e;margin-bottom:6px">5⭐</div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
+        <span style="width:50px;font-size:11px;color:#8b949e">Soft</span>
+        <input type="number" id="admin-pity-5-soft" value="${p5.soft_pity}" min="1" step="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <span style="width:50px;font-size:11px;color:#8b949e">Hard</span>
+        <input type="number" id="admin-pity-5-hard" value="${p5.hard_pity}" min="1" step="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+      </div>`;
+    const bp = adminConfig.gacha_rules?.banner_selection_probabilities?.['4_star_and_above'] || { standard_banner: 0.6, seasonal_banner: 0.4 };
     document.getElementById('admin-banner-prob-fields').innerHTML = Object.entries(bp).map(([k, v]) =>
-      `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><span style="width:60px;font-size:12px;color:#8b949e">${k}</span><input type="number" class="admin-banner-prob" data-key="${k}" value="${v}" step="0.01" min="0" max="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px"></div>`
-    ).join('');
-    const stocks = adminConfig.character_stocks || {};
-    document.getElementById('admin-stocks-fields').innerHTML = Object.entries(stocks).map(([k, v]) =>
-      `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><span style="flex:1;font-size:12px;color:#c9d1d9">${escapeHtml(k)}</span><input type="number" class="admin-stock" data-key="${k}" value="${v}" min="0" style="width:80px;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px"></div>`
+      `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><span style="width:70px;font-size:12px;color:#8b949e">${k}</span><input type="number" class="admin-banner-prob" data-key="${k}" value="${v}" step="0.01" min="0" max="1" style="flex:1;padding:4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px"></div>`
     ).join('');
   } catch (e) { console.error(e); }
 }
 async function adminSaveProbs() {
   const probs = {};
-  document.querySelectorAll('.admin-prob').forEach(inp => probs[inp.dataset.key] = parseFloat(inp.value) || 0);
+  document.querySelectorAll('.admin-prob').forEach(inp => probs[inp.dataset.key] = (parseFloat(inp.value) || 0) / 100);
   try {
-    await fetch('/gacha/admin/gacha-config/rarity-probabilities', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(probs) });
+    const res = await fetch('/gacha/admin/gacha-config/rarity-probabilities', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(probs) });
+    if (!res.ok) { const err = await res.json(); alert(err.error || 'Error'); return }
     alert('Probabilidades actualizadas');
+  } catch (e) { console.error(e); }
+}
+async function adminSavePity() {
+  const body = {
+    '4_star': { soft_pity: parseInt(document.getElementById('admin-pity-4-soft').value) || 8, hard_pity: parseInt(document.getElementById('admin-pity-4-hard').value) || 10 },
+    '5_star': { soft_pity: parseInt(document.getElementById('admin-pity-5-soft').value) || 73, hard_pity: parseInt(document.getElementById('admin-pity-5-hard').value) || 90 },
+  };
+  try {
+    const res = await fetch('/gacha/admin/pity-data', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { const err = await res.json(); alert(err.error || 'Error'); return }
+    alert('Pity thresholds actualizados');
   } catch (e) { console.error(e); }
 }
 async function adminSaveBannerProbs() {
@@ -927,61 +1003,107 @@ async function adminSaveBannerProbs() {
     alert('Probabilidades de banner actualizadas');
   } catch (e) { console.error(e); }
 }
-async function adminSaveStocks() {
-  const stocks = {};
-  document.querySelectorAll('.admin-stock').forEach(inp => stocks[inp.dataset.key] = parseInt(inp.value) || 0);
+
+// -- Seasons --
+async function adminLoadSeasons() {
   try {
-    await fetch('/gacha/admin/gacha-config/character-stocks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stocks) });
-    alert('Stocks actualizados');
+    const [seasonsR, charsR] = await Promise.all([
+      fetch('/gacha/admin/seasons'),
+      fetch('/gacha/admin/characters')
+    ]);
+    const seasons = await seasonsR.json();
+    const chars = await charsR.json();
+    const allChars = Object.keys(chars.character_details || {});
+    const container = document.getElementById('admin-seasonal-container');
+    if (!seasons.length) { container.innerHTML = '<div style="color:#484f58;text-align:center;padding:20px;font-size:12px">Sin temporadas.</div>'; return }
+
+    container.innerHTML = seasons.map(s => {
+      const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      const [year, m] = s.month.split('-');
+      const monthName = monthNames[parseInt(m) - 1] || s.month;
+      const charCards = s.characters.map(c => `<div style="background:#161b22;padding:8px 10px;border-radius:4px;display:flex;align-items:center;gap:6px;font-size:12px">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(c.name)}</span>
+        <span style="color:#8b949e">Stock:</span>
+        <input type="number" class="season-char-stock" data-season="${s.id}" data-name="${escapeHtml(c.name)}" value="${c.stock}" min="0" style="width:60px;padding:3px 4px;background:#0d1117;border:1px solid #30363d;border-radius:3px;color:#c9d1d9;font-size:11px">
+        <button class="btn btn-sm" onclick='adminRemoveCharFromSeason(${s.id},${JSON.stringify(c.name)})' style="font-size:10px;color:#f85149;padding:2px 6px">✕</button>
+      </div>`).join('');
+
+      const otherChars = allChars.filter(n => !s.characters.find(c => c.name === n));
+      const addOpts = otherChars.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+
+      return `<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;margin-bottom:12px;overflow:hidden">
+        <div style="background:#161b22;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <span style="font-weight:600;font-size:13px;color:#58a6ff">${escapeHtml(s.label)} (${monthName} ${year})</span>
+          <span style="font-size:11px;color:#8b949e">📅 ${s.start_date} → ${s.end_date}</span>
+        </div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:12px;color:#8b949e">Stock Masivo:</span>
+            <input type="number" class="season-mass-stock" data-season="${s.id}" placeholder="Ej: 5" min="0" style="width:80px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+            <button class="btn btn-sm btn-primary" onclick="adminMassStock(${s.id})" style="font-size:11px">+ Añadir a Todos</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            ${charCards || '<div style="color:#484f58;font-size:12px;padding:4px">Sin personajes en esta temporada.</div>'}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px solid #21262d;padding-top:8px">
+            <span style="font-size:12px;color:#8b949e">Añadir:</span>
+            <select class="season-add-select" data-season="${s.id}" style="flex:1;min-width:100px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+              <option value="">— Seleccionar —</option>
+              ${addOpts}
+            </select>
+            <input type="number" class="season-add-stock" data-season="${s.id}" placeholder="Stock" min="0" value="1" style="width:70px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+            <button class="btn btn-sm btn-primary" onclick="adminAddCharToSeason(${s.id})" style="font-size:11px">Añadir</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.querySelectorAll('.season-char-stock').forEach(inp => {
+      inp.addEventListener('change', async function() {
+        const seasonId = parseInt(this.dataset.season);
+        const name = this.dataset.name;
+        const stock = parseInt(this.value) || 0;
+        try {
+          await fetch(`/gacha/admin/seasons/${seasonId}/stock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, stock }) });
+        } catch (e) { console.error(e); }
+      });
+    });
   } catch (e) { console.error(e); }
 }
 
-// -- Seasonal --
-async function adminLoadSeasonal() {
+async function adminMassStock(seasonId) {
+  const inp = document.querySelector(`.season-mass-stock[data-season="${seasonId}"]`);
+  const amount = parseInt(inp?.value);
+  if (!amount || isNaN(amount)) { alert('Ingresa una cantidad'); return }
   try {
-    const [scR, charsR] = await Promise.all([
-      fetch('/gacha/admin/seasonal-characters-config'),
-      fetch('/gacha/admin/characters')
-    ]);
-    const sc = await scR.json();
-    const chars = await charsR.json();
-    const allChars = Object.keys(chars.character_details || {});
-    const sel = document.getElementById('admin-seasonal-char-select');
-    sel.innerHTML = allChars.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-    const list = document.getElementById('admin-seasonal-list');
-    if (!sc.characters?.length) { list.innerHTML = '<div style="color:#484f58;font-size:12px">Sin personajes de temporada.</div>'; return }
-    list.innerHTML = sc.characters.map(c => `<div style="background:#161b22;padding:8px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;font-size:12px">
-      <span>${escapeHtml(c.name)} <span style="color:#8b949e">stock: ${c.stock}</span></span>
-      <button class="btn btn-sm" onclick="adminRemoveSeasonal('${escapeHtml(c.name)}')" style="font-size:10px;color:#f85149">✕</button>
-    </div>`).join('');
+    await fetch(`/gacha/admin/seasons/${seasonId}/mass-stock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount }) });
+    inp.value = '';
+    adminLoadSeasons();
   } catch (e) { console.error(e); }
 }
-async function adminSaveSeasonDuration() {
-  const start = document.getElementById('admin-season-start').value;
-  const end = document.getElementById('admin-season-end').value;
-  if (!start || !end) { alert('Selecciona fecha inicio y fin'); return }
-  const seasonDuration = `${start}/${end}`;
+
+async function adminAddCharToSeason(seasonId) {
+  const sel = document.querySelector(`.season-add-select[data-season="${seasonId}"]`);
+  const stockInp = document.querySelector(`.season-add-stock[data-season="${seasonId}"]`);
+  const name = sel?.value;
+  const stock = parseInt(stockInp?.value) || 1;
+  if (!name) { alert('Selecciona un personaje'); return }
   try {
-    await fetch('/gacha/admin/seasonal-characters-config/duration', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ season_duration: seasonDuration }) });
-    alert('Duración actualizada');
+    await fetch(`/gacha/admin/seasons/${seasonId}/add-character`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, stock }) });
+    adminLoadSeasons();
   } catch (e) { console.error(e); }
 }
-async function adminAddSeasonal() {
-  const name = document.getElementById('admin-seasonal-char-select').value;
-  const stock = parseInt(document.getElementById('admin-seasonal-stock').value) || 1;
+
+async function adminRemoveCharFromSeason(seasonId, name) {
+  if (!confirm(`Quitar "${name}" de esta temporada?`)) return;
   try {
-    await fetch('/gacha/admin/seasonal-characters-config/add-character', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, stock }) });
-    adminLoadSeasonal();
-  } catch (e) { console.error(e); }
-}
-async function adminRemoveSeasonal(name) {
-  try {
-    await fetch(`/gacha/admin/seasonal-characters-config/remove-character/${encodeURIComponent(name)}`, { method: 'DELETE' });
-    adminLoadSeasonal();
+    await fetch(`/gacha/admin/seasons/${seasonId}/remove-character/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    adminLoadSeasons();
   } catch (e) { console.error(e); }
 }
 
 // -- Keys --
+let adminKeysTimer = null;
 async function adminLoadKeys() {
   try {
     const r = await fetch('/gacha/admin/user-keys');
@@ -1000,12 +1122,27 @@ async function adminAddKeys() {
   const keys = parseInt(document.getElementById('admin-keys-amount').value);
   if (!username || !keys) { alert('Usuario y cantidad requeridos'); return }
   try {
-    await fetch('/gacha/admin/user-keys/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, keys }) });
+    const res = await fetch('/gacha/admin/user-keys/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, keys }) });
+    if (!res.ok) { const err = await res.json(); alert(err.error || 'Error'); return }
     document.getElementById('admin-keys-user').value = '';
     document.getElementById('admin-keys-amount').value = '';
     adminLoadKeys();
   } catch (e) { console.error(e); }
 }
+async function adminAddKeysAll() {
+  const keys = parseInt(document.getElementById('admin-keys-all-amount').value);
+  if (!keys || keys <= 0) { alert('Ingresa una cantidad'); return }
+  if (!confirm(`¿Añadir ${keys} keys a TODOS los usuarios?`)) return;
+  try {
+    const res = await fetch('/gacha/admin/user-keys/add-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }) });
+    if (!res.ok) { const err = await res.json(); alert(err.error || 'Error'); return }
+    document.getElementById('admin-keys-all-amount').value = '';
+    adminLoadKeys();
+    gachaRefreshStats();
+  } catch (e) { console.error(e); }
+}
+// auto-refresh keys tab every 10s while visible
+adminKeysTimer = setInterval(() => { const p = document.getElementById('subtab-admin-keys'); if (p && p.classList.contains('active')) adminLoadKeys(); }, 10000);
 
 // -- Trades --
 async function adminLoadTrades() {
@@ -1510,7 +1647,8 @@ function vtuberLoadConfig() {
     document.getElementById('vtuber-temperature').value = d.TEMPERATURE;
     document.getElementById('vtuber-max-tokens').value = d.MAX_TOKENS;
     document.getElementById('vtuber-max-history').value = d.MAX_HISTORY_TURNS;
-    document.getElementById('vtuber-system-prompt').value = d.SYSTEM_PROMPT;
+    document.getElementById('vtuber-system-prompt-base').value = d.SYSTEM_PROMPT_BASE;
+    document.getElementById('vtuber-system-prompt-custom').value = d.SYSTEM_PROMPT_CUSTOM || '';
     const badge = document.getElementById('badge-vtuber-tab');
     if (d.API_KEY_SET) {
       badge.className = 'badge badge-ok';
@@ -1522,9 +1660,9 @@ function vtuberLoadConfig() {
   }).catch(() => {});
 }
 
-function vtuberSaveConfig(event) {
-  event.preventDefault();
-  const btn = document.getElementById('btn-vtuber-save');
+function vtuberSaveConfig() {
+  const btn = event.target;
+  const orig = btn.textContent;
   btn.disabled = true; btn.textContent = 'Guardando...';
   const body = {
     API_KEY: document.getElementById('vtuber-apikey').value.trim() || undefined,
@@ -1532,8 +1670,7 @@ function vtuberSaveConfig(event) {
     MAX_TOKENS: parseInt(document.getElementById('vtuber-max-tokens').value, 10),
     MAX_HISTORY_TURNS: parseInt(document.getElementById('vtuber-max-history').value, 10),
     VTUBER_NAME: document.getElementById('vtuber-name').value.trim(),
-    COMMAND: document.getElementById('vtuber-command').value.trim(),
-    SYSTEM_PROMPT: document.getElementById('vtuber-system-prompt').value.trim() || null
+    COMMAND: document.getElementById('vtuber-command').value.trim()
   };
   fetch('/api/vtuber/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1546,14 +1683,36 @@ function vtuberSaveConfig(event) {
       alert('Error: ' + d.message);
     }
   }).catch(err => alert('Error de red: ' + err.message))
-  .finally(() => { btn.disabled = false; btn.textContent = '💾 Guardar todo' });
+  .finally(() => { btn.disabled = false; btn.textContent = orig });
+}
+
+function vtuberSaveBasePrompt() {
+  const body = { SYSTEM_PROMPT_BASE: document.getElementById('vtuber-system-prompt-base').value.trim() || null };
+  fetch('/api/vtuber/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(r => r.json()).then(d => {
+    if (d.ok) vtuberLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message));
+}
+
+function vtuberSaveCustomPrompt() {
+  const body = { SYSTEM_PROMPT_CUSTOM: document.getElementById('vtuber-system-prompt-custom').value.trim() || null };
+  fetch('/api/vtuber/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(r => r.json()).then(d => {
+    if (d.ok) vtuberLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message));
 }
 
 function vtuberResetSystemPrompt() {
-  if (!confirm('¿Restaurar el system prompt por defecto? Los cambios no guardados se perderán.')) return;
+  if (!confirm('¿Restaurar el system prompt base por defecto?')) return;
   fetch('/api/vtuber/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ SYSTEM_PROMPT: null })
+    body: JSON.stringify({ SYSTEM_PROMPT_BASE: null })
   }).then(r => r.json()).then(d => {
     if (d.ok) vtuberLoadConfig();
     else alert('Error: ' + d.message);

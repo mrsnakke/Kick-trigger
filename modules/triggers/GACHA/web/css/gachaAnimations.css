@@ -318,7 +318,7 @@
     justify-content: center;
     align-items: center;
     gap: 20px; /* Espacio entre burbujas */
-    background: rgba(0,0,0,0.7); /* Fondo semitransparente para el overlay */
+    background: rgba(0, 0, 0, 0); /* Fondo semitransparente para el overlay */
     z-index: 105; /* Encima de la animaciรณn normal del gacha */
     opacity: 0; /* Inicialmente oculto */
     pointer-events: none; /* No bloquear interacciones */

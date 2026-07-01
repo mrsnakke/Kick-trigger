@@ -9,7 +9,7 @@ function getInventory(userId) {
   const u = store.state.inventories[userId]
   if (!u) return []
   const all = []
-  for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+  for (const r of ['5_star', '4_star', '3_star']) {
     if (u[r]) all.push(...u[r].map(n => ({ name: n, rarity: r })))
   }
   return all
@@ -18,7 +18,7 @@ function getInventory(userId) {
 function removeChar(userId, charName) {
   const u = store.state.inventories[userId]
   if (!u) return false
-  for (const r of ['6_star', '5_star', '4_star', '3_star']) {
+  for (const r of ['5_star', '4_star', '3_star']) {
     const idx = (u[r] || []).indexOf(charName)
     if (idx !== -1) { u[r].splice(idx, 1); return true }
   }

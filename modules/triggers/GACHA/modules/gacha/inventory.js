@@ -57,13 +57,15 @@ function getInventoryText(userId) {
   const keys = u.keys || 0
   const totalPulls = u.total_pulls || 0
   const pity = u.pity || { '4_star': 0, '5_star': 0 }
-  const fourStars = (u['4_star'] || []).length
-  const fiveStars = (u['5_star'] || []).length
-  const sixStars = (u['6_star'] || []).length
+  const hp = store.state.pityData.pity_thresholds?.['5_star']?.hard_pity || 90
 
-  return [
-    `🔑 Keys: ${keys}  ｜  📊 Tiradas: ${totalPulls}  ｜  🎯 Pity: ${pity['5_star']}/90 (Faltan ${90 - pity['5_star']})  ｜  🟣 4⭐: ${fourStars}  🟡 5⭐: ${fiveStars}  🔴 6⭐: ${sixStars}`
-  ]
+  const parts = [`🔑 Keys: ${keys}  ｜  📊 Tiradas: ${totalPulls}  ｜  🎯 Pity: ${pity['5_star']}/${hp} (Faltan ${hp - pity['5_star']})`]
+  for (const [r, label] of [['3_star', '3⭐'], ['4_star', '4⭐'], ['5_star', '5⭐']]) {
+    const arr = u[r] || []
+    if (arr.length > 0) parts.push(`${label}: ${arr.join(', ')}`)
+  }
+
+  return [parts.join('  ｜  ')]
 }
 
 module.exports = { ensureUser, addCharacters, getKeys, addKeys, spendKeys, getInventoryText }
