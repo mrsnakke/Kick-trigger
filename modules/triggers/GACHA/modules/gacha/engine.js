@@ -1,8 +1,5 @@
 // ponytail: gacha pull & pity logic, pure functions operating on store state
 const store = require('../data/store')
-const logger = require('../../lib/logger')
-
-const TAG = 'ENGINE'
 
 function selectRarity(pity) {
   const pityData = store.state.pityData.pity_thresholds
@@ -64,7 +61,7 @@ function selectCharacter(rarity, userId) {
         const pick = sd.characterData[pickRandom(newAvail)]
         if (pick) return pick
       }
-      logger.log(TAG, 'User has all seasonal 5-stars, falling back to standard')
+      console.log('[ENGINE] User has all seasonal 5-stars, falling back to standard')
       pool = sd.standardBanner['5_star']
     }
 
@@ -111,7 +108,7 @@ async function performPull(userId) {
     rarity,
     image_url: store.normalizeImageUrl(char.image_url),
   }
-  logger.log(TAG, `Pull: ${result.name} (${rarity})`)
+  console.log('[ENGINE] Pull:', result.name, '(' + rarity + ')')
   return result
 }
 

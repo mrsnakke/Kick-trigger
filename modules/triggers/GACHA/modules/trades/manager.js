@@ -1,9 +1,6 @@
 // ponytail: trades — create, accept, cancel, query
 const crypto = require('crypto')
 const store = require('../data/store')
-const logger = require('../../lib/logger')
-
-const TAG = 'TRADE'
 
 function getInventory(userId) {
   const u = store.state.inventories[userId]
@@ -47,7 +44,7 @@ async function createTrade(offeringId, offeringName, receivingId, receivingName,
   }
   store.state.trades[id] = trade
   await store.saveTrades()
-  logger.log(TAG, `Trade ${id}: ${offeringName} -> ${receivingName} (${charName})`)
+  console.log('[TRADE] Trade', id + ':', offeringName, '->', receivingName, '(' + charName + ')')
   return trade
 }
 
@@ -73,7 +70,7 @@ async function acceptTrade(tradeId, acceptingId) {
   await store.saveInventories()
   await store.saveTrades()
   await store.saveTradeHistory()
-  logger.log(TAG, `Trade ${tradeId} accepted`)
+  console.log('[TRADE] Trade', tradeId, 'accepted')
   return t
 }
 

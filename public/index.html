@@ -142,6 +142,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <span id="badge-gacha" class="badge badge-off">○ GACHA</span>
     <span id="badge-vtuber" class="badge badge-off">○ VTUBER</span>
     <span id="badge-obs" class="badge badge-off">○ OBS</span>
+    <span id="badge-event-actions" class="badge badge-off">○ EVENTS</span>
     <span id="badge-bot" class="badge badge-off">○ BOT</span>
   </div>
   <span id="channel-name" class="channel-name"></span>
@@ -155,6 +156,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="vtuber">VTUBER</button>
     <button class="tab-btn" data-tab="obs">OBS</button>
     <button class="tab-btn" data-tab="chatbot">Chatbot</button>
+    <button class="tab-btn" data-tab="event-actions">Event Actions</button>
   </div>
 </header>
 
@@ -496,6 +498,78 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   <iframe src="/chatbot/" style="width:100%;border:none;background:#0d1117;flex:1" title="Chatbot"></iframe>
 </div>
 
+<div id="tab-event-actions" class="tab-content hidden">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1;overflow-y:auto">
+
+    <style>
+      .ea-card { background:#161b22; border:1px solid #30363d; border-radius:8px; display:flex; flex-direction:column; height:220px; }
+      .ea-card-header { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #30363d; flex-shrink:0; }
+      .ea-card-icon { font-size:16px; }
+      .ea-card-title { font-weight:600; font-size:13px; color:#c9d1d9; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .ea-card-event { font-size:10px; color:#484f58; font-family:monospace; }
+      .ea-card textarea { flex:1; margin:8px 10px; padding:8px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9; font-size:12px; font-family:monospace; resize:none; line-height:1.5; }
+      .ea-card textarea:focus { outline:none; border-color:#58a6ff; }
+      .ea-card.disabled { opacity:.5; }
+      .ea-card.disabled textarea { opacity:.4; }
+      /* toggle */
+      .ea-toggle { position:relative; display:inline-block; width:36px; height:20px; flex-shrink:0; }
+      .ea-toggle input { opacity:0; width:0; height:0; }
+      .ea-toggle .slider { position:absolute; cursor:pointer; inset:0; background:#30363d; border-radius:20px; transition:background .2s; }
+      .ea-toggle .slider::before { content:''; position:absolute; height:14px; width:14px; left:3px; bottom:3px; background:#8b949e; border-radius:50%; transition:transform .2s, background .2s; }
+      .ea-toggle input:checked + .slider { background:#1f6feb; }
+      .ea-toggle input:checked + .slider::before { background:#fff; transform:translateX(16px); }
+    </style>
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+      <span class="badge" id="badge-event-actions-tab">○ Sin datos</span>
+      <button class="btn btn-danger" onclick="eventActionsReset()">🔄 Reiniciar Chatters</button>
+      <span style="color:#8b949e;font-size:12px" id="ea-chatters-count"></span>
+    </div>
+
+    <div style="font-size:12px;color:#8b949e;flex-shrink:0">
+      <strong>Miniprompts por evento</strong> — texto que recibe la VTuber AI antes de contestar.
+      <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">{username}</code> se reemplaza por el usuario.
+      <code>{reward_title}</code> para canje, <code>{title}</code> para metadata.
+    </div>
+
+    <div id="ea-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;flex:1;align-content:start">
+      <div class="ea-card" data-event="channel.followed">
+        <div class="ea-card-header"><span class="ea-card-icon">👤</span><span class="ea-card-title">Nuevo seguidor</span><span class="ea-card-event">channel.followed</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.followed',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-channel.followed" spellcheck="false"></textarea>
+      </div>
+      <div class="ea-card" data-event="channel.subscription.new">
+        <div class="ea-card-header"><span class="ea-card-icon">⭐</span><span class="ea-card-title">Nueva suscripción</span><span class="ea-card-event">channel.subscription.new</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.subscription.new',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-channel.subscription.new" spellcheck="false"></textarea>
+      </div>
+      <div class="ea-card" data-event="channel.subscription.renewal">
+        <div class="ea-card-header"><span class="ea-card-icon">🔄</span><span class="ea-card-title">Renovación suscripción</span><span class="ea-card-event">channel.subscription.renewal</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.subscription.renewal',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-channel.subscription.renewal" spellcheck="false"></textarea>
+      </div>
+      <div class="ea-card" data-event="channel.subscription.gifts">
+        <div class="ea-card-header"><span class="ea-card-icon">🎁</span><span class="ea-card-title">Suscripciones regaladas</span><span class="ea-card-event">channel.subscription.gifts</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.subscription.gifts',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-channel.subscription.gifts" spellcheck="false"></textarea>
+      </div>
+      <div class="ea-card" data-event="channel.reward.redemption.updated">
+        <div class="ea-card-header"><span class="ea-card-icon">🏆</span><span class="ea-card-title">Canje de recompensa</span><span class="ea-card-event">channel.reward.redemption.updated</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.reward.redemption.updated',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-channel.reward.redemption.updated" spellcheck="false"></textarea>
+      </div>
+      <div class="ea-card" data-event="livestream.metadata.updated">
+        <div class="ea-card-header"><span class="ea-card-icon">📝</span><span class="ea-card-title">Stream actualizado</span><span class="ea-card-event">livestream.metadata.updated</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('livestream.metadata.updated',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-livestream.metadata.updated" spellcheck="false"></textarea>
+      </div>
+      <div class="ea-card" data-event="kicks.gifted">
+        <div class="ea-card-header"><span class="ea-card-icon">💎</span><span class="ea-card-title">KICKS regalados</span><span class="ea-card-event">kicks.gifted</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('kicks.gifted',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-kicks.gifted" spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <div style="flex-shrink:0">
+      <button class="btn btn-primary" onclick="eventActionsSaveConfig()">💾 Guardar miniprompts</button>
+    </div>
+
+  </div>
+</div>
+
 <div id="tab-vtuber" class="tab-content hidden">
   <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1">
 
@@ -640,6 +714,7 @@ function handleEvent(d) {
   if (d._source === 'gacha') { handleGachaEvent(d); return }
   if (d._source === 'vtuber') { handleVtuberEvent(d); return }
   if (d._source === 'obs') { handleObsEvent(d); return }
+  if (d._source === 'event-actions') { handleEventActionsEvent(d); return }
   switch (d.type) {
     case 'status':
       updateStatus(d);
@@ -705,6 +780,7 @@ function switchMainTab(tab) {
   if (tab === 'comandos') gachaLoadCommands();
   if (tab === 'vtuber') vtuberLoadConfig();
   if (tab === 'obs') obsCheckStatus();
+  if (tab === 'event-actions') eventActionsLoadConfig();
 }
 
 document.getElementById('tab-bar').addEventListener('click', e => {
@@ -1638,6 +1714,91 @@ function renderContent(content, emotes) {
   return parts.join('');
 }
 
+// -- Event Actions --
+function handleEventActionsEvent(d) {
+  if (d.type === 'event-actions:status') {
+    const badge = document.getElementById('badge-event-actions');
+    badge.className = 'badge badge-ok';
+    badge.textContent = `● ${d.chattersCount || 0}`;
+  }
+  if (d.type === 'event-actions:reset') {
+    const badge = document.getElementById('badge-event-actions');
+    badge.className = 'badge badge-off';
+    badge.textContent = '○ 0';
+    const tabBadge = document.getElementById('badge-event-actions-tab');
+    tabBadge.className = 'badge badge-gray';
+    tabBadge.textContent = '○ 0 chatters';
+    document.getElementById('ea-chatters-count').textContent = '';
+  }
+}
+
+const EA_EVENTS = [
+  'channel.followed', 'channel.subscription.new', 'channel.subscription.renewal',
+  'channel.subscription.gifts', 'channel.reward.redemption.updated',
+  'livestream.metadata.updated', 'kicks.gifted'
+]
+
+function eventActionsLoadConfig() {
+  fetch('/api/event-actions/config').then(r => r.json()).then(d => {
+    const prompts = d.miniprompts || {};
+    const defaults = d.defaults || {};
+    const enabled = d.enabled || {};
+    for (const key of EA_EVENTS) {
+      const el = document.getElementById('ea-prompt-' + key);
+      if (el) el.value = prompts[key] || defaults[key] || '';
+      const card = document.querySelector(`.ea-card[data-event="${key}"]`);
+      const toggle = card?.querySelector('input[type="checkbox"]');
+      if (toggle) toggle.checked = enabled[key] !== false;
+      if (card) card.classList.toggle('disabled', enabled[key] === false);
+    }
+    const badge = document.getElementById('badge-event-actions');
+    badge.className = 'badge badge-ok';
+    badge.textContent = `● ${d.chattersCount || 0}`;
+    const tabBadge = document.getElementById('badge-event-actions-tab');
+    tabBadge.className = d.chattersCount > 0 ? 'badge badge-ok' : 'badge badge-gray';
+    tabBadge.textContent = d.chattersCount > 0 ? `● ${d.chattersCount} chatters` : '○ Sin chatters';
+    document.getElementById('ea-chatters-count').textContent = d.chattersCount > 0 ? `${d.chattersCount} usuario(s) registrado(s) hoy` : '';
+  }).catch(() => {});
+}
+
+function eventActionsToggle(event, eventEnabled) {
+  const card = document.querySelector(`.ea-card[data-event="${event}"]`);
+  if (card) card.classList.toggle('disabled', !eventEnabled);
+  fetch('/api/event-actions/toggle', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event, eventEnabled })
+  }).catch(() => {});
+}
+
+function eventActionsSaveConfig() {
+  const btn = event.target;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  const miniprompts = {};
+  for (const key of EA_EVENTS) {
+    const el = document.getElementById('ea-prompt-' + key);
+    if (el && el.value.trim()) miniprompts[key] = el.value.trim();
+  }
+  fetch('/api/event-actions/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ miniprompts })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) eventActionsLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message))
+  .finally(() => { btn.disabled = false; btn.textContent = orig });
+}
+
+function eventActionsReset() {
+  if (!confirm('¿Reiniciar chatters? La próxima vez que cada usuario escriba se tratará como primer mensaje.')) return;
+  fetch('/api/event-actions/reset-chatters', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }
+  }).then(r => r.json()).then(d => {
+    if (d.ok) eventActionsLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message));
+}
+
 // -- VTUBER --
 function vtuberLoadConfig() {
   fetch('/api/vtuber/config').then(r => r.json()).then(d => {
@@ -1755,6 +1916,11 @@ fetch('/api/vtuber/status').then(r => r.json()).then(d => {
   else setBadge('badge-vtuber', d.apiKeySet ? 'badge-off' : 'badge-gray', d.apiKeySet ? '○ VTUBER' : '○ VTUBER');
 }).catch(() => setBadge('badge-vtuber', 'badge-gray', '○ VTUBER'));
 obsCheckStatus();
+fetch('/api/event-actions/config').then(r => r.json()).then(d => {
+  const badge = document.getElementById('badge-event-actions');
+  badge.className = d.chattersCount > 0 ? 'badge badge-ok' : 'badge badge-gray';
+  badge.textContent = d.chattersCount > 0 ? `● ${d.chattersCount}` : '○ 0';
+}).catch(() => {});
 
 </script>
 </body>
