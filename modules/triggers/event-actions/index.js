@@ -18,6 +18,7 @@ const PROMO_KEYWORDS = [
 ]
 
 const DEFAULT_MINIPROMPTS = {
+  'channel.chatter.first': 'chat.message.sent. PRIMER MENSAJE DEL DÍA DE @{username}: {content}. Es su primer mensaje hoy. Haz un saludo corto y dale la bienvenida al chat. Máximo dos oraciones.',
   'channel.followed': 'chat.message.sent. [EVENTO: Nuevo seguidor] @{username} acaba de seguir el canal en Kick. Dale una bienvenida cálida y agradécele el follow.',
   'channel.subscription.new': 'chat.message.sent. [EVENTO: Nueva suscripción] @{username} acaba de suscribirse al canal por primera vez. Es una suscripción nueva. Muéstrate emocionada y agradécele muchísimo su apoyo.',
   'channel.subscription.renewal': 'chat.message.sent. [EVENTO: Renovación de suscripción] @{username} ha renovado su suscripción mensual. Agradécele por seguir apoyando el canal otro mes más.',
@@ -28,6 +29,7 @@ const DEFAULT_MINIPROMPTS = {
 }
 
 let chatters = new Set()
+let exceptions = new Set()
 let miniprompts = {}
 let enabled = {}
 
@@ -36,18 +38,20 @@ function loadChatters() {
     const raw = fs.readFileSync(CHATTERS_PATH, 'utf-8')
     const data = JSON.parse(raw)
     chatters = new Set((data.usernames || []).map(u => u.toLowerCase()))
+    exceptions = new Set((data.exceptions || ['mrsnakevt', 'kickbot']).map(u => u.toLowerCase()))
   } catch {
     chatters = new Set()
+    exceptions = new Set(['mrsnakevt', 'kickbot'])
     saveChatters()
   }
 }
 
 function saveChatters() {
-  fs.writeFileSync(CHATTERS_PATH, JSON.stringify({ usernames: [...chatters] }, null, 2), 'utf-8')
+  fs.writeFileSync(CHATTERS_PATH, JSON.stringify({ usernames: [...chatters], exceptions: [...exceptions] }, null, 2), 'utf-8')
 }
 
 function resetChatters() {
-  chatters = new Set()
+  chatters = new Set([...exceptions])
   saveChatters()
   console.log('[EVENT-ACTIONS] Chatters reseteados ✅')
 }
@@ -86,7 +90,8 @@ function emitStatus() {
   sse.broadcast({
     _source: 'event-actions',
     type: 'event-actions:status',
-    chattersCount: chatters.size
+    chattersCount: chatters.size,
+    exceptions: [...exceptions]
   })
 }
 
@@ -121,8 +126,13 @@ async function onChatMessage(data) {
     return
   }
 
-  const prefixed = `chat.message.sent. PRIMER MENSAJE DEL DIA DE @${username}: ${content}`
-  await vtuber.processMessage(username, prefixed).catch(err => {
+  if (enabled['channel.chatter.first'] === false) return
+
+  let prompt = miniprompts['channel.chatter.first']
+  if (!prompt) prompt = DEFAULT_MINIPROMPTS['channel.chatter.first']
+  prompt = prompt.replace(/\{username\}/g, username).replace(/\{content\}/g, content)
+
+  await vtuber.processMessage(username, prompt).catch(err => {
     console.error('[EVENT-ACTIONS] Error calling vtuber.processMessage:', err.message)
   })
 }
@@ -186,6 +196,8 @@ function init() {
 function handleGetConfig(req, res) {
   res.json({
     chattersCount: chatters.size,
+    chatters: [...chatters],
+    exceptions: [...exceptions],
     miniprompts: miniprompts,
     enabled: enabled,
     defaults: DEFAULT_MINIPROMPTS
@@ -217,7 +229,8 @@ function handleResetChatters(req, res) {
   sse.broadcast({
     _source: 'event-actions',
     type: 'event-actions:reset',
-    chattersCount: 0
+    chattersCount: chatters.size,
+    exceptions: [...exceptions]
   })
   res.json({ ok: true, message: 'Chatters reiniciados' })
 }
@@ -234,6 +247,34 @@ function handleToggle(req, res) {
   }
 }
 
+function handleGetExceptions(req, res) {
+  res.json({ chatters: [...chatters], exceptions: [...exceptions] })
+}
+
+function handleAddException(req, res) {
+  const { username } = req.body
+  if (!username || typeof username !== 'string' || !username.trim()) {
+    return res.status(400).json({ ok: false, message: 'username requerido' })
+  }
+  exceptions.add(username.trim().toLowerCase())
+  saveChatters()
+  emitStatus()
+  console.log(`[EVENT-ACTIONS] Excepción añadida: ${username.trim().toLowerCase()}`)
+  res.json({ ok: true, exceptions: [...exceptions] })
+}
+
+function handleRemoveException(req, res) {
+  const { username } = req.body
+  if (!username || typeof username !== 'string' || !username.trim()) {
+    return res.status(400).json({ ok: false, message: 'username requerido' })
+  }
+  exceptions.delete(username.trim().toLowerCase())
+  saveChatters()
+  emitStatus()
+  console.log(`[EVENT-ACTIONS] Excepción removida: ${username.trim().toLowerCase()}`)
+  res.json({ ok: true, exceptions: [...exceptions] })
+}
+
 init()
 
-module.exports = { handleGetConfig, handleSaveConfig, handleResetChatters, handleToggle }
+module.exports = { handleGetConfig, handleSaveConfig, handleResetChatters, handleToggle, handleGetExceptions, handleAddException, handleRemoveException }

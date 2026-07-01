@@ -6,7 +6,8 @@
     "channel.subscription.gifts": "chat.message.sent. [EVENTO: Suscripciones regaladas] @{username} ha regalado suscripciones a la comunidad. Reconoce su generosidad y da las gracias a todos los nuevos suscriptores.",
     "channel.reward.redemption.updated": "chat.message.sent. [EVENTO: Canje de recompensa] @{username} ha canjeado \"{reward_title}\" con puntos de canal. Reacciona con emoción al canje y pregúntale qué tal le parece la recompensa.",
     "livestream.metadata.updated": "chat.message.sent. [EVENTO: Stream actualizado] Se cambió el título o categoría del stream. Nuevo título: \"{title}\". Reacciona al cambio brevemente.",
-    "kicks.gifted": "chat.message.sent. [EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Es la moneda de la plataforma Kick. Agradécele su generosidad con entusiasmo."
+    "kicks.gifted": "chat.message.sent. [EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Es la moneda de la plataforma Kick. Agradécele su generosidad con entusiasmo.",
+    "channel.chatter.first": "chat.message.sent. PRIMER MENSAJE DEL DÍA DE @{username}: {content}. Es su primer mensaje hoy. Haz un saludo corto y dale la bienvenida al chat. Máximo dos oraciones."
   },
   "enabled": {
     "channel.reward.redemption.updated": false
