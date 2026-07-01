@@ -101,6 +101,9 @@ app.get('/api/event-actions/config', eventActions.handleGetConfig)
 app.post('/api/event-actions/config', express.json(), eventActions.handleSaveConfig)
 app.post('/api/event-actions/reset-chatters', express.json(), eventActions.handleResetChatters)
 app.post('/api/event-actions/toggle', express.json(), eventActions.handleToggle)
+app.get('/api/event-actions/exceptions', eventActions.handleGetExceptions)
+app.post('/api/event-actions/exceptions', express.json(), eventActions.handleAddException)
+app.post('/api/event-actions/exceptions/remove', express.json(), eventActions.handleRemoveException)
 
 // -- GACHA --
 gacha.initWs(server)

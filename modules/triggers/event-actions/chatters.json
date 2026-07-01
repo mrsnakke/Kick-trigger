@@ -1,27 +1,10 @@
 {
   "usernames": [
     "mrsnakevt",
-    "z3dow",
-    "yuan64",
-    "kickbot",
-    "daii_vv",
-    "battle_ship",
-    "mistico777",
-    "drarkmun",
-    "symphonyzmiaus",
-    "marcelo_pj",
-    "thedarklist98",
-    "geostav",
-    "luchiowo",
-    "camaleonsumiso_xd",
-    "tomoyukii",
-    "ldharu",
-    "andreh26",
-    "aortizu",
-    "fer_twt",
-    "joseaguacate",
-    "aimikaih",
-    "daiferdas02",
-    "desoladorxd"
+    "kickbot"
+  ],
+  "exceptions": [
+    "mrsnakevt",
+    "kickbot"
   ]
 }

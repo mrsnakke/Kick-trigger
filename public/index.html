@@ -526,13 +526,34 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <span style="color:#8b949e;font-size:12px" id="ea-chatters-count"></span>
     </div>
 
+    <details class="collapsible" style="flex-shrink:0">
+      <summary style="font-size:13px;font-weight:600;color:#58a6ff;padding:8px 14px;background:#161b22;border:1px solid #30363d;border-radius:8px;cursor:pointer;user-select:none">🛡️ Excepciones <span style="color:#8b949e;font-weight:400;font-size:11px">(usuarios que nunca se resetean)</span></summary>
+      <div style="padding:12px 14px;background:#161b22;border:1px solid #30363d;border-radius:0 0 8px 8px;border-top:none">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <select id="ea-exception-select" style="flex:1;min-width:120px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">
+            <option value="">— Añadir desde chatters —</option>
+          </select>
+          <input type="text" id="ea-exception-input" placeholder="O escribe manual..." style="flex:1;min-width:120px;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px" onkeydown="if(event.key==='Enter')eventActionsAddException()">
+          <button class="btn btn-sm btn-primary" onclick="eventActionsAddException()">+ Añadir</button>
+        </div>
+        <div id="ea-exceptions-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;padding:4px 0">
+          <span style="color:#484f58;font-size:12px">Cargando...</span>
+        </div>
+      </div>
+    </details>
+
     <div style="font-size:12px;color:#8b949e;flex-shrink:0">
       <strong>Miniprompts por evento</strong> — texto que recibe la VTuber AI antes de contestar.
       <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">{username}</code> se reemplaza por el usuario.
-      <code>{reward_title}</code> para canje, <code>{title}</code> para metadata.
+      <code>{reward_title}</code> para canje, <code>{title}</code> para metadata,
+      <code>{content}</code> para primer mensaje de chatter.
     </div>
 
     <div id="ea-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;flex:1;align-content:start">
+      <div class="ea-card" data-event="channel.chatter.first">
+        <div class="ea-card-header"><span class="ea-card-icon">💬</span><span class="ea-card-title">Primer mensaje del día</span><span class="ea-card-event">channel.chatter.first</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.chatter.first',this.checked)"><span class="slider"></span></label></div>
+        <textarea id="ea-prompt-channel.chatter.first" spellcheck="false"></textarea>
+      </div>
       <div class="ea-card" data-event="channel.followed">
         <div class="ea-card-header"><span class="ea-card-icon">👤</span><span class="ea-card-title">Nuevo seguidor</span><span class="ea-card-event">channel.followed</span><label class="ea-toggle"><input type="checkbox" onchange="eventActionsToggle('channel.followed',this.checked)"><span class="slider"></span></label></div>
         <textarea id="ea-prompt-channel.followed" spellcheck="false"></textarea>
@@ -1723,17 +1744,15 @@ function handleEventActionsEvent(d) {
   }
   if (d.type === 'event-actions:reset') {
     const badge = document.getElementById('badge-event-actions');
-    badge.className = 'badge badge-off';
-    badge.textContent = '○ 0';
-    const tabBadge = document.getElementById('badge-event-actions-tab');
-    tabBadge.className = 'badge badge-gray';
-    tabBadge.textContent = '○ 0 chatters';
-    document.getElementById('ea-chatters-count').textContent = '';
+    const count = d.chattersCount || 0;
+    badge.className = count > 0 ? 'badge badge-ok' : 'badge badge-off';
+    badge.textContent = count > 0 ? `● ${count}` : '○ 0';
+    eventActionsLoadConfig();
   }
 }
 
 const EA_EVENTS = [
-  'channel.followed', 'channel.subscription.new', 'channel.subscription.renewal',
+  'channel.chatter.first', 'channel.followed', 'channel.subscription.new', 'channel.subscription.renewal',
   'channel.subscription.gifts', 'channel.reward.redemption.updated',
   'livestream.metadata.updated', 'kicks.gifted'
 ]
@@ -1758,7 +1777,52 @@ function eventActionsLoadConfig() {
     tabBadge.className = d.chattersCount > 0 ? 'badge badge-ok' : 'badge badge-gray';
     tabBadge.textContent = d.chattersCount > 0 ? `● ${d.chattersCount} chatters` : '○ Sin chatters';
     document.getElementById('ea-chatters-count').textContent = d.chattersCount > 0 ? `${d.chattersCount} usuario(s) registrado(s) hoy` : '';
+    renderExceptions(d.exceptions || [], d.chatters || []);
   }).catch(() => {});
+}
+
+function renderExceptions(exceptions, chatters) {
+  const list = document.getElementById('ea-exceptions-list');
+  if (!exceptions.length) {
+    list.innerHTML = '<span style="color:#484f58;font-size:12px">Sin excepciones — todos los chatters se resetean</span>';
+  } else {
+    list.innerHTML = exceptions.map(u =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#0d1117;border:1px solid #30363d;border-radius:12px;font-size:12px">${escapeHtml(u)} <span onclick="eventActionsRemoveException('${u}')" style="cursor:pointer;color:#f85149;font-weight:bold;font-size:14px;line-height:1">&times;</span></span>`
+    ).join('');
+  }
+  const sel = document.getElementById('ea-exception-select');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Añadir desde chatters —</option>' +
+    chatters.filter(u => !exceptions.includes(u)).map(u =>
+      `<option value="${u}">${escapeHtml(u)}</option>`
+    ).join('');
+  sel.value = current || '';
+}
+
+function eventActionsAddException() {
+  const sel = document.getElementById('ea-exception-select');
+  const input = document.getElementById('ea-exception-input');
+  const username = (sel.value || input.value.trim()).toLowerCase();
+  if (!username) return;
+  sel.value = '';
+  input.value = '';
+  fetch('/api/event-actions/exceptions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) eventActionsLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message));
+}
+
+function eventActionsRemoveException(username) {
+  fetch('/api/event-actions/exceptions/remove', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) eventActionsLoadConfig();
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message));
 }
 
 function eventActionsToggle(event, eventEnabled) {
