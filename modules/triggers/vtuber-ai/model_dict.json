@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Grim",
+    "description": "Modelo principal VTuber — Tsundere/Ojou-sama",
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": "",
+      "joy": "expression6.exp3.json",
+      "sadness": "expression9.exp3.json",
+      "anger": "expression1.exp3.json",
+      "surprise": "expression3.exp3.json",
+      "blush": "expression2.exp3.json",
+      "lengua": "lengua.exp3.json",
+      "yandere": "expression8.exp3.json",
+      "antifaz": "expression6.exp10.json",
+      "atadas": "expression6.exp11.json",
+      "latigo": "expression6.exp12.json",
+      "naipes": "expression6.exp13.json"
+    }
+  }
+]

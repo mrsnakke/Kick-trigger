@@ -1,6 +1,6 @@
 const OpenAI = require('openai');
 
-function createDeepSeekClient(apiKey) {
+function createDeepSeekClient(apiKey, searchApiKey) {
   if (!apiKey) throw new Error('VTUBER_API_KEY no configurada');
 
   const client = new OpenAI({
@@ -13,18 +13,41 @@ function createDeepSeekClient(apiKey) {
   async function executeToolCall(toolCall) {
     if (toolCall.function.name === 'web_search') {
       const { query } = JSON.parse(toolCall.function.arguments);
+      if (!searchApiKey) {
+        return 'La búsqueda en internet no está configurada. Pide al streamer que configure una API key de búsqueda.';
+      }
       try {
-        const res = await fetch(
-          `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`,
-          { headers: { 'User-Agent': 'Kick-VTuber/1.0' } }
-        );
+        const res = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: searchApiKey,
+            query,
+            search_depth: 'basic',
+            include_answer: true,
+            max_results: 5,
+          }),
+        });
+        if (!res.ok) return `Error en la búsqueda: ${res.status}`;
         const data = await res.json();
-        return data.AbstractText
-          || data.RelatedTopics?.slice(0, 3).map(t => t.Text || t.Result).join('\n')
-          || 'No se encontraron resultados.';
+        if (data.answer) return data.answer;
+        if (data.results?.length) {
+          return data.results.map(r => `${r.title}: ${r.content}`).join('\n');
+        }
+        return 'No se encontraron resultados.';
       } catch {
         return 'Error al realizar la búsqueda web.';
       }
+    }
+    if (toolCall.function.name === 'get_current_time') {
+      const now = new Date();
+      const tijuana = new Intl.DateTimeFormat('es-MX', {
+        timeZone: 'America/Tijuana',
+        dateStyle: 'full',
+        timeStyle: 'long',
+        hour12: false,
+      }).format(now);
+      return tijuana;
     }
     return `Función '${toolCall.function.name}' no disponible.`;
   }
@@ -55,6 +78,17 @@ function createDeepSeekClient(apiKey) {
                 },
               },
               required: ['query'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'get_current_time',
+            description: 'Obtiene la fecha y hora actual en Tijuana, Baja California (UTC-8 / UTC-7 en horario de verano).',
+            parameters: {
+              type: 'object',
+              properties: {},
             },
           },
         },

@@ -1,0 +1,16 @@
+{
+  "config": {
+    "COMMAND": "!sp",
+    "MAX_TEXT_LENGTH": 600,
+    "KICKBONKS_URL": "http://192.168.50.246:3030"
+  },
+  "bannedWords": [
+    "cara de gato",
+    "Caradegato",
+    "puto",
+    "puta",
+    "maricon",
+    "pendejo"
+  ],
+  "userAliases": {}
+}

@@ -407,6 +407,47 @@
       ],
       "sortOrder": 7,
       "groupId": "0c371bfe-42e0-45d4-98a0-b0a01fde4680"
+    },
+    {
+      "id": "db993517-3155-4404-b8e9-90df6d77b9f6",
+      "name": "Grim spawn",
+      "subActions": [
+        {
+          "id": 1782984974236.0652,
+          "type": "visibility",
+          "scene": "gameplay",
+          "sourceId": "14",
+          "sourceName": "grim",
+          "groupName": "Vtuber",
+          "isGroup": false,
+          "state": "Visible"
+        }
+      ],
+      "sortOrder": 8,
+      "groupId": "6d7cddba-4531-4603-8dbd-1d19b632fb3c"
+    },
+    {
+      "id": "aac1b63f-d8cf-4c4e-93bc-d73b8eab6cd0",
+      "name": "grim despawn",
+      "subActions": [
+        {
+          "id": 1782985004224.2224,
+          "type": "delay",
+          "duration": 300
+        },
+        {
+          "id": 1782985008890.3303,
+          "type": "visibility",
+          "scene": "gameplay",
+          "sourceId": "14",
+          "sourceName": "grim",
+          "groupName": "Vtuber",
+          "isGroup": false,
+          "state": "Hidden"
+        }
+      ],
+      "sortOrder": 9,
+      "groupId": "6d7cddba-4531-4603-8dbd-1d19b632fb3c"
     }
   ],
   "triggers": [
@@ -473,18 +514,39 @@
       "pattern": "Ruleta Strinova",
       "actionId": "49d1c984-d945-4307-8803-d2b593e4f661",
       "enabled": true
+    },
+    {
+      "id": "eccea48a-a30a-407b-8280-e5c5e5e5fdec",
+      "name": "tts:bot:start",
+      "type": "tts",
+      "pattern": "tts:bot:start",
+      "actionId": "db993517-3155-4404-b8e9-90df6d77b9f6",
+      "enabled": true
+    },
+    {
+      "id": "4b9f4682-1850-496f-8614-57fdd6b9bff9",
+      "name": "tts:bot:end",
+      "type": "tts",
+      "pattern": "tts:bot:end",
+      "actionId": "aac1b63f-d8cf-4c4e-93bc-d73b8eab6cd0",
+      "enabled": true
     }
   ],
   "groups": [
     {
       "id": "ba641868-526c-40b2-9864-651658f35e78",
       "name": "Canjes",
-      "collapsed": false
+      "collapsed": true
     },
     {
       "id": "0c371bfe-42e0-45d4-98a0-b0a01fde4680",
       "name": "ruleta",
-      "collapsed": false
+      "collapsed": true
+    },
+    {
+      "id": "6d7cddba-4531-4603-8dbd-1d19b632fb3c",
+      "name": "Grim",
+      "collapsed": true
     }
   ]
 }

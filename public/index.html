@@ -138,7 +138,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   <div class="status-group">
     <span id="badge-auth" class="badge badge-gray">○ Cargando...</span>
     <span id="badge-tunnel" class="badge badge-off">○ Sin túnel</span>
-    <span id="badge-sb" class="badge badge-off">○ SP.BOT</span>
+    <span id="badge-tts" class="badge badge-off">○ TTS</span>
     <span id="badge-gacha" class="badge badge-off">○ GACHA</span>
     <span id="badge-vtuber" class="badge badge-off">○ VTUBER</span>
     <span id="badge-obs" class="badge badge-off">○ OBS</span>
@@ -205,13 +205,15 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <div id="tts-principal" class="tts-panel active">
         <div><label>Comando TTS</label><input type="text" id="tts-cmd" required></div>
         <div><label>Voz Principal</label>
-          <select id="tts-voice" required>
-            <option>Andrés</option><option>Ava</option><option>Brian</option><option>Grim</option><option>Jorge</option><option>Sabina</option>
-          </select>
+          <select id="tts-voice" required></select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><label>Salida Chat <span style="color:#484f58;font-weight:400">(comandos !sp)</span></label><select id="tts-origin-chat" style="width:100%"></select></div>
+          <div style="flex:1"><label>Salida Bot <span style="color:#484f58;font-weight:400">(IA)</span></label><select id="tts-origin-bot" style="width:100%"></select></div>
         </div>
         <div>
           <label>Alias de Voces <span style="color:#484f58;font-weight:400">(config.json)</span></label>
-          <textarea id="tts-voice-aliases" readonly rows="4" style="color:#8b949e;cursor:not-allowed"></textarea>
+          <textarea id="tts-voice-aliases" readonly rows="3" style="color:#8b949e;cursor:not-allowed"></textarea>
         </div>
         <div>
           <label>Filtro de Palabras Prohibidas</label>
@@ -235,7 +237,6 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
         </div>
       </div>
       <div id="tts-avanzado" class="tts-panel">
-        <div><label>URL de Speaker.bot</label><input type="text" id="tts-speakerbot-url" required></div>
         <div><label>Máx. Caracteres <span style="color:#484f58;font-weight:400">(0 = sin límite)</span></label><input type="number" id="tts-max-len" min="0" required></div>
       </div>
       <div style="padding:8px 12px;border-top:1px solid #30363d;margin-top:auto">
@@ -248,12 +249,13 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <div style="display:flex;align-items:center;gap:8px">
         <span style="color:#484f58">❯</span>
         <span style="font-weight:700;color:#8b949e">TTS MONITOR</span>
-        <span id="tts-status-kick" style="display:flex;align-items:center;font-size:10px;color:#8b949e;background:#0d1117;padding:2px 8px;border-radius:10px;border:1px solid #30363d">
-          <span class="tts-status-dot red" id="tts-dot-kick"></span>KICK
+        <span id="tts-queue-badge" style="display:flex;align-items:center;font-size:10px;color:#8b949e;background:#0d1117;padding:2px 8px;border-radius:10px;border:1px solid #30363d">
+          <span class="tts-status-dot gray" id="tts-dot-queue"></span>Cola
         </span>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span id="tts-ping" style="color:#484f58;font-size:10px">-- ms</span>
+        <span id="tts-queue-size" style="color:#484f58;font-size:10px">0</span>
+        <span id="tts-current-voice" style="color:#484f58;font-size:10px">—</span>
         <button class="tts-btn" onclick="ttsClearConsole()" title="Limpiar" style="padding:1px 6px;font-size:11px">🗑</button>
       </div>
     </div>
@@ -438,9 +440,10 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <table class="cmd-table" data-mod="tts-user">
         <thead><tr><th>Comando</th><th>Descripción</th><th>Uso</th></tr></thead>
         <tbody>
-          <tr><td><code>!sp &lt;texto&gt;</code></td><td>Reproduce texto con la voz principal</td><td><span class="cmd-badge user">User</span></td></tr>
-          <tr><td><code>!sp &lt;alias&gt; &lt;texto&gt;</code></td><td>Reproduce texto con la voz del alias (ej: !sp ava hola)</td><td><span class="cmd-badge user">User</span></td></tr>
-          <tr><td><code>!&lt;nombre_voz&gt;</code></td><td>Asigna permanentemente esa voz al usuario (ej: !ava)</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!sp &lt;texto&gt;</code></td><td>Reproduce texto con la voz asignada del usuario</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!sp &lt;num&gt; &lt;texto&gt;</code></td><td>Reproduce con voz específica (ej: !sp 21 hola = Alvaro)</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!&lt;nombre_voz&gt;</code></td><td>Asigna permanentemente esa voz (ej: !sabina, !raula, !alvaro)</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!voz</code></td><td>Muestra las voces disponibles en el chat</td><td><span class="cmd-badge user">User</span></td></tr>
           <tr><td><code>!bonk</code></td><td>Lanza un bonk al streamer</td><td><span class="cmd-badge user">User</span></td></tr>
           <tr><td><code>!bonks</code></td><td>Lanza ráfaga de bonks</td><td><span class="cmd-badge user">User</span></td></tr>
         </tbody>
@@ -452,7 +455,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <table class="cmd-table" data-mod="vtuber-user">
         <thead><tr><th>Comando</th><th>Descripción</th><th>Uso</th></tr></thead>
         <tbody>
-          <tr><td><code>!grim &lt;pregunta&gt;</code></td><td>Grim responde con IA en chat y voz</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!grim &lt;pregunta&gt;</code></td><td>Grim responde con IA (chat + voz Dalia)</td><td><span class="cmd-badge user">User</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -659,6 +662,14 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       </div>
     </details>
 
+    <details class="collapsible">
+      <summary>🎭 Control Live2D (VTS_PROMPT) <span style="color:#8b949e;font-weight:400;font-size:11px">— obligatorio, no editable</span></summary>
+      <div class="body">
+        <div style="color:#484f58;font-size:11px;margin-bottom:6px">⚠️ Este bloque se inyecta automáticamente al final del prompt. No se puede quitar desde el frontend.</div>
+        <pre id="vtuber-vts-prompt" style="margin:0;width:100%;height:140px;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#8b949e;font-size:12px;font-family:monospace;white-space:pre-wrap;overflow-y:auto;line-height:1.5"></pre>
+      </div>
+    </details>
+
     <details class="collapsible" open>
       <summary>✏️ Instrucciones extra <span style="color:#8b949e;font-weight:400;font-size:11px">(SYSTEM_PROMPT_CUSTOM)</span></summary>
       <div class="body">
@@ -677,6 +688,28 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     </div>
 
     <details class="collapsible">
+      <summary>🔌 VTube Studio <span id="badge-vts" class="badge badge-off" style="font-weight:400;font-size:10px;">○ Desconectado</span></summary>
+      <div class="body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Host</label>
+            <input type="text" id="vts-host" placeholder="localhost" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+          </div>
+          <div>
+            <label style="display:block;color:#8b949e;font-size:11px;font-weight:500;margin-bottom:4px">Puerto</label>
+            <input type="number" id="vts-port" placeholder="8001" style="width:100%;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px">
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="vtsConnect()" id="btn-vts-connect" style="color:#7ee787">🔌 Conectar</button>
+          <button class="btn btn-sm" onclick="vtsDisconnect()" id="btn-vts-disconnect" style="color:#f85149">⛔ Desconectar</button>
+          <button class="btn btn-sm" onclick="vtsCheckStatus()" style="color:#8b949e">🔄 Verificar estado</button>
+        </div>
+        <div style="color:#484f58;font-size:11px;margin-top:8px" id="vts-status-text">—</div>
+      </div>
+    </details>
+
+    <details class="collapsible">
       <summary>📖 Cómo usar</summary>
       <div class="body">
         <ol style="margin-left:18px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:#8b949e">
@@ -684,7 +717,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
           <li>Configura el prompt y los parámetros a tu gusto</li>
           <li>Presiona <strong>Probar</strong> para verificar que funciona</li>
           <li>En el chat de Kick escribe: <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">!grim hola</code></li>
-          <li>Grim responderá en el chat y se escuchará por Speaker.bot con la voz "Ava"</li>
+          <li>Grim responderá en el chat, se escuchará por TTS (voz Dalia) y activará expresiones Live2D</li>
         </ol>
       </div>
     </details>
@@ -817,7 +850,66 @@ function handleVtuberEvent(d) {
     } else {
       setBadge('badge-vtuber', d.apiKeySet ? 'badge-off' : 'badge-gray', d.apiKeySet ? '○ VTUBER' : '○ VTUBER');
     }
+    updateVTSStatus(d);
   }
+  if (d.type === 'vtuber:vts_status') {
+    updateVTSStatus(d);
+  }
+}
+
+function updateVTSStatus(d) {
+  const vtsAuth = d.vtsAuthenticated;
+  const vtsConn = d.vtsConnected;
+  if (vtsAuth) {
+    setBadge('badge-vts', 'badge-ok', '● Autenticado');
+    document.getElementById('vts-status-text').textContent = '✅ Conectado y autenticado en VTube Studio';
+    document.getElementById('btn-vts-connect').disabled = true;
+    document.getElementById('btn-vts-disconnect').disabled = false;
+  } else if (vtsConn) {
+    setBadge('badge-vts', 'badge-off', '○ Autenticación requerida');
+    document.getElementById('vts-status-text').textContent = '⚠️ Conectado pero sin autenticar — revisa el plugin en VTube Studio';
+    document.getElementById('btn-vts-connect').disabled = true;
+    document.getElementById('btn-vts-disconnect').disabled = false;
+  } else {
+    setBadge('badge-vts', 'badge-gray', '○ Desconectado');
+    document.getElementById('vts-status-text').textContent = '—';
+    document.getElementById('btn-vts-connect').disabled = false;
+    document.getElementById('btn-vts-disconnect').disabled = true;
+  }
+}
+
+function vtsConnect() {
+  const body = {
+    VTS_HOST: document.getElementById('vts-host').value.trim() || 'localhost',
+    VTS_PORT: parseInt(document.getElementById('vts-port').value) || 8001,
+    VTS_AUTO_CONNECT: true
+  };
+  fetch('/api/vtuber/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      document.getElementById('vts-status-text').textContent = '🔌 Conectando...';
+      setTimeout(vtsCheckStatus, 2000);
+    }
+  }).catch(() => {});
+}
+
+function vtsDisconnect() {
+  fetch('/api/vtuber/vts/disconnect', { method: 'POST' })
+    .then(r => r.json()).then(() => {
+      setBadge('badge-vts', 'badge-gray', '○ Desconectado');
+      document.getElementById('vts-status-text').textContent = '⛔ Desconectado';
+      document.getElementById('btn-vts-connect').disabled = false;
+      document.getElementById('btn-vts-disconnect').disabled = true;
+    }).catch(() => {});
+}
+
+function vtsCheckStatus() {
+  fetch('/api/vtuber/vts/status').then(r => r.json()).then(d => {
+    updateVTSStatus({ vtsConnected: d.connected, vtsAuthenticated: d.authenticated });
+  }).catch(() => {});
 }
 
 // -- OBS --
@@ -1269,31 +1361,81 @@ async function adminCancelTrade(id) {
 }
 
 // -- TTS --
+const TTS_VOICE_NAMES = { "1": "Sabina", "3": "Raul", "21": "Alvaro", "22": "Elvira", "23": "Ximena", "24": "Dalia", "25": "Jorge" };
+
 function handleTtsEvent(d) {
   if (d.type === 'tts:log') { ttsLog(d.message, d.logType, d.user); return }
   if (d.type === 'tts:status') { ttsUpdateStatus(d); return }
   if (d.type === 'tts:config') { ttsLoadConfigToUI(d.config, d.bannedWords); return }
   if (d.type === 'tts:user_aliases') { ttsUserAliases = d.userAliases || {}; ttsRenderUserList(); return }
+  if (d.type === 'tts:queue') { ttsUpdateQueue(d.queue); return }
 }
 
 function ttsUpdateStatus(d) {
-  document.getElementById('tts-dot-kick').className = 'tts-status-dot ' + (d.botActive ? 'green' : 'red');
-  setBadge('badge-sb', d.speakerbotActive ? 'badge-ok' : 'badge-off', d.speakerbotActive ? '● SP.BOT' : '○ SP.BOT');
+  setBadge('badge-tts', d.botActive ? 'badge-ok' : 'badge-off', d.botActive ? '● TTS' : '○ TTS');
+}
+
+function ttsUpdateQueue(queue) {
+  if (!queue) return;
+  const sz = queue.length;
+  const speaking = queue.find(q => q.status === 'speaking');
+  document.getElementById('tts-queue-size').textContent = sz;
+  const dot = document.getElementById('tts-dot-queue');
+  if (speaking) {
+    dot.className = 'tts-status-dot green';
+    document.getElementById('tts-current-voice').textContent = speaking.voiceAlias ? (TTS_VOICE_NAMES[speaking.voiceAlias] || speaking.voiceAlias) : '—';
+  } else {
+    dot.className = 'tts-status-dot gray';
+    document.getElementById('tts-current-voice').textContent = '—';
+  }
+}
+
+async function ttsLoadVoices() {
+  try {
+    const voices = await fetch('/api/tts/voices').then(r => r.json());
+    const sel = document.getElementById('tts-voice');
+    sel.innerHTML = Object.entries(TTS_VOICE_NAMES).map(([k, n]) =>
+      `<option value="${k}">${n}</option>`
+    ).join('');
+    // Also populate origin selects
+  } catch (e) { ttsLog('Error cargando voces: ' + e.message, 'error'); }
+}
+
+function ttsApplyOriginOutputs(config) {
+  const originOutputs = config.originOutputs || {};
+  const chatSel = document.getElementById('tts-origin-chat');
+  const botSel = document.getElementById('tts-origin-bot');
+  if (originOutputs.chat !== undefined) chatSel.value = originOutputs.chat;
+  if (originOutputs.bot !== undefined) botSel.value = originOutputs.bot;
+}
+
+async function ttsLoadOutputs() {
+  try {
+    const outputs = await fetch('/api/tts/outputs').then(r => r.json());
+    const html = outputs.map(o => `<option value="${o.index}">${o.index}: ${o.name}</option>`).join('');
+    ['tts-origin-chat', 'tts-origin-bot'].forEach(id => {
+      document.getElementById(id).innerHTML = html;
+    });
+    return outputs;
+  } catch (e) { ttsLog('Error cargando salidas: ' + e.message, 'error'); return []; }
 }
 
 function ttsLoadConfig() {
   ttsLoaded = true;
-  fetch('/api/tts/config').then(r => r.json()).then(d => ttsLoadConfigToUI(d.config, d.bannedWords)).catch(() => {});
+  fetch('/api/tts/config').then(r => r.json()).then(d => {
+    ttsLoadConfigToUI(d.config, d.bannedWords);
+    ttsLoadOutputs().then(() => ttsApplyOriginOutputs(d.config));
+  }).catch(() => {});
   fetch('/api/tts/user-aliases').then(r => r.json()).then(d => { ttsUserAliases = d.userAliases || {}; ttsRenderUserList() }).catch(() => {});
   fetch('/api/tts/status').then(r => r.json()).then(d => ttsUpdateStatus(d)).catch(() => {});
+  ttsLoadVoices();
   ttsLog('Configuración cargada', 'system');
 }
 
 function ttsLoadConfigToUI(config, bannedWords) {
   document.getElementById('tts-cmd').value = config.COMMAND || '!sp';
-  document.getElementById('tts-voice').value = config.VOICE_NAME || 'Sabina';
-  document.getElementById('tts-voice-aliases').value = JSON.stringify(config.VOICE_ALIASES || {}, null, 2);
-  document.getElementById('tts-speakerbot-url').value = config.SPEAKERBOT_URL || 'ws://127.0.0.1:7580/';
+  document.getElementById('tts-voice').value = '1';
+  document.getElementById('tts-voice-aliases').value = JSON.stringify(config.VOICE_NAMES || TTS_VOICE_NAMES, null, 2);
   document.getElementById('tts-max-len').value = config.MAX_TEXT_LENGTH || 0;
   ttsBannedWords = Array.isArray(bannedWords) ? bannedWords : [];
   ttsRenderBannedWords();
@@ -1301,14 +1443,15 @@ function ttsLoadConfigToUI(config, bannedWords) {
 
 function ttsSaveConfig(e) {
   e.preventDefault();
+  const chatOut = document.getElementById('tts-origin-chat').value;
+  const botOut = document.getElementById('tts-origin-bot').value;
   fetch('/api/tts/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       config: {
         COMMAND: document.getElementById('tts-cmd').value,
-        VOICE_NAME: document.getElementById('tts-voice').value,
-        SPEAKERBOT_URL: document.getElementById('tts-speakerbot-url').value,
-        MAX_TEXT_LENGTH: parseInt(document.getElementById('tts-max-len').value) || 0
+        MAX_TEXT_LENGTH: parseInt(document.getElementById('tts-max-len').value) || 0,
+        originOutputs: { chat: chatOut, bot: botOut }
       },
       bannedWords: ttsBannedWords
     })
@@ -1364,7 +1507,7 @@ function ttsRenderUserList() {
   entries.sort((a, b) => b[1].updatedAt?.localeCompare(a[1].updatedAt) || 0);
   container.innerHTML = entries.map(([k, v]) =>
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #21262d">' +
-    '<div><div style="font-weight:600;font-size:12px">' + v.username + '</div><div style="color:#53fc18;font-size:11px">' + v.voice + '</div></div>' +
+    '<div><div style="font-weight:600;font-size:12px">' + v.username + '</div><div style="color:#53fc18;font-size:11px">' + (TTS_VOICE_NAMES[v.voice] || v.voice) + '</div></div>' +
     '<button class="tts-btn" onclick="ttsDeleteUserAlias(\'' + v.username + '\')" style="padding:2px 6px;font-size:10px;color:#f85149">✕</button></div>'
   ).join('');
 }
@@ -1391,7 +1534,7 @@ function ttsLog(message, type, user) {
   } else if (type === 'success') {
     row.style.borderColor = '#3fb950'; row.style.color = '#3fb950';
     row.innerHTML = time + '<span style="font-weight:600;margin-right:4px">[OK]</span><span>' + message + '</span>';
-  } else if (type === 'chat_tts_kick') {
+  } else if (type === 'chat_tts') {
     row.style.borderColor = '#53fc18'; row.style.color = '#c9d1d9';
     ttsVoiceCount++;
     document.getElementById('tts-voice-count').textContent = 'Voz: ' + ttsVoiceCount;
@@ -1874,6 +2017,9 @@ function vtuberLoadConfig() {
     document.getElementById('vtuber-max-history').value = d.MAX_HISTORY_TURNS;
     document.getElementById('vtuber-system-prompt-base').value = d.SYSTEM_PROMPT_BASE;
     document.getElementById('vtuber-system-prompt-custom').value = d.SYSTEM_PROMPT_CUSTOM || '';
+    document.getElementById('vtuber-vts-prompt').textContent = d.VTS_PROMPT || '';
+    document.getElementById('vts-host').value = d.VTS_HOST || 'localhost';
+    document.getElementById('vts-port').value = d.VTS_PORT || 8002;
     const badge = document.getElementById('badge-vtuber-tab');
     if (d.API_KEY_SET) {
       badge.className = 'badge badge-ok';
@@ -1971,9 +2117,6 @@ function vtuberTest() {
 window.addEventListener('beforeunload', () => { if (statusPollInterval) clearInterval(statusPollInterval); });
 connectSSE();
 fetchStatus();
-fetch('/api/tts/status').then(r => r.json()).then(d => {
-  setBadge('badge-sb', d.speakerbotActive ? 'badge-ok' : 'badge-off', d.speakerbotActive ? '● SP.BOT' : '○ SP.BOT');
-}).catch(() => {});
 gachaLoadStats();
 fetch('/api/vtuber/status').then(r => r.json()).then(d => {
   if (d.connected) setBadge('badge-vtuber', 'badge-ok', '● VTUBER');

@@ -24,10 +24,12 @@ kick-backend/
 │   ├── sse.js                 # SSE push al dashboard web
 │   ├── events.js              # Suscripción/desuscripción a eventos de Kick
 │   └── triggers/              # ★ Tus módulos de reacción aquí
-│       ├── tts/               # Text-to-Speech con Speaker.bot
+│       ├── TTS2/              # Text-to-Speech SAPI (PowerShell)
 │       ├── obs-actions/       # Control de OBS vía WebSocket
 │       ├── GACHA/             # Sistema de gacha (personajes, overlays)
-│       ├── vtuber-ai/         # Integración con VTuber AI
+│       ├── vtuber-ai/         # Integración con VTuber AI + VTube Studio
+│       ├── Music/             # Control de reproductor YouTube
+│       ├── event-actions/     # Detección primer mensaje + miniprompts por evento
 │       └── chatbot/           # Comandos personalizados + timers automáticos
 │
 ├── server.js                  # Express setup + montaje de rutas
@@ -88,9 +90,11 @@ Abrir `http://localhost:3000`, autorizar con Kick e iniciar el túnel.
 | `/api/tunnel/start` | POST | Iniciar túnel Cloudflare |
 | `/api/tunnel/stop` | POST | Detener túnel |
 | `/api/tts/*` | varias | Configuración y control de TTS |
-| `/api/vtuber/*` | varias | Configuración de VTuber AI |
+| `/api/vtuber/*` | varias | Configuración de VTuber AI (incluye VTS) |
+| `/api/event-actions/*` | varias | Miniprompts, chatters, excepciones |
 | `/gacha/*` | varias | Sistema de gacha + overlays |
 | `/obs-actions/*` | varias | Panel de control de OBS |
+| `/music/*` | varias | Control de reproductor YouTube |
 | `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
 | `/api/shutdown` | POST | Detener servidor + túnel |
 
@@ -120,10 +124,16 @@ Abrir `http://localhost:3000`, autorizar con Kick e iniciar el túnel.
 | `auth:ready` | `{ slug }` | Auth completado exitosamente |
 | `auth:disconnected` | `{}` | Auth falló permanentemente (>3 intentos) |
 | `auth:token-refreshed` | `{}` | Token refrescado automáticamente |
+| `bot:token-refreshed` | `{}` | Token de bot refrescado |
 | `tunnel:open` | `{ url }` | Túnel Cloudflare abierto |
 | `tunnel:closed` | `{ exitCode, log }` | Túnel cerrado |
 | `tunnel:error` | `{ error }` | Error de túnel |
 | `chat:sent` | `{ content, message_id }` | Mensaje enviado al chat |
+| `tts2:speak` | `{ text, voice, origin }` | Solicitud de habla directa (desde VTuber AI) |
+| `tts:request_status` | — | Solicitar estado TTS (al conectar SSE) |
+| `tts:config_updated` | `{ config, bannedWords }` | Config TTS actualizada |
+| `tts:user_aliases_updated` | `{ userAliases }` | Alias de TTS actualizados |
+| `event-actions:status` | `{ chattersCount }` | Estado del módulo Event Actions |
 
 ## Webhook — validación de firma
 
@@ -181,6 +191,8 @@ Configurá `FORWARD_URL_*` en `.env`. Cada evento Kick válido se reenvía como 
 - Botón de inicio/parada del túnel
 - Panel TTS completo
 - Console TTS con logs en tiempo real
+- Pestañas: Eventos, TTS, Gacha, Comandos, VTuber, OBS, Chatbot, Event Actions
+- Panel Event Actions: edición de miniprompts + excepciones + botón Reiniciar Chatters
 - Shutdown al cerrar la pestaña
 
 ## Overlays en otra PC (Stream PC)
@@ -219,13 +231,15 @@ El módulo GACHA sirve sus archivos estáticos (HTML, CSS, JS, audio, imágenes)
 
 | Propiedad | Tipo | Descripción |
 |---|---|---|
-| `tokens` | `object\|null` | Tokens OAuth |
+| `tokens` | `object\|null` | Tokens OAuth (cuenta principal) |
+| `botTokens` | `object\|null` | Tokens OAuth (bot) |
 | `broadcasterUserId` | `string\|null` | ID del canal |
 | `channelSlug` | `string\|null` | Slug del canal |
 | `tunnelUrl` | `string\|null` | URL pública del túnel |
 | `sseClients` | `array` | Conexiones SSE activas |
 | `eventsCounter` | `number` | Total de eventos procesados |
-| `authFailCount` | `number` | Intentos fallidos de auth consecutivos |
+| `authFailCount` | `number` | Intentos fallidos de auth (cuenta principal) |
+| `botAuthFailCount` | `number` | Intentos fallidos de auth (bot) |
 
 ---
 
@@ -273,9 +287,10 @@ Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. E
 
 | Módulo | Comando | Descripción | Permiso |
 |---|---|---|---|
-| **TTS** | `!sp &lt;texto&gt;` | Reproduce texto con la voz principal por Speaker.bot | User |
-| | `!sp &lt;alias&gt; &lt;texto&gt;` | Reproduce con la voz del alias (ej: `!sp ava hola`) | User |
-| | `!&lt;nombre_voz&gt;` | Asigna permanentemente esa voz al usuario (ej: `!ava`) | User |
+| **TTS** | `!sp &lt;texto&gt;` | Reproduce texto por SAPI con la voz principal | User |
+| | `!sp &lt;alias&gt; &lt;texto&gt;` | Reproduce con la voz del alias (ej: `!sp sabina hola`) | User |
+| | `!&lt;nombre_voz&gt;` | Asigna permanentemente esa voz al usuario (ej: `!sabina`) | User |
+| | `!voz` | Lista las voces disponibles (excluye Dalia) | User |
 | | `!bonk` | Lanza un bonk al streamer | User |
 | | `!bonks` | Lanza ráfaga de bonks | User |
 | **VTuber AI** | `!grim &lt;pregunta&gt;` | Grim responde con IA en chat y voz | User |

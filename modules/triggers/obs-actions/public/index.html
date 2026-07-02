@@ -63,9 +63,9 @@
             <button onclick="showTriggerForm()" class="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition">+</button>
           </div>
           <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-800/50 shrink-0">
-            <span class="col-span-5">Pattern</span>
-            <span class="col-span-2">Type</span>
-            <span class="col-span-2 text-center">Enabled</span>
+            <span class="col-span-5">Evento/Patron</span>
+            <span class="col-span-2">Tipo</span>
+            <span class="col-span-2 text-center">Activo</span>
             <span class="col-span-3 text-right">Accion</span>
           </div>
           <div id="trigger-list" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1 text-xs">
@@ -78,11 +78,18 @@
                 <select id="trigger-type" onchange="onTriggerTypeChange()" class="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
                   <option value="chat_command">Comando</option>
                   <option value="reward">Reward</option>
+                  <option value="tts">TTS</option>
                 </select>
               </div>
               <div class="flex-1">
                 <label class="text-[9px] text-gray-500 uppercase">Patron</label>
                 <input id="trigger-pattern" class="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <select id="trigger-tts-event" class="hidden w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+                  <option value="tts:chat:start">🎤 Chat — al empezar</option>
+                  <option value="tts:chat:end">🎤 Chat — al terminar</option>
+                  <option value="tts:bot:start">🤖 Bot — al empezar</option>
+                  <option value="tts:bot:end">🤖 Bot — al terminar</option>
+                </select>
               </div>
               <div class="flex items-center gap-2">
               <span id="trigger-context-indicator" class="text-[10px] text-gray-400 hidden"></span>
@@ -662,11 +669,11 @@
       }
       container.innerHTML = actionTriggers.map(t => {
         const action = state.actions.find(a => a.id === t.actionId);
-        const typeLabel = t.type === 'reward' ? 'Reward' : 'Comando';
+        const typeLabel = t.type === 'reward' ? 'Reward' : t.type === 'tts' ? 'TTS' : 'Comando';
         return `
           <div class="grid grid-cols-12 gap-1 items-center p-2 bg-gray-800/20 border border-gray-800/30 rounded-lg hover:border-gray-700 transition group text-[11px]">
             <span class="col-span-5 text-gray-300 font-mono truncate">"${t.pattern}"</span>
-            <span class="col-span-2"><span class="text-[10px] ${t.type === 'reward' ? 'text-purple-400' : 'text-blue-400'} bg-gray-800 px-1 py-0.5 rounded">${typeLabel}</span></span>
+            <span class="col-span-2"><span class="text-[10px] ${t.type === 'reward' ? 'text-purple-400' : t.type === 'tts' ? 'text-green-400' : 'text-blue-400'} bg-gray-800 px-1 py-0.5 rounded">${typeLabel}</span></span>
             <span class="col-span-2 text-center"><input type="checkbox" ${t.enabled !== false ? 'checked' : ''} onchange="toggleTriggerEnabled('${t.id}', this.checked)" class="accent-indigo-500"></span>
             <span class="col-span-3 text-right flex gap-1 justify-end">
               <span class="text-gray-500 text-[10px] truncate">${action ? action.name : '<span class="text-red-400">?</span>'}</span>
@@ -700,9 +707,10 @@
     }
 
     function saveTrigger() {
-      const pattern = document.getElementById('trigger-pattern').value.trim();
+      const type = document.getElementById('trigger-type').value;
+      const pattern = type === 'tts' ? document.getElementById('trigger-tts-event').value : document.getElementById('trigger-pattern').value.trim();
       if (!pattern) return alert('Patron requerido');
-      const data = { name: pattern, pattern, type: document.getElementById('trigger-type').value, actionId: state.editingActionId };
+      const data = { name: pattern, pattern, type, actionId: state.editingActionId };
       const editId = state.editingTriggerId;
       (editId ? API.updateTrigger(editId, data) : API.createTrigger(data)).then(() => {
         cancelEditTrigger();
@@ -718,16 +726,23 @@
       if (t.actionId) selectAction(t.actionId);
       document.getElementById('trigger-type').value = t.type;
       document.getElementById('trigger-pattern').value = t.pattern;
+      if (t.type === 'tts') {
+        document.getElementById('trigger-tts-event').value = t.pattern;
+      }
       document.getElementById('trigger-cancel-btn').classList.remove('hidden');
       showTriggerForm();
+      onTriggerTypeChange();
     }
 
     function cancelEditTrigger() {
       state.editingTriggerId = null;
       document.getElementById('trigger-type').value = 'chat_command';
       document.getElementById('trigger-pattern').value = '';
+      document.getElementById('trigger-tts-event').value = 'tts:chat:start';
       document.getElementById('trigger-cancel-btn').classList.add('hidden');
       document.getElementById('trigger-context-indicator').classList.add('hidden');
+      document.getElementById('trigger-pattern').classList.remove('hidden');
+      document.getElementById('trigger-tts-event').classList.add('hidden');
     }
 
     async function deleteTrigger(id) {
@@ -744,6 +759,9 @@
     function onTriggerTypeChange() {
       const type = document.getElementById('trigger-type').value;
       document.getElementById('pair-btn').classList.toggle('hidden', type !== 'reward');
+      const isTTS = type === 'tts';
+      document.getElementById('trigger-pattern').classList.toggle('hidden', isTTS);
+      document.getElementById('trigger-tts-event').classList.toggle('hidden', !isTTS);
     }
 
     async function pairReward() {

@@ -281,6 +281,17 @@ function executeTrigger(trigger) {
   });
 }
 
+function handleTTSEventStart(d) {
+  const key = `tts:${d.origin}:start`;
+  const triggers = store.getTriggers().filter(t => t.enabled && t.type === 'tts');
+  for (const t of triggers) { if (t.pattern === key) executeTrigger(t); }
+}
+function handleTTSEventEnd(d) {
+  const key = `tts:${d.origin}:end`;
+  const triggers = store.getTriggers().filter(t => t.enabled && t.type === 'tts');
+  for (const t of triggers) { if (t.pattern === key) executeTrigger(t); }
+}
+
 function handleChatMessage(data) {
   const msg = (data.payload.message?.content || '').trim().toLowerCase();
   if (!msg) return;
@@ -314,6 +325,8 @@ function handleRewardRedemption(data) {
 function init() {
   eventBus.on('chat.message.sent', handleChatMessage);
   eventBus.on('channel.reward.redemption.updated', handleRewardRedemption);
+  eventBus.on('tts2:speak:start', handleTTSEventStart);
+  eventBus.on('tts2:speak:end', handleTTSEventEnd);
 
   obs.on('connected', () => {
     sse.broadcast({ _source: 'obs', type: 'obs:status', connected: true });

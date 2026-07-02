@@ -58,9 +58,9 @@ Internet (Kick API)
 │                          ┌───────────┼───────────┐        │
 │                          ▼           ▼           ▼        │
 │                    ┌────────┐ ┌────────┐ ┌────────────┐   │
-│                    │  TTS   │ │ GACHA  │ │ VTuber AI  │   │
-│                    │Speaker │ │ Gacha  │ │ DeepSeek   │   │
-│                    │.bot WS │ │ Sist.  │ │ + chat     │   │
+│                    │  TTS2  │ │ GACHA  │ │ VTuber AI  │   │
+│                    │  SAPI  │ │ Gacha  │ │ DeepSeek   │   │
+│                    │  PS    │ │ Sist.  │ │ + chat     │   │
 │                    └────────┘ └────────┘ └────────────┘   │
 │                    ┌────────┐ ┌────────┐                  │
 │                    │ OBS-Act│ │ Music  │                  │
@@ -149,7 +149,7 @@ kick-backend/
 │   ├── events.js                 # Suscripción/desuscripción a eventos Kick
 │   │
 │   └── triggers/                 # ★ Módulos de reacción (plugins)
-│       ├── tts/                  # Text-to-Speech con Speaker.bot
+│       ├── TTS2/                 # Text-to-Speech con SAPI (PowerShell)
 │       ├── GACHA/                # Sistema de gacha (personajes, overlays)
 │       ├── vtuber-ai/            # VTuber AI con DeepSeek
 │       ├── obs-actions/          # Control de OBS vía WebSocket
@@ -308,27 +308,44 @@ frontend. Ver [`updateStatus()` en el dashboard](#7-dashboard-web-publicindexhtm
 
 ## 6. Triggers (`modules/triggers/`)
 
-### 6.1 TTS (`triggers/tts/`) — Text-to-Speech con Speaker.bot
+### 6.1 TTS2 (`triggers/TTS2/`) — Text-to-Speech con SAPI (PowerShell)
 
 **Archivos:**
-- `index.js` — lógica principal, handlers HTTP
-- `speakerbot.js` — cliente WebSocket para Speaker.bot
-- `config-manager.js` — persistencia de configuración en `tts-data.json`
+- `index.js` — módulo integrado (cola, SAPI, API, chat commands)
+- `server.js` — servidor standalone (alternativa independiente)
+- `config.json` — mapeo de voces, salidas de audio y orígenes
+- `tts-data.json` — persistencia de userAliases y bannedWords
 
 **Funcionamiento:**
-- Escucha `chat.message.sent` en el event bus
-- Comando `!sp <texto>` — reproduce texto con la voz configurada
-- `!sp <alias> <texto>` — usa una voz específica para ese mensaje
-- `!<nombre_voz>` — asigna permanentemente esa voz al usuario (alias persistente)
+- Usa **SAPI SpVoice** de Windows vía PowerShell (sin dependencias npm)
+- Integrado en el servidor principal, no requiere proceso separado
+- Cola FIFO compartida: procesa un mensaje a la vez
+- Enrutamiento por origen: `chat` → salida "live", `bot` → salida "bot"
+- Comando `!sp <texto>` — reproduce con la voz asignada del usuario
+- `!sp <num> <texto>` — usa voz específica (ej: `!sp 21 hola` = Alvaro)
+- `!<nombre_voz>` — asigna voz permanentemente (ej: `!sabina`, `!alvaro`)
+- `!voz` — lista voces disponibles en el chat
 - `!bonk` / `!bonks` — lanza bonks via HTTP a KickBonks
 - Filtro de palabras prohibidas (bannedWords)
-- Reconexión automática a Speaker.bot cada 5s si se cae
 
-**Configuración en `tts-data.json`:**
+**Voces disponibles (SAPI):**
+
+| Alias | Voz | Índice SAPI |
+|-------|-----|-------------|
+| `"1"` | Sabina (México) | 1 |
+| `"3"` | Raul (México) | 3 |
+| `"21"` | Álvaro (España) | 21 |
+| `"22"` | Elvira (España) | 22 |
+| `"23"` | Ximena (Colombia) | 23 |
+| `"24"` | Dalia (México) | 24 — solo para Grim (VTuber AI) |
+| `"25"` | Jorge (México) | 25 |
+
+**Configuración en `config.json` y `tts-data.json`:**
+
+- `voiceAliases`: mapeo alias → índice SAPI
+- `outputAliases`: mapeo semántico de salidas (ej: `live: 0`, `bot: 1`)
+- `originOutputs`: mapeo origen → alias de salida (ej: `chat → live`)
 - `COMMAND`: comando trigger (default `!sp`)
-- `VOICE_NAME`: voz por defecto (default `Sabina`)
-- `VOICE_ALIASES`: mapa de alias a voces
-- `SPEAKERBOT_URL`: URL WebSocket de Speaker.bot (default `ws://127.0.0.1:7580/`)
 - `MAX_TEXT_LENGTH`: límite de caracteres (600)
 - `KICKBONKS_URL`: URL del servicio KickBonks
 - `bannedWords`: lista de palabras prohibidas
@@ -341,14 +358,23 @@ frontend. Ver [`updateStatus()` en el dashboard](#7-dashboard-web-publicindexhtm
 - `POST /api/tts/user-alias/delete` — eliminar alias
 - `POST /api/tts/toggle` — activar/desactivar bot
 - `GET /api/tts/status` — estado del bot
+- `GET /api/tts/voices` — lista voces SAPI disponibles
+- `GET /api/tts/outputs` — lista dispositivos de audio
+- `POST /api/tts/speak-now` — fire-and-forget
+- `POST /api/tts/speak-queue` — encolar mensaje
+- `GET /api/tts/queue` — estado de la cola
+- `DELETE /api/tts/queue` — vaciar cola
+- `GET /api/tts/events` — SSE para cola en tiempo real
 
-### 6.2 VTuber AI (`triggers/vtuber-ai/`) — IA conversacional con DeepSeek
+### 6.2 VTuber AI (`triggers/vtuber-ai/`) — IA conversacional con DeepSeek + VTube Studio
 
 **Archivos:**
 - `index.js` — lógica principal, handlers HTTP, integración con event bus
 - `deepseek-client.js` — cliente DeepSeek API (tool calling, web_search)
 - `config.js` — carga system prompt desde archivo
 - `logger.js` — logging de conversaciones a archivos JSONL
+- `vtube-client.js` — cliente WebSocket para VTube Studio (expresiones, hotkeys)
+- `vtube-model.js` — mapeo de modelos y parámetros VTube Studio
 - `prompts/vtuber-system.es.md` — prompt del sistema (personalidad VTuber)
 
 **Funcionamiento:**
@@ -360,33 +386,38 @@ frontend. Ver [`updateStatus()` en el dashboard](#7-dashboard-web-publicindexhtm
 - Mantiene historial de conversación por usuario (archivos JSONL en `logs/vtuber-ai/`)
 - Limpieza automática de logs > 30 días
 - Cachea system prompt en memoria
+- Controla VTube Studio vía WebSocket: expresiones faciales, hotkeys, parámetros del modelo
 
 **Configuración en `vtuber-data.json`:**
 - `API_KEY`: clave de DeepSeek
-- Variables de entorno: `VTUBER_TEMPERATURE` (1.3), `VTUBER_MAX_HISTORY` (5), `VTUBER_MAX_TOKENS` (512), `VTUBER_NAME` (Grim), `VTUBER_COMMAND` (!grim)
+- Variables de entorno: `VTUBER_TEMPERATURE` (1.0), `VTUBER_MAX_HISTORY` (5), `VTUBER_MAX_TOKENS` (512), `VTUBER_NAME` (Grim), `VTUBER_COMMAND` (!grim)
 
 **Endpoints:**
 - `GET /api/vtuber/status` — estado
 - `GET /api/vtuber/config` — config actual
 - `POST /api/vtuber/config` — guardar API key
 - `POST /api/vtuber/test` — probar conexión
+- `POST /api/vtuber/vts/connect` — conectar VTube Studio
+- `POST /api/vtuber/vts/disconnect` — desconectar VTube Studio
+- `GET /api/vtuber/vts/status` — estado VTube Studio
+- `POST /api/vtuber/vts/expression` — activar expresión facial
+- `POST /api/vtuber/vts/hotkey` — ejecutar hotkey
+- `GET /api/vtuber/vts/params` — lista parámetros del modelo
+- `POST /api/vtuber/vts/param` — inyectar valor a parámetro
 
 ### 6.3 GACHA (`triggers/GACHA/`) — Sistema de gacha
 
-Módulo independiente con su propio `package.json`, server.js (para desarrollo standalone), y estructura completa.
+Módulo independiente con su propio `package.json` y estructura completa.
 
 **Arquitectura interna:**
 
 ```
 GACHA/
 ├── index.js              # Entry point, conecta con backend principal
-├── server.js             # Servidor standalone (para desarrollo)
 ├── package.json          # Dependencias propias
 │
 ├── lib/
 │   ├── config.js         # Config (puerto, GitHub, rutas)
-│   ├── event-bus.js      # EventBus interno
-│   ├── logger.js         # Logger
 │   ├── ws-push.js        # WebSocket push a overlays (OBS Browser Sources)
 │   └── imageUploader.js  # Subida de imágenes a GitHub
 │
@@ -394,18 +425,16 @@ GACHA/
 │   ├── data/
 │   │   └── store.js      # Store central (inventarios, personajes, banners)
 │   ├── gacha/
-│   │   └── engine.js     # Motor de gacha (pulls, pity, probabilidades)
+│   │   ├── engine.js     # Motor de gacha (pulls, pity, probabilidades)
+│   │   └── inventory.js  # Gestión de inventarios de usuarios
 │   ├── trades/
 │   │   └── manager.js    # Sistema de intercambios entre usuarios
-│   ├── events/
-│   │   └── commands.js   # Handlers de comandos del chat
-│   └── chat/
-│       └── sender.js     # Envío de mensajes formateados al chat
+│   └── events/
+│       └── commands.js   # Handlers de comandos del chat
 │
 ├── routes/
 │   ├── overlay.js        # Endpoints para overlays (view.html)
-│   ├── admin.js          # Endpoints de administración
-│   └── webhook.js        # Webhook de integración
+│   └── admin.js          # Endpoints de administración
 │
 ├── web/                  # Archivos estáticos para overlays OBS
 │   ├── index.html        # Animación multi-pull
@@ -601,13 +630,17 @@ Cada evento tiene un texto editable desde el dashboard. Variables disponibles:
 **Endpoints:**
 - `GET /api/event-actions/config` — obtener miniprompts + contador de chatters
 - `POST /api/event-actions/config` — guardar miniprompts
+- `POST /api/event-actions/toggle` — activar/desactivar módulo
+- `GET /api/event-actions/exceptions` — lista de excepciones (usuarios ignorados)
+- `POST /api/event-actions/exceptions` — añadir excepción
+- `POST /api/event-actions/exceptions/remove` — eliminar excepción
 - `POST /api/event-actions/reset-chatters` — reiniciar lista de chatters
 
 ---
 
 ## 7. Dashboard web (`public/index.html`)
 
-Single-page application en HTML + CSS + JS vanilla (~1490 líneas) que se conecta via SSE a `/api/events`.
+Single-page application en HTML + CSS + JS vanilla (~2130 líneas) que se conecta via SSE a `/api/events`.
 
 **Características:**
 - Feed de eventos en vivo con formato por tipo (chat, subs, follows, bans, etc.)
@@ -651,15 +684,31 @@ pisinen los badges de autenticación del dashboard.
 | `/api/tts/user-alias/delete` | POST | Eliminar alias |
 | `/api/tts/toggle` | POST | Activar/desactivar TTS |
 | `/api/tts/status` | GET | Estado TTS |
+| `/api/tts/voices` | GET | Lista voces SAPI |
+| `/api/tts/outputs` | GET | Lista dispositivos de audio |
+| `/api/tts/speak-now` | POST | TTS inmediato (fire-and-forget) |
+| `/api/tts/speak-queue` | POST | Encolar mensaje TTS |
+| `/api/tts/queue` | GET/DELETE | Ver/vaciar cola TTS |
+| `/api/tts/events` | GET | SSE cola TTS |
 | `/api/vtuber/status` | GET | Estado VTuber AI |
 | `/api/vtuber/config` | GET/POST | Config VTuber AI |
 | `/api/vtuber/test` | POST | Probar VTuber AI |
+| `/api/vtuber/vts/connect` | POST | Conectar VTube Studio |
+| `/api/vtuber/vts/disconnect` | POST | Desconectar VTube Studio |
+| `/api/vtuber/vts/status` | GET | Estado VTube Studio |
+| `/api/vtuber/vts/expression` | POST | Activar expresión facial |
+| `/api/vtuber/vts/hotkey` | POST | Ejecutar hotkey |
+| `/api/vtuber/vts/params` | GET | Listar parámetros del modelo |
+| `/api/vtuber/vts/param` | POST | Inyectar valor a parámetro |
 | `/gacha/*` | varias | Sistema de gacha (API + overlays + estáticos) |
 | `/obs-actions/*` | varias | Control OBS (API + dashboard) |
 | `/music/*` | varias | Control música (API + dashboard) |
 | `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
 | `/api/event-actions/config` | GET | Obtener miniprompts + contador de chatters |
 | `/api/event-actions/config` | POST | Guardar miniprompts |
+| `/api/event-actions/toggle` | POST | Activar/desactivar módulo |
+| `/api/event-actions/exceptions` | GET/POST | Ver/añadir excepciones |
+| `/api/event-actions/exceptions/remove` | POST | Eliminar excepción |
 | `/api/event-actions/reset-chatters` | POST | Reiniciar lista de chatters (primer mensaje) |
 
 ---
@@ -716,6 +765,9 @@ eventBus.on('chat.message.sent', (data) => {
 | `tts:request_status` | — | Solicitar estado TTS (al conectar SSE) |
 | `tts:config_updated` | `{ config, bannedWords }` | Config TTS actualizada |
 | `tts:user_aliases_updated` | `{ userAliases }` | Alias de TTS actualizados |
+| `tts2:speak` | `{ text, voice, origin }` | Solicitud de habla directa (desde VTuber AI) |
+| `tts2:speak:start` | `{ text }` | Comenzó reproducción TTS |
+| `tts2:speak:end` | `{}` | Terminó reproducción TTS |
 | `event-actions:status` | `{ chattersCount }` | Estado del módulo Event Actions |
 | `event-actions:reset` | `{ chattersCount: 0 }` | Chatters reiniciados desde el dashboard |
 
@@ -728,9 +780,10 @@ Resumen de todos los comandos disponibles por módulo:
 ### TTS
 | Comando | Descripción |
 |---|---|
-| `!sp <texto>` | Reproduce texto con voz principal |
-| `!sp <alias> <texto>` | Reproduce con voz del alias |
-| `!<nombre_voz>` | Asigna voz permanentemente al usuario |
+| `!sp <texto>` | Reproduce con la voz asignada del usuario |
+| `!sp <num> <texto>` | Reproduce con voz específica (ej: !sp 21 hola) |
+| `!<nombre_voz>` | Asigna voz permanentemente (ej: !sabina, !alvaro, !dalia) |
+| `!voz` | Muestra voces disponibles en el chat |
 | `!bonk` | Lanza un bonk |
 | `!bonks` | Lanza ráfaga de bonks |
 
