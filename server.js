@@ -110,6 +110,7 @@ app.post('/api/vtuber/vts/expression', express.json(), vtuber.handleVTSExpressio
 app.post('/api/vtuber/vts/hotkey', express.json(), vtuber.handleVTSHotkey)
 app.get('/api/vtuber/vts/params', vtuber.handleVTSParams)
 app.post('/api/vtuber/vts/param', express.json(), vtuber.handleVTSInjectParam)
+app.post('/api/vtuber/memory/clear', express.json(), vtuber.handleClearMemory)
 
 // -- Event Actions --
 app.get('/api/event-actions/config', eventActions.handleGetConfig)

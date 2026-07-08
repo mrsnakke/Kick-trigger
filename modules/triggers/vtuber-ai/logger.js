@@ -42,4 +42,16 @@ async function getConversation(username, maxTurns = 15) {
   } catch {}
 })();
 
-module.exports = { logMessage, getConversation };
+async function clearConversation(username) {
+  const file = logFile(username);
+  try { await fsp.unlink(file); } catch {}
+}
+
+async function clearAllConversations() {
+  const files = await fsp.readdir(LOG_DIR);
+  for (const f of files) {
+    try { await fsp.unlink(path.join(LOG_DIR, f)); } catch {}
+  }
+}
+
+module.exports = { logMessage, getConversation, clearConversation, clearAllConversations };

@@ -646,7 +646,16 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
             <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_MAX_HISTORY</code></div>
           </div>
         </div>
-        <button type="button" class="btn btn-primary" onclick="vtuberSaveConfig()">💾 Guardar configuración</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#c9d1d9;font-size:13px;user-select:none">
+            <input type="checkbox" id="vtuber-memory-enabled" style="width:16px;height:16px;accent-color:#58a6ff">
+            🧠 Recordar conversaciones (memoria por usuario)
+          </label>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn btn-primary" onclick="vtuberSaveConfig()">💾 Guardar configuración</button>
+          <button type="button" class="btn btn-sm" onclick="vtuberClearMemory()" style="color:#f85149">🗑️ Limpiar memoria</button>
+        </div>
       </div>
     </details>
 
@@ -2018,6 +2027,7 @@ function vtuberLoadConfig() {
     document.getElementById('vtuber-system-prompt-base').value = d.SYSTEM_PROMPT_BASE;
     document.getElementById('vtuber-system-prompt-custom').value = d.SYSTEM_PROMPT_CUSTOM || '';
     document.getElementById('vtuber-vts-prompt').textContent = d.VTS_PROMPT || '';
+    document.getElementById('vtuber-memory-enabled').checked = d.MEMORY_ENABLED !== false;
     document.getElementById('vts-host').value = d.VTS_HOST || 'localhost';
     document.getElementById('vts-port').value = d.VTS_PORT || 8002;
     const badge = document.getElementById('badge-vtuber-tab');
@@ -2041,7 +2051,8 @@ function vtuberSaveConfig() {
     MAX_TOKENS: parseInt(document.getElementById('vtuber-max-tokens').value, 10),
     MAX_HISTORY_TURNS: parseInt(document.getElementById('vtuber-max-history').value, 10),
     VTUBER_NAME: document.getElementById('vtuber-name').value.trim(),
-    COMMAND: document.getElementById('vtuber-command').value.trim()
+    COMMAND: document.getElementById('vtuber-command').value.trim(),
+    MEMORY_ENABLED: document.getElementById('vtuber-memory-enabled').checked
   };
   fetch('/api/vtuber/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2088,6 +2099,21 @@ function vtuberResetSystemPrompt() {
     if (d.ok) vtuberLoadConfig();
     else alert('Error: ' + d.message);
   }).catch(err => alert('Error de red: ' + err.message));
+}
+
+function vtuberClearMemory() {
+  if (!confirm('¿Borrar toda la memoria de conversaciones? Esta acción no se puede deshacer.')) return;
+  const btn = event.target;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Limpiando...';
+  fetch('/api/vtuber/memory/clear', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) alert('✅ Memoria borrada');
+    else alert('Error: ' + d.message);
+  }).catch(err => alert('Error de red: ' + err.message))
+  .finally(() => { btn.disabled = false; btn.textContent = orig });
 }
 
 function vtuberTest() {

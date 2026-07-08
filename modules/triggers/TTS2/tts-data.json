@@ -6,11 +6,38 @@
   },
   "bannedWords": [
     "cara de gato",
-    "Caradegato",
-    "puto",
-    "puta",
-    "maricon",
-    "pendejo"
+    "Caradegato"
   ],
-  "userAliases": {}
+  "userAliases": {
+    "mrsnakevt": {
+      "username": "MrSnakeVT",
+      "voice": "3",
+      "updatedAt": "2026-07-02T10:47:31.051Z"
+    },
+    "geostav": {
+      "username": "Geostav",
+      "voice": "23",
+      "updatedAt": "2026-07-05T03:16:47.076Z"
+    },
+    "z3dow": {
+      "username": "Z3dow",
+      "voice": "23",
+      "updatedAt": "2026-07-03T05:10:06.049Z"
+    },
+    "niwde39": {
+      "username": "niwde39",
+      "voice": "23",
+      "updatedAt": "2026-07-03T04:15:58.857Z"
+    },
+    "aimikaih": {
+      "username": "Aimikaih",
+      "voice": "22",
+      "updatedAt": "2026-07-03T07:23:42.313Z"
+    },
+    "andreh26": {
+      "username": "AndreH26",
+      "voice": "22",
+      "updatedAt": "2026-07-07T08:42:50.955Z"
+    }
+  }
 }

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadSystemPrompt, setSystemPrompt, resetSystemPrompt } = require('./config');
 const { createDeepSeekClient } = require('./deepseek-client');
-const { logMessage, getConversation } = require('./logger');
+const { logMessage, getConversation, clearConversation, clearAllConversations } = require('./logger');
 const { VTubeClient } = require('./vtube-client');
 const { VTubeModel } = require('./vtube-model');
 const eventBus = require('../../../lib/event-bus');
@@ -23,7 +23,8 @@ const defaults = {
   VTS_PLUGIN_NAME: env.VTS_PLUGIN_NAME || 'GrimAI',
   VTS_PLUGIN_DEV: env.VTS_PLUGIN_DEV || 'MrsnakeVT',
   VTS_MODEL_NAME: env.VTS_MODEL_NAME || 'Grim',
-  VTS_AUTO_CONNECT: env.VTS_AUTO_CONNECT !== 'false'
+  VTS_AUTO_CONNECT: env.VTS_AUTO_CONNECT !== 'false',
+  MEMORY_ENABLED: env.VTUBER_MEMORY_ENABLED !== 'false'
 };
 
 let cfg = { ...defaults };
@@ -60,6 +61,7 @@ function loadConfig() {
     if (saved.VTS_MODEL_NAME) cfg.VTS_MODEL_NAME = saved.VTS_MODEL_NAME;
     if (saved.VTS_AUTO_CONNECT != null) cfg.VTS_AUTO_CONNECT = saved.VTS_AUTO_CONNECT;
     if (saved.VTS_TOKEN) cfg.VTS_TOKEN = saved.VTS_TOKEN;
+    if (saved.MEMORY_ENABLED != null) cfg.MEMORY_ENABLED = saved.MEMORY_ENABLED;
   } catch {}
 }
 
@@ -82,6 +84,7 @@ function saveConfig() {
     VTS_AUTO_CONNECT: cfg.VTS_AUTO_CONNECT,
     VTS_TOKEN: cfg.VTS_TOKEN,
     VTS_PROMPT: cfg.VTS_PROMPT,
+    MEMORY_ENABLED: cfg.MEMORY_ENABLED,
   }, null, 2), 'utf-8');
 }
 
@@ -231,7 +234,7 @@ async function processMessage(username, content) {
 
   console.log(`[VTUBER-AI] ${username}: ${content}`);
 
-  const history = await getConversation(username, cfg.MAX_HISTORY_TURNS);
+  const history = cfg.MEMORY_ENABLED ? await getConversation(username, cfg.MAX_HISTORY_TURNS) : [];
   const messages = [
     { role: 'system', content: getSystemPrompt() },
     ...history.map(e => ({
@@ -241,7 +244,7 @@ async function processMessage(username, content) {
     { role: 'user', content: `${username}: ${content}` }
   ];
 
-  await logMessage({ username, role: 'user', content });
+  if (cfg.MEMORY_ENABLED) await logMessage({ username, role: 'user', content });
 
   try {
     const start = Date.now();
@@ -259,7 +262,7 @@ async function processMessage(username, content) {
       `~$${cost.toFixed(6)}`
     );
 
-    await logMessage({ username, role: 'assistant', content: result.text });
+    if (cfg.MEMORY_ENABLED) await logMessage({ username, role: 'assistant', content: result.text });
 
     // Extract emotions for VTS and clean text
     let displayText = result.text
@@ -351,11 +354,12 @@ function handleGetConfig(req, res) {
     VTS_MODEL_NAME: cfg.VTS_MODEL_NAME,
     VTS_AUTO_CONNECT: cfg.VTS_AUTO_CONNECT,
     VTS_PROMPT: cfg.VTS_PROMPT || '',
+    MEMORY_ENABLED: cfg.MEMORY_ENABLED,
   });
 }
 
 function handleSaveConfig(req, res) {
-  const { API_KEY, SEARCH_API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM, VTS_HOST, VTS_PORT, VTS_PLUGIN_NAME, VTS_PLUGIN_DEV, VTS_MODEL_NAME, VTS_AUTO_CONNECT, VTS_TOKEN } = req.body;
+  const { API_KEY, SEARCH_API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM, VTS_HOST, VTS_PORT, VTS_PLUGIN_NAME, VTS_PLUGIN_DEV, VTS_MODEL_NAME, VTS_AUTO_CONNECT, VTS_TOKEN, MEMORY_ENABLED } = req.body;
 
   if (API_KEY && typeof API_KEY === 'string' && API_KEY.trim()) {
     cfg.API_KEY = API_KEY.trim();
@@ -392,6 +396,7 @@ function handleSaveConfig(req, res) {
   if (VTS_MODEL_NAME) cfg.VTS_MODEL_NAME = VTS_MODEL_NAME;
   if (VTS_AUTO_CONNECT != null) cfg.VTS_AUTO_CONNECT = !!VTS_AUTO_CONNECT;
   if (VTS_TOKEN) cfg.VTS_TOKEN = VTS_TOKEN;
+  if (MEMORY_ENABLED != null) cfg.MEMORY_ENABLED = !!MEMORY_ENABLED;
   // Re-init VTS if settings changed
   if (VTS_AUTO_CONNECT || VTS_HOST || VTS_PORT || VTS_PLUGIN_NAME || VTS_PLUGIN_DEV || VTS_TOKEN) {
     if (vtube) { vtube.disconnect(); vtube = null; }
@@ -503,6 +508,22 @@ async function handleVTSHotkey(req, res) {
   }
 }
 
+async function handleClearMemory(req, res) {
+  const { username } = req.body || {};
+  try {
+    if (username) {
+      await clearConversation(username);
+      console.log(`[VTUBER-AI] Memoria limpiada para ${username}`);
+    } else {
+      await clearAllConversations();
+      console.log('[VTUBER-AI] Memoria global limpiada');
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+}
+
 async function handleVTSParams(req, res) {
   if (!vtube || !vtube.authenticated) return res.status(400).json({ ok: false, message: 'VTS no conectado' });
   try {
@@ -541,4 +562,5 @@ module.exports = {
   handleVTSConnect, handleVTSDisconnect, handleVTSStatus,
   handleVTSExpression, handleVTSHotkey,
   handleVTSParams, handleVTSInjectParam,
+  handleClearMemory,
 };
