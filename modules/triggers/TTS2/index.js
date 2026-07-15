@@ -19,7 +19,7 @@ function loadTTS2Config() {
 loadTTS2Config()
 
 let data = {
-  config: { COMMAND: '!sp', MAX_TEXT_LENGTH: 600, KICKBONKS_URL: 'http://192.168.50.246:3030' },
+  config: { COMMAND: '!sp', MAX_TEXT_LENGTH: 600, KICKBONKS_URL: 'http://192.168.1.119:3030' },
   bannedWords: ['cara de gato', 'Caradegato', 'puto', 'puta', 'maricon', 'pendejo'],
   userAliases: {}
 }
@@ -32,7 +32,7 @@ function load() {
       data = { ...data, ...JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8')) }
     } else if (fs.existsSync(OLD_DATA_PATH)) {
       const old = JSON.parse(fs.readFileSync(OLD_DATA_PATH, 'utf-8'))
-      data.config = { COMMAND: old.config?.COMMAND || '!sp', MAX_TEXT_LENGTH: old.config?.MAX_TEXT_LENGTH || 600, KICKBONKS_URL: old.config?.KICKBONKS_URL || 'http://192.168.50.246:3030' }
+      data.config = { COMMAND: old.config?.COMMAND || '!sp', MAX_TEXT_LENGTH: old.config?.MAX_TEXT_LENGTH || 600, KICKBONKS_URL: old.config?.KICKBONKS_URL || 'http://192.168.1.119:3030' }
       data.bannedWords = old.bannedWords || data.bannedWords
       if (old.userAliases) {
         const nameToAlias = Object.fromEntries(Object.entries(VOICE_NAMES).map(([k, v]) => [v.toLowerCase(), k]))

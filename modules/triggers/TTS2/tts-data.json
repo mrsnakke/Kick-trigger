@@ -2,7 +2,7 @@
   "config": {
     "COMMAND": "!sp",
     "MAX_TEXT_LENGTH": 600,
-    "KICKBONKS_URL": "http://192.168.50.246:3030"
+    "KICKBONKS_URL": "http://192.168.1.119:3030"
   },
   "bannedWords": [
     "cara de gato",
@@ -16,8 +16,8 @@
     },
     "geostav": {
       "username": "Geostav",
-      "voice": "23",
-      "updatedAt": "2026-07-05T03:16:47.076Z"
+      "voice": "22",
+      "updatedAt": "2026-07-09T02:28:24.060Z"
     },
     "z3dow": {
       "username": "Z3dow",
@@ -37,7 +37,22 @@
     "andreh26": {
       "username": "AndreH26",
       "voice": "22",
-      "updatedAt": "2026-07-07T08:42:50.955Z"
+      "updatedAt": "2026-07-09T06:36:27.935Z"
+    },
+    "joseaguacate": {
+      "username": "JoseAguacate",
+      "voice": "3",
+      "updatedAt": "2026-07-11T07:02:20.986Z"
+    },
+    "daii_vv": {
+      "username": "Daii_vv",
+      "voice": "23",
+      "updatedAt": "2026-07-12T03:29:07.447Z"
+    },
+    "symphonyzmiaus": {
+      "username": "SymphonyzMiaus",
+      "voice": "23",
+      "updatedAt": "2026-07-12T03:28:17.931Z"
     }
   }
 }

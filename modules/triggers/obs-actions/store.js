@@ -8,7 +8,7 @@ const uid = crypto.randomUUID;
 
 function defaultData() {
   return {
-    config: { host: '192.168.50.246', port: '4456', password: '123456' },
+    config: { host: '192.168.1.119', port: '4456', password: '123456' },
     actions: [],
     triggers: [],
     groups: []

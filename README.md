@@ -59,7 +59,7 @@ CF_TUNNEL_NAME=kick-backend
 CF_DOMAIN=tudominio.ejemplo.com
 
 # Reenviar eventos a otras máquinas (opcional)
-# FORWARD_URL_1=http://192.168.50.246:4000/kick-events
+# FORWARD_URL_1=http://192.168.1.119:4000/kick-events
 # FORWARD_URL_2=http://localhost:4001/kick-events
 ```
 

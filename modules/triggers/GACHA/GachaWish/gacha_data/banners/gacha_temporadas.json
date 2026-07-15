@@ -10,12 +10,12 @@
         {
           "name": "Alice Thymefield",
           "rarity": "4_star",
-          "stock": 4
+          "stock": 0
         },
         {
           "name": "Danjin",
           "rarity": "4_star",
-          "stock": 2
+          "stock": 0
         },
         {
           "name": "Zero Two",
@@ -60,17 +60,17 @@
         {
           "name": "Astolfo",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "Dorothy",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "Musashi",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "kanami",
@@ -90,7 +90,7 @@
         {
           "name": "Hitori Gotoh",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         },
         {
           "name": "Elegg",
@@ -120,12 +120,12 @@
         {
           "name": "2B",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         },
         {
           "name": "Nezuko",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "Emilia",
@@ -145,7 +145,7 @@
         {
           "name": "Ishtar",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         }
       ]
     },

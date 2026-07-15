@@ -18,7 +18,7 @@ const defaults = {
   MAX_TOKENS: parseInt(env.VTUBER_MAX_TOKENS || '500', 10),
   VTUBER_NAME: env.VTUBER_NAME || 'Grim',
   COMMAND: (env.VTUBER_COMMAND || '!grim').toLowerCase(),
-  VTS_HOST: env.VTS_HOST || '192.168.50.246',
+  VTS_HOST: env.VTS_HOST || '192.168.1.119',
   VTS_PORT: parseInt(env.VTS_PORT || '8002', 10),
   VTS_PLUGIN_NAME: env.VTS_PLUGIN_NAME || 'GrimAI',
   VTS_PLUGIN_DEV: env.VTS_PLUGIN_DEV || 'MrsnakeVT',
