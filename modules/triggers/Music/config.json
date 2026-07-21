@@ -9,7 +9,7 @@
     },
     "addsong": {
       "enabled": true,
-      "trigger": "!addsong"
+      "trigger": ["!addsong", "!sr"]
     },
     "skip": {
       "enabled": true,

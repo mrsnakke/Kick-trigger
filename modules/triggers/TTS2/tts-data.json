@@ -16,13 +16,13 @@
     },
     "geostav": {
       "username": "Geostav",
-      "voice": "22",
-      "updatedAt": "2026-07-09T02:28:24.060Z"
+      "voice": "23",
+      "updatedAt": "2026-07-18T03:20:59.645Z"
     },
     "z3dow": {
       "username": "Z3dow",
-      "voice": "23",
-      "updatedAt": "2026-07-03T05:10:06.049Z"
+      "voice": "3",
+      "updatedAt": "2026-07-21T05:36:41.223Z"
     },
     "niwde39": {
       "username": "niwde39",
@@ -53,6 +53,11 @@
       "username": "SymphonyzMiaus",
       "voice": "23",
       "updatedAt": "2026-07-12T03:28:17.931Z"
+    },
+    "daiferdas02": {
+      "username": "Daiferdas02",
+      "voice": "23",
+      "updatedAt": "2026-07-17T05:31:04.933Z"
     }
   }
 }
