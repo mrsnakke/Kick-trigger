@@ -13,13 +13,8 @@ yarn-debug.log*
 yarn-error.log*
 .vscode/
 .idea/
+bot_tokens.json
+tokens.json
 modules/triggers/vtuber-ai/vtuber-data.json
-logs/vtuber-ai/MrSnakeVT_2026-06-28.jsonl
-logs/vtuber-ai
-bot_tokens.json
-tokens.json
-bot_tokens.json
-bot_tokens.json
 modules/triggers/event-actions/chatters.json
-tokens.json
-bot_tokens.json
+logs/vtuber-ai/
