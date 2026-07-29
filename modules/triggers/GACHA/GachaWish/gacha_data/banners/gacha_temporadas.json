@@ -80,17 +80,17 @@
         {
           "name": "Fern",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "Megumin",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 2
         },
         {
           "name": "Hitori Gotoh",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "Elegg",
@@ -140,7 +140,7 @@
         {
           "name": "Camellya",
           "rarity": "5_star",
-          "stock": 3
+          "stock": 2
         },
         {
           "name": "Ishtar",
@@ -159,7 +159,7 @@
         {
           "name": "Promeia",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         }
       ]
     }

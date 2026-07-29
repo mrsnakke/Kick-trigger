@@ -28,6 +28,9 @@ function dailyKey(userId) {
   return true
 }
 
+// ─── per-user pull lock (prevents race condition on rapid !pull) ───
+const userLocks = new Set()
+
 // ─── global redemption queue (serializes pulls) ───
 const redemptionQueue = []
 let processingQueue = false
@@ -56,12 +59,18 @@ async function handleRedemption(payload, userId, userName, rewardTitle) {
     }
     characters = await engine.performMultiPull(userId)
     pullType = 'multi'
+    if (characters.length === 0 && (rewardTitle.includes('key') || rewardTitle.includes('llave'))) {
+      await inventory.addKeys(userId, 10) // refund keys if all pulls failed
+    }
   } else {
     if (rewardTitle.includes('key') || rewardTitle.includes('llave')) {
       await inventory.spendKeys(userId, 1)
     }
     const c = await engine.performPull(userId)
     if (c) characters = [c]
+    else if (rewardTitle.includes('key') || rewardTitle.includes('llave')) {
+      await inventory.addKeys(userId, 1) // refund keys if pull failed
+    }
     pullType = 'single'
   }
 
@@ -163,33 +172,53 @@ bus.on('chat.message.sent', async (data) => {
       case 'pull':
       case 'single':
       case 'tirada': {
+        if (userLocks.has(userId)) { reply(`@${userName} espera a que termine tu tirada anterior.`); break }
         if (inventory.getKeys(userId) < 1) { reply(`@${userName} no tienes 🔑 llaves. Usa !daily para reclamar.`); break }
-        await inventory.spendKeys(userId, 1)
-        const c = await engine.performPull(userId)
-        if (!c) { reply(`@${userName} error al realizar la tirada.`); break }
-        await inventory.addCharacters(userId, [c], userName)
-        broadcast({ event: 'gacha_wish', data: { pull_type: 'single', userId, userName, character: c } })
-        if (c.rarity === '5_star') {
-          reply(`🎉 @${userName} tiró ${c.name} (5⭐)!`)
-        } else {
-          reply(`@${userName} obtuviste ${c.name} (${c.rarity.replace('_star', '⭐')})`)
+        userLocks.add(userId)
+        try {
+          await inventory.spendKeys(userId, 1)
+          const c = await engine.performPull(userId)
+          if (!c) {
+            await inventory.addKeys(userId, 1) // refund keys if pull failed
+            reply(`@${userName} error al realizar la tirada. Llaves devueltas.`)
+            break
+          }
+          await inventory.addCharacters(userId, [c], userName)
+          broadcast({ event: 'gacha_wish', data: { pull_type: 'single', userId, userName, character: c } })
+          if (c.rarity === '5_star') {
+            reply(`🎉 @${userName} tiró ${c.name} (5⭐)!`)
+          } else {
+            reply(`@${userName} obtuviste ${c.name} (${c.rarity.replace('_star', '⭐')})`)
+          }
+        } finally {
+          userLocks.delete(userId)
         }
         break
       }
 
 case 'multi':
       case 'x10': {
+        if (userLocks.has(userId)) { reply(`@${userName} espera a que termine tu tirada anterior.`); break }
         if (inventory.getKeys(userId) < 10) { reply(`@${userName} necesitas 10 🔑 llaves para multi-tirada.`); break }
-        await inventory.spendKeys(userId, 10)
-        const chars = await engine.performMultiPull(userId)
-        if (chars.length === 0) { reply(`@${userName} error al realizar la tirada.`); break }
-        await inventory.addCharacters(userId, chars, userName)
-        broadcast({ event: 'gacha_wish', data: { pull_type: 'multi', userId, userName, characters: chars } })
-        const high = chars.filter(x => x.rarity === '5_star')
-        const msg = high.length > 0
-          ? `🎉 @${userName} multi-tirada! Obtuviste ${high.length} 5⭐: ${high.map(x => `${x.name}`).join(', ')}`
-          : `@${userName} multi-tirada completada. Revisa !inventario`
-        reply(msg)
+        userLocks.add(userId)
+        try {
+          await inventory.spendKeys(userId, 10)
+          const chars = await engine.performMultiPull(userId)
+          if (chars.length === 0) {
+            await inventory.addKeys(userId, 10) // refund keys if all pulls failed
+            reply(`@${userName} error al realizar la tirada. Llaves devueltas.`)
+            break
+          }
+          await inventory.addCharacters(userId, chars, userName)
+          broadcast({ event: 'gacha_wish', data: { pull_type: 'multi', userId, userName, characters: chars } })
+          const high = chars.filter(x => x.rarity === '5_star')
+          const msg = high.length > 0
+            ? `🎉 @${userName} multi-tirada! Obtuviste ${high.length} 5⭐: ${high.map(x => `${x.name}`).join(', ')}`
+            : `@${userName} multi-tirada completada. Revisa !inventario`
+          reply(msg)
+        } finally {
+          userLocks.delete(userId)
+        }
         break
       }
 
@@ -358,14 +387,12 @@ case 'multi':
           season.characters.push({ name: charName4, rarity, stock: stock4 })
           if (!store.state.seasonalBanner[rarity]) store.state.seasonalBanner[rarity] = []
           if (!store.state.seasonalBanner[rarity].includes(charName4)) store.state.seasonalBanner[rarity].push(charName4)
-          await store.saveSeasonData()
           await store.saveBanner('seasonal')
           reply(`@${userName} ${charName4} añadido a ${season.label} (stock ${stock4})`)
         } else if (action === 'remove' && rest[0]) {
           const charName5 = rest[0]
           for (const s of store.state.seasonData.seasons) s.characters = s.characters.filter(c => c.name !== charName5)
           store.state.seasonalBanner['5_star'] = (store.state.seasonalBanner['5_star'] || []).filter(c => c !== charName5)
-          await store.saveSeasonData()
           await store.saveBanner('seasonal')
           reply(`@${userName} ${charName5} quitado de seasonal`)
         } else {
@@ -376,6 +403,7 @@ case 'multi':
 
       case 'reload': {
         if (!isMod(sender)) { reply(`@${userName} solo moderadores.`); break }
+        if (userLocks.size > 0) { reply(`@${userName} no se puede recargar: hay tiradas en curso.`); break }
         await store.init()
         reply(`@${userName} datos recargados desde disco.`)
         break

@@ -18,7 +18,6 @@ function selectRarity(pity) {
 }
 
 function updatePity(pity, rarity) {
-  pity.total_pulls = (pity.total_pulls || 0) + 1
   if (rarity === '5_star') { pity['5_star'] = 0; pity['4_star']++ }
   else if (rarity === '4_star') { pity['4_star'] = 0; pity['5_star']++ }
   else { pity['4_star']++; pity['5_star']++ }
@@ -47,11 +46,15 @@ function selectCharacter(rarity, userId) {
   if (rarity === '3_star') {
     pool = sd.standardBanner['3_star']
   } else if (rarity === '4_star') {
-    const isSeasonal = Math.random() < 0.4
+    const bp = store.state.gachaConfig.gacha_rules?.banner_selection_probabilities?.['4_star_and_above']
+    const seasonalProb = bp?.seasonal_banner ?? 0.4
+    const isSeasonal = Math.random() < seasonalProb
     pool = isSeasonal ? sd.seasonalBanner['4_star'] : sd.standardBanner['4_star']
     bannerSource = isSeasonal ? 'seasonal' : 'standard'
   } else if (rarity === '5_star') {
-    const won5050 = Math.random() < 0.5
+    const bp = store.state.gachaConfig.gacha_rules?.banner_selection_probabilities?.['4_star_and_above']
+    const seasonalProb = bp?.seasonal_banner ?? 0.5
+    const won5050 = Math.random() < seasonalProb
     bannerSource = won5050 ? 'seasonal' : 'standard'
     pool = won5050 ? sd.seasonalBanner['5_star'] : sd.standardBanner['5_star']
 
@@ -101,7 +104,8 @@ async function performPull(userId) {
   }
 
   updatePity(pity, rarity)
-  await store.saveInventories()
+  // ponytail: no save here — addCharacters handles the final persist
+  // this avoids a crash window where pity is updated but character is lost
 
   const result = {
     ...char,

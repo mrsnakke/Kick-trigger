@@ -166,7 +166,7 @@ async function init() {
   console.log('[STORE] Loaded', Object.keys(state.characterData).length, 'characters')
 }
 
-// ponytail: drop junk on load — characters not in characterData, bogus fields inside pity, orphan numeric userNames
+// ponytail: drop junk on load — characters not in characterData, bogus fields inside pity, orphan numeric userNames, vestigial 6_star
 function sanitizeInventories() {
   const valid = state.characterData
   const orphanIds = []
@@ -181,7 +181,10 @@ function sanitizeInventories() {
       u[r] = u[r].filter(n => valid[n])
       purged += before - u[r].length
     }
+    // clean vestigial fields
+    delete u['6_star']
     if (u.pity && typeof u.pity === 'object') {
+      delete u.pity.total_pulls
       u.pity = { '4_star': u.pity['4_star'] || 0, '5_star': u.pity['5_star'] || 0 }
     } else {
       u.pity = { '4_star': 0, '5_star': 0 }

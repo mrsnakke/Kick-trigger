@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Overlay - Ruleta Strinova</title>
+<link rel="stylesheet" href="css/overlay.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="app-overlay">
+  <div id="panel-transform">
+    <aside id="panel-lista" class="hidden">
+      <div class="panel-header">
+        <div class="panel-title">PERSONAJES</div>
+        <div class="panel-count" id="lista-count">0</div>
+      </div>
+      <div id="lista-contenido"></div>
+    </aside>
+  </div>
+
+  <main id="area-central">
+    <div id="roulette-transform">
+      <div id="roulette-area" class="hidden">
+        <img id="overlay-front" src="assets/roulette/frame.png" draggable="false">
+        <div id="slots-container">
+          <div class="slot" id="slot-left">
+            <div class="reel" id="reel-left"></div>
+            <div class="reveal-flash" id="flash-left"></div>
+          </div>
+          <div class="slot" id="slot-right">
+            <div class="reel" id="reel-right"></div>
+            <div class="reveal-flash" id="flash-right"></div>
+          </div>
+        </div>
+        <div id="names-container">
+          <div class="character-name" id="name-left"></div>
+          <div class="character-name" id="name-right"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rank-transform" class="hidden">
+      <div class="rank-card" id="rank-card">
+        <div class="rank-icon-section">
+          <div class="icon-glow"></div>
+          <img id="rank-image" src="" alt="">
+        </div>
+        <div class="rank-info-section">
+          <div class="rank-header">
+            <span id="rank-name">SUBSTANCE</span>
+            <span id="rank-tier">III</span>
+          </div>
+          <div class="progress-top-stats">
+            <div class="stat win"><span class="val" id="wins-count">0</span><span class="lab">W</span></div>
+            <div class="score-display"><span id="current-score">1000</span><span class="score-label">SR</span></div>
+            <div class="stat loss"><span class="val" id="losses-count">0</span><span class="lab">L</span></div>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="seg"><div class="fill" id="fill-0"></div></div>
+              <div class="seg"><div class="fill" id="fill-1"></div></div>
+              <div class="seg"><div class="fill" id="fill-2"></div></div>
+              <div class="seg"><div class="fill" id="fill-3"></div></div>
+              <div class="seg"><div class="fill" id="fill-4"></div></div>
+            </div>
+            <div class="progress-text">
+              <span id="points-label">Strinovium Points</span>
+              <span id="points-val">0/100</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer-bar"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<audio id="sfx-slot" preload="auto" src="assets/roulette/slot.mp3"></audio>
+<script src="js/shared.js"></script>
+<script src="js/overlay.js"></script>
+</body>
+</html>

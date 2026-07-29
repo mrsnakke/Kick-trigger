@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control - Ruleta Strinova</title>
+<link rel="stylesheet" href="css/control.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>STRINOVA CONTROL</h1>
+      <span id="status" class="offline">Desconectado</span>
+    </div>
+    <button id="copy-url" class="btn btn-outline">Copiar URL OBS</button>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Ruleta</h2>
+      <button id="btn-spin" class="btn btn-primary" disabled>TIRAR RULETA</button>
+      <div id="last-result" class="hidden">
+        <span id="result-name"></span>
+        <span id="result-faction"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Historial</h2>
+        <div class="card-actions">
+          <span id="history-count">0</span>
+          <button id="btn-clear" class="btn btn-danger btn-sm" disabled>Limpiar</button>
+        </div>
+      </div>
+      <div id="history-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Overlay</h2>
+      <div class="toggle-row">
+        <span>Lista de personajes</span>
+        <button id="toggle-list" class="toggle on">Visible</button>
+      </div>
+      <div class="toggle-row">
+        <span>Display de rango</span>
+        <button id="toggle-rank" class="toggle on">Visible</button>
+      </div>
+      <div class="toggle-row">
+        <span>Mostrar ruleta</span>
+        <button id="toggle-roulette" class="toggle off">Oculto</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Posición Ruleta</h2>
+      <div class="pos-row"><span class="pos-label">Escala</span><input type="range" id="roulette-scale" min="30" max="250" value="100"><span id="roulette-scale-val" class="pos-val">100%</span></div>
+      <div class="pos-row"><span class="pos-label">X</span><input type="range" id="roulette-x" min="-800" max="800" value="0"><span id="roulette-x-val" class="pos-val">0</span></div>
+      <div class="pos-row"><span class="pos-label">Y</span><input type="range" id="roulette-y" min="-600" max="600" value="0"><span id="roulette-y-val" class="pos-val">0</span></div>
+      <div class="pos-row"><span class="pos-label">Frente Y</span><input type="range" id="roulette-front-y" min="-300" max="300" value="0"><span id="roulette-front-y-val" class="pos-val">0</span></div>
+    </section>
+
+    <section class="card">
+      <h2>Posición Rango</h2>
+      <div class="pos-row"><span class="pos-label">Escala</span><input type="range" id="rank-scale" min="30" max="250" value="100"><span id="rank-scale-val" class="pos-val">100%</span></div>
+      <div class="pos-row"><span class="pos-label">X</span><input type="range" id="rank-x" min="-800" max="800" value="0"><span id="rank-x-val" class="pos-val">0</span></div>
+      <div class="pos-row"><span class="pos-label">Y</span><input type="range" id="rank-y" min="-600" max="600" value="0"><span id="rank-y-val" class="pos-val">0</span></div>
+    </section>
+
+    <section class="card">
+      <h2>Posición Lista</h2>
+      <div class="pos-row"><span class="pos-label">Escala</span><input type="range" id="panel-scale" min="30" max="250" value="100"><span id="panel-scale-val" class="pos-val">100%</span></div>
+      <div class="pos-row"><span class="pos-label">X</span><input type="range" id="panel-x" min="-800" max="800" value="0"><span id="panel-x-val" class="pos-val">0</span></div>
+      <div class="pos-row"><span class="pos-label">Y</span><input type="range" id="panel-y" min="-600" max="600" value="0"><span id="panel-y-val" class="pos-val">0</span></div>
+    </section>
+
+    <section class="card">
+      <h2>Rango</h2>
+      <label class="section-label">Seleccionar Rango</label>
+      <div id="rank-grid" class="rank-grid"></div>
+      <div class="section-block">
+        <label class="section-label">Tier</label>
+        <select id="tier-select"></select>
+      </div>
+      <div class="section-block">
+        <label class="section-label">Score (PTS)</label>
+        <input type="number" id="score-input" value="1000" min="0">
+      </div>
+      <div class="section-row">
+        <div class="input-group">
+          <label class="section-label">Wins (W)</label>
+          <div class="counter">
+            <button class="counter-btn" data-target="wins" data-delta="-1">−</button>
+            <input type="number" id="wins-input" value="0" min="0">
+            <button class="counter-btn" data-target="wins" data-delta="1">+</button>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="section-label">Losses (L)</label>
+          <div class="counter">
+            <button class="counter-btn" data-target="losses" data-delta="-1">−</button>
+            <input type="number" id="losses-input" value="0" min="0">
+            <button class="counter-btn" data-target="losses" data-delta="1">+</button>
+          </div>
+        </div>
+      </div>
+      <button id="reset-btn" class="btn btn-danger">Reset Statistics</button>
+    </section>
+  </main>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/control.js"></script>
+</body>
+</html>

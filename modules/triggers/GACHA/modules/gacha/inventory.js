@@ -9,6 +9,7 @@ function ensureUser(userId, userName) {
 
 async function addCharacters(userId, characters, userName) {
   const u = ensureUser(userId, userName || userId)
+  let added = 0
   let dropped = 0
   for (const c of characters) {
     if (!store.state.characterData[c.name]) {
@@ -19,12 +20,13 @@ async function addCharacters(userId, characters, userName) {
     const arr = u[c.rarity]
     if (arr && !arr.includes(c.name)) {
       arr.push(c.name)
+      added++
       console.log('[INV] Added', c.name, '(' + c.rarity + ') to', userName || userId)
     }
   }
-  u.total_pulls = (u.total_pulls || 0) + characters.length
+  u.total_pulls = (u.total_pulls || 0) + added
   await store.saveInventories()
-  return { added: characters.length - dropped, dropped }
+  return { added, dropped }
 }
 
 function getKeys(userId) {
