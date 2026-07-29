@@ -144,6 +144,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <span id="badge-obs" class="badge badge-off">○ OBS</span>
     <span id="badge-event-actions" class="badge badge-off">○ EVENTS</span>
     <span id="badge-bot" class="badge badge-off">○ BOT</span>
+    <span id="badge-strinova" class="badge badge-off">○ STRINOVA</span>
   </div>
   <span id="channel-name" class="channel-name"></span>
   <button id="btn-auth" class="btn btn-primary" onclick="authorize()">🔑 Autorizar Streamer en Kick</button>
@@ -157,6 +158,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="obs">OBS</button>
     <button class="tab-btn" data-tab="chatbot">Chatbot</button>
     <button class="tab-btn" data-tab="event-actions">Event Actions</button>
+    <button class="tab-btn" data-tab="strinova">Strinova</button>
   </div>
 </header>
 
@@ -476,6 +478,17 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     </div>
 
     <div class="cmd-group user">
+      <h3>🎰 Strinova — Usuario</h3>
+      <table class="cmd-table" data-mod="strinova-user">
+        <thead><tr><th>Comando</th><th>Descripción</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td><code>!rank</code></td><td>Muestra el rango actual en overlay (20s)</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!rulet</code></td><td>Muestra el historial de personajes en overlay (20s)</td><td><span class="cmd-badge user">User</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cmd-group user">
       <h3>🌸 Gacha — Usuario</h3>
       <table class="cmd-table" data-mod="gacha-user">
         <thead><tr><th>Comando</th><th>Descripción</th><th>Uso</th></tr></thead>
@@ -499,6 +512,10 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
 
 <div id="tab-chatbot" class="tab-content hidden">
   <iframe src="/chatbot/" style="width:100%;border:none;background:#0d1117;flex:1" title="Chatbot"></iframe>
+</div>
+
+<div id="tab-strinova" class="tab-content hidden">
+  <iframe src="/strinova/" style="width:100%;border:none;background:#0d1117;flex:1" title="Strinova"></iframe>
 </div>
 
 <div id="tab-event-actions" class="tab-content hidden">
@@ -932,6 +949,14 @@ function obsCheckStatus() {
   fetch('/obs-actions/api/obs/status').then(r => r.json()).then(s => {
     setBadge('badge-obs', s.connected ? 'badge-ok' : 'badge-off', s.connected ? '● OBS' : '○ OBS');
   }).catch(() => setBadge('badge-obs', 'badge-off', '○ OBS'));
+}
+
+function strinovaLoadStatus() {
+  fetch('/strinova/api/status').then(r => r.json()).then(() => {
+    setBadge('badge-strinova', 'badge-ok', '● STRINOVA');
+  }).catch(() => {
+    setBadge('badge-strinova', 'badge-off', '○ STRINOVA');
+  });
 }
 
 function handleGachaEvent(d) {
@@ -2149,6 +2174,7 @@ fetch('/api/vtuber/status').then(r => r.json()).then(d => {
   else setBadge('badge-vtuber', d.apiKeySet ? 'badge-off' : 'badge-gray', d.apiKeySet ? '○ VTUBER' : '○ VTUBER');
 }).catch(() => setBadge('badge-vtuber', 'badge-gray', '○ VTUBER'));
 obsCheckStatus();
+strinovaLoadStatus();
 fetch('/api/event-actions/config').then(r => r.json()).then(d => {
   const badge = document.getElementById('badge-event-actions');
   badge.className = d.chattersCount > 0 ? 'badge badge-ok' : 'badge badge-gray';

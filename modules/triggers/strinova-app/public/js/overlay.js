@@ -23,6 +23,17 @@ const nameL = document.getElementById('name-left');
 const nameR = document.getElementById('name-right');
 const sfx = document.getElementById('sfx-slot');
 const rouletteArea = document.getElementById('roulette-area');
+
+/* ── AUDIO (Web Audio API bypasses browser autoplay policy) ── */
+let actx, sfxBuf;
+async function loadSfx() {
+  actx = new AudioContext();
+  if (actx.state === 'suspended') await actx.resume();
+  sfxBuf = await actx.decodeAudioData(await (await fetch('assets/roulette/slot.mp3')).arrayBuffer());
+}
+loadSfx().catch(() => {});
+document.addEventListener('click', () => actx?.resume(), { once: true });
+document.addEventListener('touchstart', () => actx?.resume(), { once: true });
 const rouletteTransform = document.getElementById('roulette-transform');
 const rankTransform = document.getElementById('rank-transform');
 const panelTransform = document.getElementById('panel-transform');
@@ -30,7 +41,7 @@ const rankCard = document.getElementById('rank-card');
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}`);
+  ws = new WebSocket(`${proto}//${location.host}/ws/strinova`);
   ws.onopen = () => { connected = true; };
   ws.onclose = () => { connected = false; setTimeout(connect, 3000); };
   ws.onmessage = (e) => {
@@ -115,8 +126,12 @@ function handleSpin(result) {
   reelR.style.transform = 'translateY(0)';
   void reelL.offsetHeight;
 
-  sfx.currentTime = 0;
-  sfx.play().catch(() => {});
+  if (actx && sfxBuf) {
+    const src = actx.createBufferSource();
+    src.buffer = sfxBuf;
+    src.connect(actx.destination);
+    src.start(0);
+  }
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -149,6 +164,7 @@ function handleSpin(result) {
       rouletteArea.classList.add('hidden');
       rouletteArea.classList.remove('fade-out');
       spinning = false;
+      ws.send(JSON.stringify({ type: 'show_roulette', show: false }));
     }, 2200);
   }, 16000);
 }
@@ -160,13 +176,14 @@ function renderLista() {
   listaEl.innerHTML = '';
   state.history.forEach((entry, i) => {
     const div = document.createElement('div');
-    div.className = 'lista-item';
-    const isUrbino = entry.left.faction === 'urbino';
+    const leftFaction = entry.left.faction;
+    div.className = `lista-item bar-${leftFaction}`;
+    const isUrbino = leftFaction === 'urbino';
     let names = '';
     if (isUrbino) {
-      names = `<span class="char-name" style="color:${FACTIONS[entry.left.faction]?.color || '#fff'}">${entry.left.displayName}</span>`;
+      names = `<span class="char-name clr-${leftFaction}">${entry.left.displayName}</span>`;
     } else {
-      names = `<span class="char-name" style="color:${FACTIONS[entry.left.faction]?.color || '#fff'}">${entry.left.displayName}</span><span class="char-sep">+</span><span class="char-name" style="color:${FACTIONS[entry.right.faction]?.color || '#fff'}">${entry.right.displayName}</span>`;
+      names = `<span class="char-name clr-${entry.left.faction}">${entry.left.displayName}</span><span class="char-sep">+</span><span class="char-name clr-${entry.right.faction}">${entry.right.displayName}</span>`;
     }
     div.innerHTML = `<span class="item-num">#${i + 1}</span><span class="item-names">${names}</span>`;
     listaEl.appendChild(div);

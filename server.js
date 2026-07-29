@@ -17,6 +17,7 @@ const eventActions = require('./modules/triggers/event-actions')
 const obsActions = require('./modules/triggers/obs-actions')
 const music = require('./modules/triggers/Music')
 const chatbot = require('./modules/triggers/chatbot')
+const strinova = require('./modules/triggers/strinova-app')
 
 const app = express()
 const server = http.createServer(app)
@@ -137,6 +138,10 @@ music.init()
 app.use('/chatbot', chatbot.router)
 chatbot.init()
 
+// -- Strinova App --
+strinova.initWs(server)
+app.use('/strinova', strinova.router)
+
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true })
@@ -193,6 +198,9 @@ server.listen(config.PORT, async () => {
 
   // Iniciar módulo GACHA
   gacha.init().catch(e => console.error('[GACHA] Error init:', e.message))
+
+  // Iniciar módulo Strinova
+  strinova.init()
 
   // Iniciar módulo Music
   setTimeout(() => music.init().catch(e => console.error('[MUSIC] Error init:', e.message)), 5000)

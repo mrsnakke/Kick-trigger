@@ -1,7 +1,10 @@
 const obs = require('./obs');
+const eventBus = require('../../../lib/event-bus');
 
 async function executeSubAction(subAction) {
-  if (subAction.type === 'visibility') {
+  if (subAction.type === 'event') {
+    eventBus.emit(subAction.event, subAction.data || {});
+  } else if (subAction.type === 'visibility') {
     if (!obs.connected) {
       console.warn('[Engine] OBS desconectado, saltando visibility:', subAction.sourceName);
       return;

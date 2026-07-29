@@ -112,6 +112,7 @@
               <select id="sub-type" onchange="toggleSubFields()" class="w-28 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
                 <option value="visibility">Visibilidad</option>
                 <option value="delay">Delay</option>
+                <option value="event">Evento</option>
               </select>
               <div id="sub-visibility-fields" class="flex items-center gap-1 flex-1">
                 <select id="sub-scene" onchange="loadSources()" class="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
@@ -128,6 +129,9 @@
               <div id="sub-delay-fields" class="hidden flex items-center gap-1">
                 <input id="sub-delay-ms" type="number" value="1000" min="1" class="w-20 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500">
                 <span class="text-[9px] text-gray-500">ms</span>
+              </div>
+              <div id="sub-event-fields" class="hidden flex items-center gap-1 flex-1">
+                <input id="sub-event-name" type="text" placeholder="strinova:spin" value="strinova:spin" class="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-[11px] text-white font-mono focus:outline-none focus:border-indigo-500">
               </div>
               <button onclick="addSubAction()" class="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition">Anadir</button>
               <button onclick="testCurrentSubAction()" class="bg-gray-700 hover:bg-gray-600 text-[10px] font-bold px-2 py-1 rounded transition">Test</button>
@@ -301,6 +305,7 @@
       const type = document.getElementById('sub-type').value;
       document.getElementById('sub-visibility-fields').classList.toggle('hidden', type !== 'visibility');
       document.getElementById('sub-delay-fields').classList.toggle('hidden', type !== 'delay');
+      document.getElementById('sub-event-fields').classList.toggle('hidden', type !== 'event');
     }
 
     function toggleObsConfig() {
@@ -532,8 +537,10 @@
         const sel = document.getElementById('sub-source');
         const opt = sel.selectedIndex > 0 ? sel.options[sel.selectedIndex] : null;
         sub = { ...sub, type: 'visibility', scene: document.getElementById('sub-scene').value, sourceId: sel.value, sourceName: opt?.dataset.name || '', groupName: opt?.dataset.groupName || null, isGroup: opt?.dataset.isGroup === 'true', state: document.getElementById('sub-state').value };
-      } else {
+      } else if (type === 'delay') {
         sub = { ...sub, type: 'delay', duration: parseInt(document.getElementById('sub-delay-ms').value) || 1000 };
+      } else if (type === 'event') {
+        sub = { ...sub, type: 'event', event: document.getElementById('sub-event-name').value.trim(), data: {} };
       }
       state.editingSubActions.push(sub);
       renderSubActionList();
@@ -555,10 +562,13 @@
         const sel = document.getElementById('sub-source');
         const opt = sel.selectedIndex > 0 ? sel.options[sel.selectedIndex] : null;
         sub = { type: 'visibility', scene: document.getElementById('sub-scene').value, sourceId: sel.value, groupName: opt?.dataset.groupName || null, isGroup: opt?.dataset.isGroup === 'true', state: document.getElementById('sub-state').value };
-      } else {
+      } else if (type === 'delay') {
         sub = { type: 'delay', duration: parseInt(document.getElementById('sub-delay-ms').value) || 1000 };
+      } else if (type === 'event') {
+        sub = { type: 'event', event: document.getElementById('sub-event-name').value.trim(), data: {} };
       }
       if (type === 'delay') { alert(`Test: espera ${sub.duration}ms`); return; }
+      if (type === 'event') { alert(`Evento emitido: ${sub.event}`); return; }
       if (!sub.scene || !sub.sourceId) return alert('Selecciona escena y fuente');
       const res = await API.obsTestSubAction(sub);
       if (!res.ok) alert('Error: ' + res.error);
@@ -631,6 +641,8 @@
         if (step.type === 'visibility') {
           const target = step.groupName ? `${step.scene} > ${step.groupName}` : (step.scene || '?');
           content.innerHTML = `<span class="text-indigo-400">[Visibilidad]</span> <span class="text-gray-300">${target}</span> :: <span class="text-yellow-400">${step.sourceName || '?'}</span> :: <span class="${step.state === 'Visible' ? 'text-green-400' : 'text-red-400'}">${step.state}</span>`;
+        } else if (step.type === 'event') {
+          content.innerHTML = `<span class="text-amber-400">[Evento]</span> <span class="text-gray-300 font-mono">${step.event}</span>`;
         } else {
           content.innerHTML = `<span class="text-gray-400">[Delay]</span> <span class="text-indigo-300">${step.duration}ms</span>`;
         }

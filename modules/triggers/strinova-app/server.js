@@ -34,7 +34,6 @@ function loadState() {
     state.history = saved.history || [];
     if (saved.listVisible !== undefined) state.listVisible = saved.listVisible;
     if (saved.rankVisible !== undefined) state.rankVisible = saved.rankVisible;
-    if (saved.showRoulette !== undefined) state.showRoulette = saved.showRoulette;
   } catch {}
 }
 

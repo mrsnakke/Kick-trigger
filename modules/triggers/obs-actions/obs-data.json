@@ -365,44 +365,10 @@
       "name": "Ruleta Strinova",
       "subActions": [
         {
-          "id": 1782652535259.5647,
-          "type": "visibility",
-          "scene": "gameplay",
-          "sourceId": "12",
-          "sourceName": "Rulet Strinoba",
-          "groupName": null,
-          "isGroup": false,
-          "state": "Hidden"
-        },
-        {
-          "id": 1782652548418.002,
-          "type": "delay",
-          "duration": 100
-        },
-        {
-          "id": 1782652553573.2854,
-          "type": "visibility",
-          "scene": "gameplay",
-          "sourceId": "12",
-          "sourceName": "Rulet Strinoba",
-          "groupName": null,
-          "isGroup": false,
-          "state": "Visible"
-        },
-        {
-          "id": 1782652566372.434,
-          "type": "delay",
-          "duration": 24000
-        },
-        {
-          "id": 1782652571658.6863,
-          "type": "visibility",
-          "scene": "gameplay",
-          "sourceId": "12",
-          "sourceName": "Rulet Strinoba",
-          "groupName": null,
-          "isGroup": false,
-          "state": "Hidden"
+          "id": 1785282253857.0737,
+          "type": "event",
+          "event": "strinova:spin",
+          "data": {}
         }
       ],
       "sortOrder": 7,
@@ -541,7 +507,7 @@
     {
       "id": "0c371bfe-42e0-45d4-98a0-b0a01fde4680",
       "name": "ruleta",
-      "collapsed": true
+      "collapsed": false
     },
     {
       "id": "6d7cddba-4531-4603-8dbd-1d19b632fb3c",

@@ -3,7 +3,7 @@
     {
       "id": "43a385d5",
       "command": "!comando",
-      "response": "🎤 TTS: !sp <texto> | !voz | !<nombre_voz> |• 🔨: !bonk | !bonks • 🤖 IA: !grim <pregunta> • 🎵 Música: !song | !sr <nombre/link> | !skip • 🎲 Gacha: !daily | !pull | !multi | !inv | !Sinv | !pj <nombre> | !lista | !top",
+      "response": "🎤 TTS: !sp <texto> | !voz | !<nombre_voz> |• 🔨: !bonk | !bonks • 🤖 IA: !grim <pregunta> • 🎵 Música: !song | !sr <nombre/link> | !skip • 🎲 Gacha: !daily | !pull | !multi | !inv | !Sinv | !pj <nombre> | !lista | !top | strinova |  !rank |  !rulet |",
       "trigger": "",
       "enabled": true
     },
@@ -21,7 +21,7 @@
       "message": "Usa el comando !daily para obtener llaves 10 🔑 para el !pull o !multi",
       "intervalMs": 600000,
       "enabled": true,
-      "lastSent": 1783649444145
+      "lastSent": 1785287145145
     }
   ]
 }

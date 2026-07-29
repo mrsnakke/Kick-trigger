@@ -8,7 +8,7 @@ const state = {
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}`);
+  ws = new WebSocket(`${proto}//${location.host}/ws/strinova`);
   ws.onopen = () => { connected = true; document.getElementById('status').className = 'online'; document.getElementById('status').textContent = 'Conectado'; document.getElementById('btn-spin').disabled = false; };
   ws.onclose = () => { connected = false; document.getElementById('status').className = 'offline'; document.getElementById('status').textContent = 'Desconectado'; document.getElementById('btn-spin').disabled = true; setTimeout(connect, 3000); };
   ws.onmessage = (e) => {
@@ -174,8 +174,16 @@ setupPositionSlider('panel-x', 'panel-x-val', 'panel_pos', 'x');
 setupPositionSlider('panel-y', 'panel-y-val', 'panel_pos', 'y');
 
 /* ── Copy URL ── */
-document.getElementById('copy-url').addEventListener('click', () => {
-  const url = `${location.protocol}//${location.hostname}:${location.port}/overlay.html`;
+document.getElementById('copy-url').addEventListener('click', async () => {
+  let base;
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    base = data.tunnelUrl || `${location.protocol}//${location.hostname}:${location.port}`;
+  } catch {
+    base = `${location.protocol}//${location.hostname}:${location.port}`;
+  }
+  const url = `${base}/strinova/overlay.html`;
   navigator.clipboard.writeText(url).then(() => {
     const btn = document.getElementById('copy-url');
     const t = btn.textContent;

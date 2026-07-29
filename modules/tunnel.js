@@ -47,7 +47,7 @@ async function tunnelAlreadyRunning() {
   return false
 }
 
-async function waitForTunnelHealthy(maxAttempts = 10, delay = 2000) {
+async function waitForTunnelHealthy(maxAttempts = 5, delay = 2000) {
   if (!config.CF_DOMAIN) return false
   const url = `https://${config.CF_DOMAIN}/api/status`
   for (let i = 0; i < maxAttempts; i++) {
@@ -120,6 +120,7 @@ ingress:
       for (let line of lines) {
         line = line.trim()
         if (!line) continue
+        if (line.includes('does not support loading the system root certificate pool')) continue
 
         console.log('[CF]', line)
         errLog += line + '\n'

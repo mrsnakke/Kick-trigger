@@ -63,9 +63,9 @@ Internet (Kick API)
 │                    │  PS    │ │ Sist.  │ │ + chat     │   │
 │                    └────────┘ └────────┘ └────────────┘   │
 │                    ┌────────┐ ┌────────┐                  │
-│                    │ OBS-Act│ │ Music  │                  │
-│                    │ Control│ │YouTube │                  │
-│                    └────────┘ └────────┘                  │
+│                    │ OBS-Act│ │ Music  │ │  Strinova  │   │
+│                    │ Control│ │YouTube │ │  Roulette  │   │
+│                    └────────┘ └────────┘ └────────────┘   │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -155,7 +155,8 @@ kick-backend/
 │       ├── obs-actions/          # Control de OBS vía WebSocket
 │       ├── Music/                # Control de reproductor YouTube
 │       ├── chatbot/              # Comandos personalizados + timers automáticos
-│       └── event-actions/        # Detección de primer mensaje + miniprompts por evento
+│       ├── event-actions/        # Detección de primer mensaje + miniprompts por evento
+│       └── strinova-app/         # Ruleta Strinova + overlay OBS + ránking
 │
 ├── public/                       # Archivos estáticos
 │   ├── index.html                # Dashboard web single-page
@@ -490,7 +491,100 @@ GACHA/
 - `GET /gacha/*` — archivos estáticos (overlays)
 - WebSocket en `/ws/gacha` — comunicación en tiempo real con overlays
 
-### 6.4 OBS Actions (`triggers/obs-actions/`) — Control de OBS
+### 6.4 Strinova (`triggers/strinova-app/`) — Ruleta + Overlay OBS
+
+**Archivos:**
+
+```
+strinova-app/
+├── index.js                    # Módulo principal: router Express + WS + lógica
+├── server.js                   # Servidor standalone (puerto 3231, desarrollo)
+├── package.json                # Dependencias (ws)
+├── state.json                  # Estado persistente (posiciones, historial, rango)
+│
+└── public/
+    ├── overlay.html            # Overlay OBS 1920×1080 (Browser Source)
+    ├── control.html            # Panel de control
+    ├── css/
+    │   └── overlay.css         # Estilos del overlay
+    ├── js/
+    │   ├── overlay.js          # Cliente WebSocket del overlay
+    │   ├── control.js          # Cliente WebSocket del panel de control
+    │   └── shared.js           # Datos compartidos (personajes, rangos, facciones)
+    └── assets/
+        ├── characters/         # Imágenes de personajes por facción
+        ├── ranks/              # Imágenes de rangos
+        └── roulette/           # Frame de ruleta + sonido slot
+```
+
+**Funcionamiento:**
+- Ruleta de dos carretes que combina personajes de 3 facciones: **Cizalla** (rojo), **S.U.P** (azul) y **Urbino** (dorado).
+- Si el ganador es de Urbino, aparece solo en ambos carretes (personaje individual).
+- Si es de Cizalla o SUP, se combina con uno de la facción contraria.
+- Overlay OBS con tres elementos posicionables independientemente: panel de historial, ruleta animada y tarjeta de rango.
+- WebSocket en `/ws/strinova` para comunicación en tiempo real overlay ↔ control panel.
+- Persiste estado (posiciones, historial, rango) en `state.json`.
+
+**Comandos de chat:**
+
+| Comando | Descripción | Permiso |
+|---|---|---|
+| `!rank` | Muestra tarjeta de rango en overlay (20s) | User |
+| `!rulet` | Muestra historial de personajes en overlay (20s) | User |
+
+**Sistema de rango (9 rangos):**
+Substance (III-I) → Molecule (III-I) → Atom (IV-I) → Proton (IV-I) → Neutron (IV-I) → Electron (V-I) → Quark (V-I) → Superstring → Singularity
+
+Cada rango tiene 3-5 tiers (III, II, I, etc.). Puntuación SR: cada 100 puntos se sube de tier. Los rangos Superstring y Singularity no tienen progreso por puntos.
+
+**Personajes (24 total):**
+
+| Facción | Personajes |
+|---|---|
+| **Cizalla** 🔴 | Eika, Fragrans, Kanami, Lawine, Mara, Meredith, Ming, Nora, Reiichi |
+| **S.U.P** 🔵 | Chiyo, Flavia, Kokona, Leona, Michele, Nobunaga, Yugiri, Yvette |
+| **Urbino** 🟡 | Audrey, Bai Mo, Celestia, Cielle, Fuchsia, Galatea, Maddelena |
+
+**Eventos WebSocket (servidor → overlay):**
+
+| Tipo | Descripción |
+|---|---|
+| `init` | Estado completo al conectar |
+| `spin` | Resultado de ruleta (left + right character) |
+| `history_update` | Historial actualizado |
+| `toggle_list` | Mostrar/ocultar panel |
+| `toggle_rank` | Mostrar/ocultar rango |
+| `show_roulette` | Mostrar/ocultar ruleta |
+| `roulette_pos` / `rank_pos` / `panel_pos` | Posición y escala |
+| `rank_update` | Datos de rango actualizados |
+
+**Eventos WebSocket (overlay → servidor):**
+
+| Tipo | Descripción |
+|---|---|
+| `spin` | Ejecutar ruleta (con resultado pre-calculado) |
+| `clear_history` | Limpiar historial |
+| `remove_from_history` | Eliminar entrada del historial |
+| `toggle_list` / `toggle_rank` / `show_roulette` | Visibilidad |
+| `roulette_pos` / `rank_pos` / `panel_pos` | Posición y escala |
+| `rank_update` | Actualizar datos de rango |
+
+**Eventos internos del bus:**
+- Escucha `chat.message.sent` para comandos `!rank` y `!rulet`.
+- Escucha `strinova:spin` (emitido por OBS Actions o por el panel de control) para ejecutar la ruleta sin pasar por comandos de chat.
+
+**Endpoints:**
+
+| Ruta | Método | Descripción |
+|---|---|---|
+| `/strinova/api/status` | GET | Estado del módulo |
+| `/strinova/` | GET | Panel de control |
+| `/strinova/overlay.html` | GET | Overlay OBS |
+| `/strinova/*` | GET | Archivos estáticos (JS, CSS, assets) |
+
+---
+
+### 6.5 OBS Actions (`triggers/obs-actions/`) — Control de OBS
 
 **Archivos:**
 - `index.js` — rutas Express, lógica de triggers, conexión con event bus
@@ -527,7 +621,7 @@ GACHA/
 - `GET /obs-actions/api/rewards` — rewards de Kick
 - Archivos estáticos en `public/`
 
-### 6.5 Music (`triggers/Music/`) — Control de reproductor YouTube
+### 6.6 Music (`triggers/Music/`) — Control de reproductor YouTube
 
 **Archivos:**
 - `index.js` — lógica principal, comandos, polling, API
@@ -547,7 +641,7 @@ GACHA/
 - `POST /music/api/music/config` — guardar config
 - Archivos estáticos en `public/`
 
-### 6.6 Chatbot (`triggers/chatbot/`) — Comandos personalizados + Timers
+### 6.7 Chatbot (`triggers/chatbot/`) — Comandos personalizados + Timers
 
 **Archivos:**
 - `index.js` — router Express, event bus listener, timer engine
@@ -574,7 +668,7 @@ GACHA/
 - `PATCH /chatbot/api/timers/:id/toggle` — activar/desactivar
 - `GET /chatbot/api/status` — estado general
 
-### 6.7 Event Actions (`triggers/event-actions/`) — Detección de primer mensaje + miniprompts
+### 6.8 Event Actions (`triggers/event-actions/`) — Detección de primer mensaje + miniprompts
 
 Módulo que intercepta eventos de Kick y los canaliza hacia la VTuber AI con contexto adicional. Detecta cuándo un usuario escribe por primera vez y reacciona a eventos del canal con miniprompts configurables.
 
@@ -704,6 +798,7 @@ pisinen los badges de autenticación del dashboard.
 | `/obs-actions/*` | varias | Control OBS (API + dashboard) |
 | `/music/*` | varias | Control música (API + dashboard) |
 | `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
+| `/strinova/*` | varias | Ruleta Strinova (API + overlay + panel de control) |
 | `/api/event-actions/config` | GET | Obtener miniprompts + contador de chatters |
 | `/api/event-actions/config` | POST | Guardar miniprompts |
 | `/api/event-actions/toggle` | POST | Activar/desactivar módulo |
@@ -812,6 +907,12 @@ Resumen de todos los comandos disponibles por módulo:
 | `!charinfo` | Info personaje (mod) |
 | `!announce` | Anunciar (mod) |
 
+### Strinova
+| Comando | Descripción |
+|---|---|
+| `!rank` | Muestra rango actual en overlay (20s) |
+| `!rulet` | Muestra historial de personajes en overlay (20s) |
+
 ### Music
 | Comando | Descripción |
 |---|---|
@@ -919,6 +1020,11 @@ El módulo GACHA sirve archivos estáticos bajo `/gacha/`. Para usar overlays en
    - `http://<IP_BACKEND>:3000/gacha/index.html` — animación multi-pull
 3. El WebSocket conecta automáticamente a `ws://<host>/ws/gacha`
 4. Para servir localmente (latencia mínima), copiar `modules/triggers/GACHA/web/` a la PC de stream y servir con `npx serve web -p 4000`
+
+El módulo **Strinova** también sirve overlays bajo `/strinova/`:
+- `http://<IP_BACKEND>:3000/strinova/overlay.html` — overlay OBS (ruleta + rango + historial)
+- `http://<IP_BACKEND>:3000/strinova/` — panel de control
+- WebSocket en `ws://<host>/ws/strinova`
 
 ---
 
