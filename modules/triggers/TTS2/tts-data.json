@@ -31,8 +31,8 @@
     },
     "aimikaih": {
       "username": "Aimikaih",
-      "voice": "22",
-      "updatedAt": "2026-07-03T07:23:42.313Z"
+      "voice": "21",
+      "updatedAt": "2026-08-02T08:00:31.354Z"
     },
     "andreh26": {
       "username": "AndreH26",
@@ -58,6 +58,11 @@
       "username": "Daiferdas02",
       "voice": "23",
       "updatedAt": "2026-07-17T05:31:04.933Z"
+    },
+    "brinone1": {
+      "username": "BrinOne1",
+      "voice": "25",
+      "updatedAt": "2026-08-02T08:00:34.092Z"
     }
   }
 }

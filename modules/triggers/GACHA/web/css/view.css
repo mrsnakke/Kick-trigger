@@ -40,6 +40,8 @@ body {
     background-color: #1f2937;
 }
 
+.absolute { position: absolute; }
+.inset-0 { inset: 0; }
 .w-full { width: 100%; }
 .h-full { height: 100%; }
 .object-cover { object-fit: cover; }

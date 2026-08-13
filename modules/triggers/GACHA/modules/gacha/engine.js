@@ -3,12 +3,14 @@ const store = require('../data/store')
 
 function selectRarity(pity) {
   const pityData = store.state.pityData.pity_thresholds
-  if (pity['5_star'] >= pityData['5_star'].hard_pity) return '5_star'
-  if (pity['4_star'] >= pityData['4_star'].hard_pity) return '4_star'
+  // pity counts pulls since last hit; the current pull is pity+1, so the
+  // guarantee must trigger when pity reaches hard_pity - 1
+  if (pity['5_star'] >= pityData['5_star'].hard_pity - 1) return '5_star'
+  if (pity['4_star'] >= pityData['4_star'].hard_pity - 1) return '4_star'
 
   const probs = { ...store.state.gachaConfig.gacha_rules.rarity_probabilities }
-  if (pity['5_star'] >= pityData['5_star'].soft_pity) probs['5_star'] += 0.1
-  if (pity['4_star'] >= pityData['4_star'].soft_pity) probs['4_star'] += 0.1
+  if (pity['5_star'] >= pityData['5_star'].soft_pity - 1) probs['5_star'] += 0.1
+  if (pity['4_star'] >= pityData['4_star'].soft_pity - 1) probs['4_star'] += 0.1
 
   const r = Math.random()
   let cum = 0
