@@ -10,7 +10,9 @@ router.use(express.json())
 router.use(express.static(path.join(__dirname, 'public')))
 
 let timerInterval = null
+let chatActivityCount = 0
 const CHECK_INTERVAL = 5000
+const MIN_MESSAGES_TO_FIRE = 5
 
 function broadcast(data) {
   sse.broadcast({ ...data, _source: 'chatbot' })
@@ -21,6 +23,8 @@ function handleChatMessage(data) {
   const user = payload.sender?.username
   const message = (payload.content || '').trim()
   if (!user || !message) return
+
+  chatActivityCount++
 
   const commands = store.getCommands()
   for (const cmd of commands) {
@@ -38,6 +42,7 @@ function handleChatMessage(data) {
 }
 
 function timerTick() {
+  if (chatActivityCount < MIN_MESSAGES_TO_FIRE) return
   const timers = store.getTimers()
   const now = Date.now()
   for (const t of timers) {
@@ -46,6 +51,7 @@ function timerTick() {
     chat.sendAsBot(t.message).catch(err => console.error('[CHATBOT] Timer error:', err.message))
     t.lastSent = now
   }
+  chatActivityCount = 0
 }
 
 function startTimers() {

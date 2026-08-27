@@ -45,7 +45,7 @@
         {
           "name": "Frieren",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 1
         },
         {
           "name": "Phoebe",
@@ -55,7 +55,7 @@
         {
           "name": "Chisa",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 1
         },
         {
           "name": "Astolfo",
@@ -65,7 +65,7 @@
         {
           "name": "Dorothy",
           "rarity": "5_star",
-          "stock": 3
+          "stock": 2
         },
         {
           "name": "Musashi",
@@ -80,7 +80,7 @@
         {
           "name": "Fern",
           "rarity": "5_star",
-          "stock": 3
+          "stock": 2
         },
         {
           "name": "Megumin",
@@ -90,7 +90,7 @@
         {
           "name": "Hitori Gotoh",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 1
         },
         {
           "name": "Elegg",
@@ -159,7 +159,7 @@
         {
           "name": "Promeia",
           "rarity": "5_star",
-          "stock": 3
+          "stock": 2
         }
       ]
     }

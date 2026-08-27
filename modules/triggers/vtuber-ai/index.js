@@ -229,7 +229,7 @@ async function sendChatMessage(content) {
   }
 }
 
-async function processMessage(username, content) {
+async function processMessage(username, content, skipLog = false) {
   if (!deepseek) return { error: 'No inicializado' };
 
   console.log(`[VTUBER-AI] ${username}: ${content}`);
@@ -244,7 +244,7 @@ async function processMessage(username, content) {
     { role: 'user', content: `${username}: ${content}` }
   ];
 
-  if (cfg.MEMORY_ENABLED) await logMessage({ username, role: 'user', content });
+  if (cfg.MEMORY_ENABLED && !skipLog) await logMessage({ username, role: 'user', content });
 
   try {
     const start = Date.now();
@@ -262,7 +262,7 @@ async function processMessage(username, content) {
       `~$${cost.toFixed(6)}`
     );
 
-    if (cfg.MEMORY_ENABLED) await logMessage({ username, role: 'assistant', content: result.text });
+    if (cfg.MEMORY_ENABLED && !skipLog) await logMessage({ username, role: 'assistant', content: result.text });
 
     // Extract emotions for VTS and clean text
     let displayText = result.text

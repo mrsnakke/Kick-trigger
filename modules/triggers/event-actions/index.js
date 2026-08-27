@@ -18,14 +18,14 @@ const PROMO_KEYWORDS = [
 ]
 
 const DEFAULT_MINIPROMPTS = {
-  'channel.chatter.first': 'chat.message.sent. PRIMER MENSAJE DEL DÍA DE @{username}: {content}. Es su primer mensaje hoy. Haz un saludo corto y dale la bienvenida al chat. Máximo dos oraciones.',
-  'channel.followed': 'chat.message.sent. [EVENTO: Nuevo seguidor] @{username} acaba de seguir el canal en Kick. Dale una bienvenida cálida y agradécele el follow.',
-  'channel.subscription.new': 'chat.message.sent. [EVENTO: Nueva suscripción] @{username} acaba de suscribirse al canal por primera vez. Es una suscripción nueva. Muéstrate emocionada y agradécele muchísimo su apoyo.',
-  'channel.subscription.renewal': 'chat.message.sent. [EVENTO: Renovación de suscripción] @{username} ha renovado su suscripción mensual. Agradécele por seguir apoyando el canal otro mes más.',
-  'channel.subscription.gifts': 'chat.message.sent. [EVENTO: Suscripciones regaladas] @{username} ha regalado suscripciones a la comunidad. Reconoce su generosidad y da las gracias a todos los nuevos suscriptores.',
-  'channel.reward.redemption.updated': 'chat.message.sent. [EVENTO: Canje de recompensa] @{username} ha canjeado "{reward_title}" con puntos de canal. Reacciona con emoción al canje y pregúntale qué tal le parece la recompensa.',
-  'livestream.metadata.updated': 'chat.message.sent. [EVENTO: Stream actualizado] Se cambió el título o categoría del stream. Nuevo título: "{title}". Reacciona al cambio brevemente.',
-  'kicks.gifted': 'chat.message.sent. [EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Es la moneda de la plataforma Kick. Agradécele su generosidad con entusiasmo.'
+  'channel.chatter.first': '[EVENTO: PRIMER MENSAJE] @{username} dice: "{content}". Es su primer mensaje del día. Haz un saludo corto y dale la bienvenida. Máximo dos oraciones.',
+  'channel.followed': '[EVENTO: Nuevo seguidor] @{username} acaba de seguir el canal en Kick. Dale una bienvenida cálida y agradécele.',
+  'channel.subscription.new': '[EVENTO: Nueva suscripción] @{username} acaba de suscribirse al canal por primera vez. Muéstrate emocionada y agradécele mucho.',
+  'channel.subscription.renewal': '[EVENTO: Renovación] @{username} ha renovado su suscripción mensual. Agradécele por seguir apoyando.',
+  'channel.subscription.gifts': '[EVENTO: Suscripciones regaladas] @{username} ha regalado suscripciones a la comunidad. Agradece su generosidad.',
+  'channel.reward.redemption.updated': '[EVENTO: Canje de recompensa] @{username} ha canjeado "{reward_title}" con puntos de canal. Reacciona con emoción.',
+  'livestream.metadata.updated': '[EVENTO: Stream actualizado] Se cambió el título o categoría. Nuevo título: "{title}". Reacciona al cambio brevemente.',
+  'kicks.gifted': '[EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Agradécele su generosidad con entusiasmo.'
 }
 
 let chatters = new Set()
@@ -100,6 +100,8 @@ function extractUsername(payload) {
     payload?.sender?.username ||
     payload?.user?.username ||
     payload?.redeemer?.username ||
+    payload?.subscriber?.username ||
+    payload?.follower?.username ||
     'unknown'
   )
 }
@@ -132,7 +134,7 @@ async function onChatMessage(data) {
   if (!prompt) prompt = DEFAULT_MINIPROMPTS['channel.chatter.first']
   prompt = prompt.replace(/\{username\}/g, username).replace(/\{content\}/g, content)
 
-  await vtuber.processMessage(username, prompt).catch(err => {
+  await vtuber.processMessage(username, prompt, true).catch(err => {
     console.error('[EVENT-ACTIONS] Error calling vtuber.processMessage:', err.message)
   })
 }
@@ -141,36 +143,29 @@ function createEventHandler(eventType) {
   return async (data) => {
     if (enabled[eventType] === false) return
     const { payload } = data
-    let username = ''
+    let username = extractUsername(payload)
     let extra = {}
 
     if (eventType === 'channel.reward.redemption.updated') {
-      username = payload?.redeemer?.username || 'unknown'
       extra.reward_title = payload?.reward?.title || 'Recompensa'
     } else if (eventType === 'livestream.metadata.updated') {
-      username = extractUsername(payload)
       extra.title = payload?.title || 'Stream'
-    } else if (eventType === 'channel.subscription.gifts') {
-      username = payload?.sender?.username || payload?.user?.username || 'unknown'
-    } else if (eventType === 'channel.followed') {
-      username = payload?.user?.username || 'unknown'
-    } else if (eventType === 'kicks.gifted') {
-      username = payload?.sender?.username || payload?.user?.username || 'unknown'
-    } else {
-      username = extractUsername(payload) || 'unknown'
     }
 
-    if (!username || username === 'unknown') return
+    if (!username || username === 'unknown') {
+      console.log(`[EVENT-ACTIONS] ${eventType}: username no detectado, payload keys:`, Object.keys(payload || {}))
+      return
+    }
 
     let prompt = miniprompts[eventType]
-    if (!prompt) prompt = DEFAULT_MINIPROMPTS[eventType] || `chat.message.sent. [EVENTO: ${eventType}] @${username}`
+    if (!prompt) prompt = DEFAULT_MINIPROMPTS[eventType] || `[EVENTO: ${eventType}] @${username}`
 
     prompt = prompt
       .replace(/\{username\}/g, username)
       .replace(/\{reward_title\}/g, extra.reward_title || '')
       .replace(/\{title\}/g, extra.title || '')
 
-    await vtuber.processMessage(username, prompt).catch(err => {
+    await vtuber.processMessage(username, prompt, true).catch(err => {
       console.error(`[EVENT-ACTIONS] Error calling vtuber.processMessage for ${eventType}:`, err.message)
     })
   }
