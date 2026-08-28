@@ -14,7 +14,8 @@ controla un modelo de VTube Studio (expresiones faciales, hotkeys, parámetros).
 | `vtube-client.js` | Cliente WebSocket VTube Studio |
 | `vtube-model.js` | Mapeo de modelos y parámetros VTube Studio |
 | `prompts/vtuber-system.es.md` | Prompt del sistema (personalidad) |
-| `vtuber-data.json` | API key + config persistente |
+| `vtuber-data.json` | API key + config persistente (no commitear) |
+| `vtuber-data.example.json` | Plantilla sin claves (commitear) |
 | `model_dict.json` | Diccionario de parámetros/modelos |
 
 ## Funcionamiento
@@ -41,6 +42,8 @@ vtuber.processMessage(usuario, 'texto o contexto', true)
 - `skipLog=true` evita loguear (útil para miniprompts internos sin ensuciar el historial).
 
 ## Configuración (`vtuber-data.json` + env)
+
+Copia `vtuber-data.example.json` como `vtuber-data.json` y rellena tus claves.
 
 | Variable | Default | Descripción |
 |---|---|---|
