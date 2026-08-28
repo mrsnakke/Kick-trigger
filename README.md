@@ -6,38 +6,51 @@
 
 Backend Node.js para conectar con la API de Kick: OAuth, webhooks, chat, suscripción a eventos y túnel Cloudflare. Incluye dashboard web en vivo y un sistema modular de triggers.
 
+> 📚 **Documentación completa:** empieza por [`docs/00-indice.md`](docs/00-indice.md).
+> Incluye puesta en marcha, arquitectura, guías para añadir/modificar módulos, y
+> referencias de endpoints, eventos y comandos.
+
+## Requisitos rápidos
+
+- Node.js ≥ 18
+- Windows (obligatorio para TTS via SAPI; opcional para el resto)
+- cloudflared (solo para recibir webhooks externos)
+
 ## Estructura
 
 ```
 kick-backend/
-├── lib/                       # Librerías base
+├── lib/                       # Librerías base (núcleo: NO tocar)
 │   ├── event-bus.js           # EventEmitter singleton (nervio central)
 │   ├── config.js              # .env parser + constantes
 │   ├── state.js               # Estado compartido mutable
 │   └── forwarder.js           # Reenvío HTTP de eventos a otras máquinas
 │
-├── modules/                   # Módulos funcionales del core
+├── modules/                   # Módulos del core (núcleo: NO tocar)
 │   ├── auth.js                # OAuth PKCE + token management
 │   ├── webhook.js             # Receptor webhook Kick + validación RSA
 │   ├── chat.js                # Enviar mensajes al chat de Kick
 │   ├── tunnel.js              # Cloudflare tunnel (gestión automática)
 │   ├── sse.js                 # SSE push al dashboard web
 │   ├── events.js              # Suscripción/desuscripción a eventos de Kick
-│   └── triggers/              # ★ Tus módulos de reacción aquí
+│   └── triggers/              # ★ Tus módulos de reacción (add/modify aquí)
 │       ├── TTS2/              # Text-to-Speech SAPI (PowerShell)
 │       ├── obs-actions/       # Control de OBS vía WebSocket
 │       ├── GACHA/             # Sistema de gacha (personajes, overlays)
-│       ├── vtuber-ai/         # Integración con VTuber AI + VTube Studio
+│       ├── vtuber-ai/         # IA conversacional (DeepSeek) + VTube Studio
 │       ├── Music/             # Control de reproductor YouTube
 │       ├── event-actions/     # Detección primer mensaje + miniprompts por evento
-│       └── chatbot/           # Comandos personalizados + timers automáticos
+│       ├── chatbot/           # Comandos personalizados + timers automáticos
+│       ├── strinova-app/      # Ruleta Strinova + overlay OBS
+│       └── "iA Vision"/       # Librería interna (screenshot + visión AI) usada por vtuber-ai
 │
 ├── server.js                  # Express setup + montaje de rutas
 ├── public/index.html          # Dashboard web (SSE, chat, TTS panel)
+├── docs/                      # Documentación (ver docs/00-indice.md)
 ├── .env                       # Configuración (KICK, CF, FORWARD_URL_*)
 ├── tokens.json                # Tokens OAuth persistidos
-├── iniciar.bat                # Lanzador Windows (consola)
-└── iniciar.vbs                # Lanzador silencioso (sin consola)
+├── iniciar.bat / iniciar.vbs  # Lanzadores de Windows
+└── setup-cloudflare.bat       # Setup del túnel Cloudflare
 ```
 
 ## Configuración inicial
@@ -74,88 +87,21 @@ node server.js
 
 Abrir `http://localhost:3000`, autorizar con Kick e iniciar el túnel.
 
-## API Endpoints
+## Documentación técnica
 
-| Ruta | Método | Descripción |
-|---|---|---|
-| `/auth/login` | GET | Inicia OAuth PKCE (redirect a Kick) |
-| `/auth/callback` | GET | Callback OAuth, recibe tokens |
-| `/webhook/kick` | GET/POST | GET=verificación, POST=eventos Kick (firmados) |
-| `/api/events` | GET | SSE — stream de eventos al dashboard |
-| `/api/status` | GET | Estado actual (auth, túnel, contadores) |
-| `/api/chat/send` | POST | Enviar mensaje al chat de Kick |
-| `/api/chat/send-bot` | POST | Enviar mensaje como bot |
-| `/api/events/subscriptions` | GET | Listar suscripciones activas |
-| `/api/events/subscribe` | POST | Suscribir a todos los eventos |
-| `/api/tunnel/start` | POST | Iniciar túnel Cloudflare |
-| `/api/tunnel/stop` | POST | Detener túnel |
-| `/api/tts/*` | varias | Configuración y control de TTS |
-| `/api/vtuber/*` | varias | Configuración de VTuber AI (incluye VTS) |
-| `/api/event-actions/*` | varias | Miniprompts, chatters, excepciones |
-| `/gacha/*` | varias | Sistema de gacha + overlays |
-| `/obs-actions/*` | varias | Panel de control de OBS |
-| `/music/*` | varias | Control de reproductor YouTube |
-| `/chatbot/*` | varias | Comandos personalizados y timers del chatbot |
-| `/api/shutdown` | POST | Detener servidor + túnel |
+La referencia completa ya no vive en este README para no duplicarse. Todo está en
+[`docs/`](docs/00-indice.md):
 
-## Event Bus
-
-`lib/event-bus.js` exporta un `EventEmitter` de Node.js. Es el sistema nervioso central. Cualquier módulo puede emitir/escuchar eventos. Los triggers se conectan al bus sin modificar el core.
-
-### Eventos de Kick (webhook entrante)
-
-| Evento | Datos | Cuándo ocurre |
-|---|---|---|
-| `chat.message.sent` | `{ payload, ts }` | Alguien escribe en el chat |
-| `channel.followed` | `{ payload, ts }` | Nuevo seguidor |
-| `channel.subscription.new` | `{ payload, ts }` | Nueva suscripción |
-| `channel.subscription.renewal` | `{ payload, ts }` | Renovación de suscripción |
-| `channel.subscription.gifts` | `{ payload, ts }` | Suscripciones regaladas |
-| `channel.reward.redemption.updated` | `{ payload, ts }` | Canje de puntos de canal |
-| `livestream.status.updated` | `{ payload, ts }` | Stream online/offline |
-| `livestream.metadata.updated` | `{ payload, ts }` | Cambio de título/categoría |
-| `moderation.banned` | `{ payload, ts }` | Usuario baneado |
-| `kicks.gifted` | `{ payload, ts }` | KICKs regalados |
-
-### Eventos internos
-
-| Evento | Datos | Cuándo ocurre |
-|---|---|---|
-| `auth:ready` | `{ slug }` | Auth completado exitosamente |
-| `auth:disconnected` | `{}` | Auth falló permanentemente (>3 intentos) |
-| `auth:token-refreshed` | `{}` | Token refrescado automáticamente |
-| `bot:token-refreshed` | `{}` | Token de bot refrescado |
-| `tunnel:open` | `{ url }` | Túnel Cloudflare abierto |
-| `tunnel:closed` | `{ exitCode, log }` | Túnel cerrado |
-| `tunnel:error` | `{ error }` | Error de túnel |
-| `chat:sent` | `{ content, message_id }` | Mensaje enviado al chat |
-| `tts2:speak` | `{ text, voice, origin }` | Solicitud de habla directa (desde VTuber AI) |
-| `tts:request_status` | — | Solicitar estado TTS (al conectar SSE) |
-| `tts:config_updated` | `{ config, bannedWords }` | Config TTS actualizada |
-| `tts:user_aliases_updated` | `{ userAliases }` | Alias de TTS actualizados |
-| `event-actions:status` | `{ chattersCount }` | Estado del módulo Event Actions |
-
-## Webhook — validación de firma
-
-Los webhooks de Kick incluyen firma RSA-SHA256. El módulo `webhook.js`:
-
-1. Verifica cabeceras: `kick-event-signature`, `kick-event-message-id`, `kick-event-message-timestamp`
-2. Valida timestamp (±5 min)
-3. Deduplica por `message-id` (ventana de 10 min)
-4. Verifica firma contra la clave pública de Kick (se refresca automáticamente)
-5. Emite el evento al bus y notifica al dashboard vía SSE
-
-## Suscripción a eventos
-
-`events.js` se suscribe automáticamente al abrirse el túnel. Un heartbeat cada 5 min verifica que las 10 suscripciones sigan activas y las repara si es necesario.
-
-## Heartbeat
-
-Cada 5 minutos `server.js` ejecuta:
-1. Refresca token si es necesario
-2. Reinicia el túnel si está caído
-3. Verifica que las 10 suscripciones a eventos estén activas
-4. Si hay menos de 10, re-subscribe todo
+| | |
+|---|---|
+| **Arquitectura** y flujo de datos | [`docs/arquitectura.md`](docs/arquitectura.md) |
+| **Endpoints HTTP** (todos los módulos) | [`docs/referencia/endpoints.md`](docs/referencia/endpoints.md) |
+| **Eventos del bus** (Kick + internos + por módulo) | [`docs/referencia/eventos.md`](docs/referencia/eventos.md) |
+| **Comandos de chat** (`!comando`) | [`docs/referencia/comandos.md`](docs/referencia/comandos.md) |
+| **Módulos** detallados (core y triggers) | [`docs/modulos/`](docs/modulos/) |
+| **Añadir un módulo nuevo** (paso a paso) | [`docs/guias/crear-modulo.md`](docs/guias/crear-modulo.md) |
+| **Modificar un módulo existente** | [`docs/guias/modificar-modulo.md`](docs/guias/modificar-modulo.md) |
+| **Reglas y estándares** | [`docs/estandares.md`](docs/estandares.md) |
 
 ## Túnel Cloudflare
 
@@ -277,146 +223,13 @@ Los rewards se crean desde el dashboard de Kick (no via API pública):
 
 ---
 
-## Comandos del chat (!comando)
+## Comandos del chat y guías
 
-### Cómo funciona
+- **[Lista completa de comandos `!comando`]** → [`docs/referencia/comandos.md`](docs/referencia/comandos.md)
+- **[Cómo añadir un módulo nuevo (paso a paso, patrones A/B/C)]** → [`docs/guias/crear-modulo.md`](docs/guias/crear-modulo.md)
+- **[Cómo modificar / extender un módulo existente]** → [`docs/guias/modificar-modulo.md`](docs/guias/modificar-modulo.md)
 
-Cuando alguien escribe en el chat, Kick envía un webhook `chat.message.sent`. El backend lo recibe, lo valida y lo emite al event bus. Los módulos escuchan este evento y filtran por comandos (mensajes que empiezan con `!`).
-
-### Lista completa de comandos
-
-| Módulo | Comando | Descripción | Permiso |
-|---|---|---|---|
-| **TTS** | `!sp &lt;texto&gt;` | Reproduce texto por SAPI con la voz principal | User |
-| | `!sp &lt;alias&gt; &lt;texto&gt;` | Reproduce con la voz del alias (ej: `!sp sabina hola`) | User |
-| | `!&lt;nombre_voz&gt;` | Asigna permanentemente esa voz al usuario (ej: `!sabina`) | User |
-| | `!voz` | Lista las voces disponibles (excluye Dalia) | User |
-| | `!bonk` | Lanza un bonk al streamer | User |
-| | `!bonks` | Lanza ráfaga de bonks | User |
-| **VTuber AI** | `!grim &lt;pregunta&gt;` | Grim responde con IA en chat y voz | User |
-| **Gacha** | `!daily` | Reclama 10 llaves diarias | User |
-| | `!pull` / `!single` / `!tirada` | Gasta 1 llave para tirar un personaje | User |
-| | `!multi` / `!x10` | Gasta 10 llaves para 10 tiradas | User |
-| | `!inventario` / `!inventory` / `!inv` | Muestra llaves, tiradas, pity y personajes en el chat | User |
-| | `!Sinv` | Muestra inventario como tarjeta en el overlay (view.html) | User |
-| | `!pj &lt;personaje&gt;` | Muestra la carta del personaje en el overlay (view.html) | User |
-| | `!lista` | Lista personajes disponibles 4★ y 5★ del banner + promocionales | User |
-| | `!top` | Top 3 coleccionistas con más personajes | User |
-| | `!trade &lt;tu_pj&gt; por &lt;su_pj&gt; @usuario` | Crea intercambio de 5★ | User |
-| | `!aceptar_trade` / `!accept_trade &lt;ID&gt;` | Acepta un trade | User |
-| | `!rechazar_trade` / `!reject_trade &lt;ID&gt;` | Cancela/rechaza un trade | User |
-| | `!keys @usuario &lt;cantidad&gt;` | Añade llaves a un usuario | Mod |
-| | `!givechar @usuario &lt;personaje&gt;` | Entrega personaje al inventario | Mod |
-| | `!takechar @usuario &lt;personaje&gt;` | Quita personaje del inventario | Mod |
-| | `!resetpity [@usuario] [4\|5]` | Resetea pity 4★ y/o 5★ | Mod |
-| | `!setprob &lt;rareza&gt; &lt;valor&gt;` | Ajusta probabilidad (ej: `5_star 0.006`) | Mod |
-| | `!setstock &lt;personaje&gt; &lt;stock&gt;` | Cambia stock de personaje 5★/6★ | Mod |
-| | `!banner &lt;standard\|seasonal&gt;` | Lista personajes del banner | Mod |
-| | `!seasonal add &lt;pj&gt; &lt;stock&gt;` | Añade personaje al banner seasonal | Mod |
-| | `!seasonal remove &lt;pj&gt;` | Quita personaje del banner seasonal | Mod |
-| | `!reload` | Recarga datos desde JSON | Mod |
-| | `!cleardata confirm` | BORRA todos los datos | Mod |
-| | `!gachaconfig` | Muestra probabilidades actuales | Mod |
-| | `!charinfo &lt;personaje&gt;` | Info del personaje (rareza, banner, stock) | Mod |
-| | `!announce &lt;mensaje&gt;` | Envía mensaje al chat como bot | Mod |
-| **Music** | `!song` | Muestra la canción actual | User |
-| | `!addsong &lt;nombre/URL&gt;` | Añade canción a la cola | User |
-| | `!skip` | Salta a la siguiente canción | User |
-| | `!stop` | Pausa/reanuda la reproducción | User |
-| | `!volume &lt;0-100&gt;` | Ajusta el volumen | User |
-| | `!like` | Da like a la canción actual | User |
-| **OBS-Actions** | Comandos dinámicos configurables desde el dashboard | — | Mod |
-| **Chatbot** | Comandos personalizados configurables desde el dashboard | — | User/Mod |
-
-### Embeber comandos en el dashboard
-
-Cada módulo expone sus comandos vía un endpoint `GET /api/commands` para que el dashboard los muestre en la pestaña **Comandos**. Ver `modules/triggers/GACHA/index.js:54` como ejemplo.
-
-> ⚠ **Importante**: Al añadir un nuevo comando en cualquier módulo, debe agregarse al endpoint `GET /api/commands` de ese módulo **y** también a la pestaña Comandos del dashboard (`public/index.html#tab-comandos`), ya sea hardcoded (TTS, VTuber, Music) o dinámico (Gacha).
-
----
-
-## Cómo agregar un nuevo módulo
-
-Hay **dos patrones** según la complejidad del módulo:
-
-### Patrón A — Simple (sin router, sin init)
-
-Un archivo único que escucha eventos del bus. Ideal para lógica simple.
-
-```js
-// modules/triggers/mi-modulo/index.js
-const eventBus = require('../../../lib/event-bus')
-
-eventBus.on('chat.message.sent', (data) => {
-  // tu lógica
-})
-
-console.log('[MI-MODULO] Cargado')
-```
-
-Luego en `server.js`:
-```js
-require('./modules/triggers/mi-modulo')
-```
-
-### Patrón B — Completo (con router Express + init)
-
-Un módulo con su propio router, estado, init asíncrono y persistencia. Ideal cuando necesitás API endpoints, UI web y configuración.
-
-```js
-// modules/triggers/mi-modulo/index.js
-const express = require('express')
-const eventBus = require('../../../lib/event-bus')
-const router = express.Router()
-
-// — Rutas API —
-router.get('/api/status', (req, res) => {
-  res.json({ ok: true })
-})
-
-// — Init (se llama desde server.js) —
-function init() {
-  eventBus.on('chat.message.sent', (data) => {
-    // tu lógica
-  })
-  console.log('[MI-MODULO] Inicializado')
-}
-
-module.exports = { router, init }
-```
-
-Luego en `server.js`:
-```js
-const miModulo = require('./modules/triggers/mi-modulo')
-// ...
-app.use('/mi-modulo', miModulo.router)
-miModulo.init()
-```
-
-### Patrón C — Completo + WebSocket
-
-Como el GACHA, que necesita WebSocket para overlays. Misma estructura que el patrón B pero además exporta `initWs(server)`.
-
-```js
-module.exports = { router, init, initWs }
-```
-
-```js
-// En server.js:
-gacha.initWs(server)  // antes de server.listen
-gacha.init().catch(...)
-app.use('/gacha', gacha.router)
-```
-
-### Checklist para agregar un nuevo módulo
-
-- [ ] Crear carpeta en `modules/triggers/`
-- [ ] Si tiene dependencias extra, `npm init` dentro y agregar `package.json`
-- [ ] Escuchar eventos del bus (`chat.message.sent`, `channel.reward.redemption.updated`, etc.)
-- [ ] Si tiene UI web, servir estáticos con `router.use(express.static(...))`
-- [ ] Si expone endpoints, usar un sub-path único (ej: `/mi-modulo/*`)
-- [ ] Exportar `{ router, init }` y enganchar en `server.js` (ver `server.js:96-102`)
-- [ ] NO modificar archivos del core (`lib/`, `modules/auth.js`, etc.) a menos que sea estrictamente necesario
-- [ ] Cada trigger es responsable de su propio try/catch
-- [ ] Los eventos pueden llegar duplicados (dedup window de 10 min) — asegurar idempotencia
+> ⚠ **Importante al añadir un comando nuevo:** debes reflejarlo también en la pestaña
+> "Comandos" del dashboard (`public/index.html#tab-comandos`), ya sea vía el endpoint
+> `GET /api/commands` del módulo (dinámico) o hardcoded. Detalle en
+> [`docs/estandares.md §9`](docs/estandares.md#9-añadir-un-comando-de-chat--no-olvides-el-dashboard).

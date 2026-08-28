@@ -895,3 +895,222 @@ Cache construction takes seconds. Once the cache is no longer in use, it will be
 
 ---
 
+A continuación tienes una guía completa en formato Markdown (`.md`) basada en la documentación oficial de **DeepSeek Vision API** (`https://api-docs.deepseek.com/guides/vision`):
+
+```markdown
+# Guía de la API de Visión de DeepSeek
+
+El modelo experimental multimodal **`deepseek-v4-flash-vision-exp`** permite enviar imágenes junto con texto para tareas como descripción de imágenes, extracción de texto/OCR de capturas de pantalla, análisis de gráficos, diagramas y flujos de trabajo de agentes visuales.
+
+---
+
+## 📌 Características Principales
+
+- **Identificador del modelo:** `deepseek-v4-flash-vision-exp`
+- **Formatos soportados:** `JPEG`, `PNG`, `GIF` y `WebP` *(el formato se detecta a partir del contenido real del archivo, no por su extensión o tipo MIME)*.
+- **Facturación / Consumo de tokens:** Máximo **384 tokens de entrada por imagen** (las imágenes grandes se escalan automáticamente a ~800x800 px).
+- **Compatibilidad de endpoints:**
+  - OpenAI Chat Completions (`/chat/completions`)
+  - OpenAI Responses API (`/responses`)
+  - Anthropic Messages API (`/anthropic/v1/messages`)
+
+---
+
+## 🚀 Formas de Enviar Imágenes
+
+Existen **3 métodos** para proporcionar imágenes al modelo:
+
+---
+
+### 1. Imagen en Base64 (Inline)
+Convierte el archivo local a formato Base64 y envíalo dentro de una URL de datos (`data:image/...;base64,...`).
+
+#### Python (SDK OpenAI)
+```python
+import base64
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="<TU_DEEPSEEK_API_KEY>",
+    base_url="https://api.deepseek.com"
+)
+
+# Codificar imagen local a base64
+with open("ejemplo.jpg", "rb") as f:
+    b64_image = base64.b64encode(f.read()).decode("utf-8")
+
+response = client.chat.completions.create(
+    model="deepseek-v4-flash-vision-exp",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "¿Qué hay en esta imagen y qué texto contiene?"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{b64_image}"
+                    },
+                },
+            ],
+        }
+    ],
+)
+
+print(response.choices[0].message.content)
+```
+
+#### cURL
+```bash
+curl https://api.deepseek.com/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TU_DEEPSEEK_API_KEY>" \
+  -d '{
+    "model": "deepseek-v4-flash-vision-exp",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "Describe esta imagen:"},
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/jpeg;base64,<BASE64_DATA>"
+            }
+          }
+        ]
+      }
+    ]
+  }'
+```
+
+---
+
+### 2. URL Externa Pública
+Proporciona un enlace `http(s)://` accesible públicamente a la imagen (máximo 8192 caracteres).
+
+```python
+response = client.chat.completions.create(
+    model="deepseek-v4-flash-vision-exp",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Analiza la tendencia de este gráfico:"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://ejemplo.com/grafico.png"
+                    },
+                },
+            ],
+        }
+    ],
+)
+```
+
+---
+
+### 3. Files API (Recomendado para reuso y archivos grandes)
+Sube la imagen una vez al endpoint `/files` y haz referencia a ella mediante su `file_id`. Esto reduce el ancho de banda y evita reenviar los mismos datos.
+
+#### Paso 1: Subir la imagen
+```bash
+curl https://api.deepseek.com/files \
+  -H "Authorization: Bearer <TU_DEEPSEEK_API_KEY>" \
+  -F "file=@imagen_pesada.png" \
+  -F "purpose=vision"
+```
+*Respuesta:* `{"id": "file-xyz123", ...}`
+
+#### Paso 2: Usar el `file_id` en la petición
+```python
+response = client.chat.completions.create(
+    model="deepseek-v4-flash-vision-exp",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Resume el contenido de este documento:"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "file-xyz123"
+                    },
+                },
+            ],
+        }
+    ],
+)
+```
+
+---
+
+## ⚙️ Parámetro de Detalle (`detail`)
+
+Puedes controlar el preprocesamiento y escalado de la imagen mediante la propiedad `detail` dentro del objeto `image_url`:
+
+| Nivel | Descripción |
+| :--- | :--- |
+| `auto` | Modo predeterminado. Ajusta la escala de forma balanceada. |
+| `low` | Escala a 512x512 px. Ideal para OCR rápido, baja latencia y ahorro de procesamiento. |
+| `high` / `original` | Conserva dimensiones de mayor fidelidad para detalles finos o diagramas complejos. |
+
+```json
+{
+  "type": "image_url",
+  "image_url": {
+    "url": "data:image/jpeg;base64,...",
+    "detail": "low"
+  }
+}
+```
+
+---
+
+## 🔄 Compatibilidad con Anthropic API
+
+DeepSeek también admite el formato del SDK de Anthropic usando la URL base `https://api.deepseek.com/anthropic`.
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(
+    api_key="<TU_DEEPSEEK_API_KEY>",
+    base_url="https://api.deepseek.com/anthropic"
+)
+
+message = client.messages.create(
+    model="deepseek-v4-flash-vision-exp",
+    max_tokens=1024,
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "¿Qué se observa en la imagen?"},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": "<BASE64_DATA>"
+                    }
+                }
+            ]
+        }
+    ]
+)
+```
+
+---
+
+## ⚠️ Límites y Restricciones
+
+| Parámetro | Límite / Regla |
+| :--- | :--- |
+| **Rol de mensaje** | Las imágenes **solo** se permiten en el rol `user` (no en `system` ni `assistant`). |
+| **Límite de imágenes por solicitud** | Hasta **600 imágenes** por petición. |
+| **Límite del cuerpo de solicitud (Base64 / URL)** | Máximo **48 MiB** por petición total; máx. **32 MiB** por imagen individual en Base64. |
+| **Límite con Files API** | Hasta **64 MiB** por archivo subido (máximo 200 MiB por lote). |
+| **Descarga de URL externa** | Tiempo de espera (*timeout*) máximo de 60 segundos; longitud de URL máx. 8192 caracteres. |
+```

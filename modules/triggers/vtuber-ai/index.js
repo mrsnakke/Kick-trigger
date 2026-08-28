@@ -88,12 +88,17 @@ function saveConfig() {
   }, null, 2), 'utf-8');
 }
 
+const VISION_HINT = /mira la pantalla|miren la pantalla|ves la pantalla|vean la pantalla|ves eso|ves esa|vean eso|que ves|que estas viendo|que está pasando|que esta pasando|screenshot|captura de pantalla|como me veo|como se ve mi modelo|mira el juego|mira como juego|mira como voy|mira la partida/i;
+
+const VISION_TAG = '\n\n[PERCEPCIÓN VISUAL: El usuario te pide explícitamente VER la pantalla. Usa la herramienta take_screenshot y responde en tu tono con lo que veas.]';
+
 function getSystemPrompt() {
   const base = loadSystemPrompt()
     .replace('{name}', cfg.VTUBER_NAME);
   const custom = cfg.SYSTEM_PROMPT_CUSTOM || '';
   const vts = cfg.VTS_PROMPT || '';
   return (base + (custom ? '\n\n' + custom : '') + (vts ? '\n\n' + vts : ''))
+    + '\n\nPERCEPCIÓN VISUAL: Tienes la capacidad de VER la pantalla del stream con la herramienta take_screenshot, pero úsala SOLO cuando el chat te lo pida explícitamente ("mira la pantalla", "ves eso", "qué está pasando en el juego", "cómo se ve mi modelo") o cuando sea estrictamente imprescindible para responder bien. En conversación normal NO la uses: responde con el modelo estándar con tus conocimientos y contexto, sin capturar la pantalla.'
     + '\n\nIMPORTANTE: Si no sabes la respuesta o necesitas información actualizada, usa la herramienta web_search para buscar en internet antes de responder. Si necesitas saber la fecha y hora actual, usa la herramienta get_current_time.';
 }
 
@@ -235,13 +240,17 @@ async function processMessage(username, content, skipLog = false) {
   console.log(`[VTUBER-AI] ${username}: ${content}`);
 
   const history = cfg.MEMORY_ENABLED ? await getConversation(username, cfg.MAX_HISTORY_TURNS) : [];
+  let userContent = `${username}: ${content}`;
+  if (VISION_HINT.test(content)) {
+    userContent += VISION_TAG;
+  }
   const messages = [
     { role: 'system', content: getSystemPrompt() },
     ...history.map(e => ({
       role: e.role,
       content: e.role === 'user' ? `${e.username}: ${e.content}` : e.content
     })),
-    { role: 'user', content: `${username}: ${content}` }
+    { role: 'user', content: userContent }
   ];
 
   if (cfg.MEMORY_ENABLED && !skipLog) await logMessage({ username, role: 'user', content });

@@ -1,4 +1,7 @@
 const OpenAI = require('openai');
+const vision = require('../iA Vision/server');
+
+const VISION_PROMPT = 'Actúas como los ojos de Grim, una VTuber tsundere transmitiendo en vivo en Kick. Describe en español, en presente y con estilo de narración en vivo, TODO lo relevante que ves en la pantalla: estado del juego si es gameplay, el modelo VTuber, textos del chat, overlays, menús, errores o momentos graciosos. Sé específico y factual: NO inventes nada que no esté realmente en la pantalla.';
 
 function createDeepSeekClient(apiKey, searchApiKey) {
   if (!apiKey) throw new Error('VTUBER_API_KEY no configurada');
@@ -49,6 +52,16 @@ function createDeepSeekClient(apiKey, searchApiKey) {
       }).format(now);
       return tijuana;
     }
+    if (toolCall.function.name === 'take_screenshot') {
+      try {
+        const { focus = '' } = JSON.parse(toolCall.function.arguments || '{}');
+        const prompt = VISION_PROMPT + (focus ? ` Contexto de lo que se pregunta o quiere verificar: ${focus}` : '');
+        const description = await vision.analyze(apiKey, prompt);
+        return `ESTO ES LO QUE VES AHORA EN PANTALLA:\n${description}`;
+      } catch (e) {
+        return `No pude capturar o analizar la pantalla: ${e.message}`;
+      }
+    }
     return `Función '${toolCall.function.name}' no disponible.`;
   }
 
@@ -89,6 +102,22 @@ function createDeepSeekClient(apiKey, searchApiKey) {
             parameters: {
               type: 'object',
               properties: {},
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'take_screenshot',
+            description: 'Toma un screenshot de la pantalla del stream y lo analiza, devolviéndote una descripción de lo que está pasando. Úsala SOLO cuando el chat te lo pida explícitamente ("mira la pantalla", "ves eso", "qué está pasando en el juego", "cómo se ve mi modelo") o cuando sea estrictamente necesario saber qué ocurre en pantalla para responder. NO la uses por defecto en mensajes normales: responde con el modelo estándar.',
+            parameters: {
+              type: 'object',
+              properties: {
+                focus: {
+                  type: 'string',
+                  description: 'Qué quieres ver o verificar en la pantalla. Opcional.',
+                },
+              },
             },
           },
         },
