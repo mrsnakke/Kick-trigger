@@ -38,6 +38,9 @@ Diseñada para que un desarrollador nuevo pueda ponerse al día en poco tiempo.
 - [Strinova — ruleta + overlay OBS](modulos/strinova.md)
 - [Event Actions — primer mensaje + miniprompts](modulos/event-actions.md)
 
+### Módulos complementarios
+- [Chat Widget — overlay de chat para OBS](modulos/chatwidget.md)
+
 ### Referencias consolidadas
 - [Eventos del bus (Kick + internos + de cada módulo)](referencia/eventos.md)
 - [Endpoints HTTP de todos los módulos](referencia/endpoints.md)

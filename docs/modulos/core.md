@@ -196,3 +196,7 @@ inicialización importante:
 Todos los endpoints HTTP registrados: [referencia/endpoints.md](../referencia/endpoints.md).
 
 WebSockets: `/ws/gacha` (GACHA) y `/ws/strinova` (Strinova).
+
+ChatWidget: overlay de chat para OBS (mismo estilo cyberpunk neon verde), se controla
+desde el dashboard y guarda su config en `data/chatwidget-config.json`.
+Detalles: [modulos/chatwidget.md](chatwidget.md).

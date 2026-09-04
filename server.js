@@ -1,6 +1,7 @@
 const express = require('express')
 const http = require('http')
 const path = require('path')
+const os = require('os')
 const config = require('./lib/config')
 const state = require('./lib/state')
 const auth = require('./modules/auth')
@@ -18,9 +19,24 @@ const obsActions = require('./modules/triggers/obs-actions')
 const music = require('./modules/triggers/Music')
 const chatbot = require('./modules/triggers/chatbot')
 const strinova = require('./modules/triggers/strinova-app')
+const sevenTv = require('./modules/7tv')
+const profile = require('./modules/profile')
+const chatwidgetConfig = require('./modules/chatwidget-config')
 
 const app = express()
 const server = http.createServer(app)
+
+function getLanIp() {
+  try {
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const n of list || []) {
+        if (n.family === 'IPv4' && !n.internal) return n.address
+      }
+    }
+  } catch {}
+  return null
+}
+state.lanIp = getLanIp()
 
 // -- Preservar raw body para validación webhook --
 app.use(express.json({
@@ -42,6 +58,15 @@ app.get('/api/events', sse.handle)
 
 // -- Chat --
 app.post('/api/chat/send', express.json(), chat.send)
+
+// -- 7TV & Profile --
+app.get('/api/7tv/:userId', sevenTv.handler)
+app.get('/api/profile/:username', profile.handler)
+
+// -- ChatWidget --
+app.use('/chatwidget', express.static(path.join(__dirname, 'public/chatwidget')))
+app.get('/api/chatwidget/config', chatwidgetConfig.handleGet)
+app.post('/api/chatwidget/config', express.json(), chatwidgetConfig.handlePost)
 
 // -- Chat como Bot --
 app.post('/api/chat/send-bot', express.json(), async (req, res) => {
@@ -71,7 +96,8 @@ app.get('/api/status', (req, res) => {
     broadcasterUserId: state.broadcasterUserId,
     channelSlug: state.channelSlug,
     eventsCounter: state.eventsCounter,
-    sseClients: state.sseClients.length
+    sseClients: state.sseClients.length,
+    lanIp: state.lanIp
   })
 })
 
@@ -176,6 +202,8 @@ async function heartbeat() {
 
 process.on('uncaughtException', err => console.error('[FATAL] uncaughtException:', err))
 process.on('unhandledRejection', err => console.error('[FATAL] unhandledRejection:', err))
+
+chatwidgetConfig.load()
 
 // -- Arranque --
 server.listen(config.PORT, async () => {

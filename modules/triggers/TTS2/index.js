@@ -71,6 +71,23 @@ $v.Speak('${text.replace(/'/g, "''")}')`
   return runPS(script, { timeout: 120000 })
 }
 
+function parseSegments(text) {
+  const parts = text.split(/(\*[^\s*]+)/)
+  return parts.filter(Boolean).map(p => {
+    if (p.startsWith('*')) return { text: p.slice(1), rate: -3 }
+    return { text: p, rate: 0 }
+  })
+}
+
+function speakSegmented(voiceIndex, outputIndex, segments) {
+  let lines = [`$v = New-Object -ComObject SAPI.SpVoice`, `$v.Voice = $v.GetVoices().Item(${voiceIndex})`, `$v.AudioOutput = $v.GetAudioOutputs().Item(${outputIndex})`]
+  for (const seg of segments) {
+    lines.push(`$v.Rate = ${seg.rate}`)
+    lines.push(`$v.Speak('${seg.text.replace(/'/g, "''")}')`)
+  }
+  return runPS(lines.join('\n'), { timeout: 120000 })
+}
+
 // ─── Queue ─────────────────────────────────────────────────
 let queue = []
 let processing = false
@@ -120,7 +137,7 @@ async function processQueue() {
   broadcastQueue()
   eventBus.emit('tts2:speak:start', { origin: item.origin, voiceAlias: item.voiceAlias, text: item.text })
   try {
-    await speakPS(item.voiceIndex, resolveOutput(item), item.text)
+    await speakSegmented(item.voiceIndex, resolveOutput(item), parseSegments(item.text))
   } catch (e) {
     console.error('[TTS2] Error speaking:', e.message)
   }
@@ -347,7 +364,7 @@ async function handleSpeakNow(req, res) {
   if (!text) return res.status(400).json({ error: 'text required' })
   const vi = resolve(voice ?? '1', tts2Config.voiceAliases)
   const oi = resolve(output ?? '0', tts2Config.outputAliases)
-  speakPS(vi, oi, text).catch(e => console.error('[TTS2] speak-now error:', e.message))
+  speakSegmented(vi, oi, parseSegments(text)).catch(e => console.error('[TTS2] speak-now error:', e.message))
   res.json({ ok: true })
 }
 

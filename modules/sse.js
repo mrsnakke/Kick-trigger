@@ -20,7 +20,8 @@ function handle(req, res) {
     botAuthenticated: !!state.botTokens,
     tunnelUrl: state.tunnelUrl,
     channelSlug: state.channelSlug,
-    eventsCounter: state.eventsCounter
+    eventsCounter: state.eventsCounter,
+    lanIp: state.lanIp
   })}\n\n`)
 
   res.write(`data: ${JSON.stringify({

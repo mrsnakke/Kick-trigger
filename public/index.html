@@ -158,6 +158,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="obs">OBS</button>
     <button class="tab-btn" data-tab="chatbot">Chatbot</button>
     <button class="tab-btn" data-tab="event-actions">Event Actions</button>
+    <button class="tab-btn" data-tab="chatwidget">Chat Widget</button>
     <button class="tab-btn" data-tab="strinova">Strinova</button>
   </div>
 </header>
@@ -512,6 +513,392 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
 
 <div id="tab-chatbot" class="tab-content hidden">
   <iframe src="/chatbot/" style="width:100%;border:none;background:#0d1117;flex:1" title="Chatbot"></iframe>
+</div>
+
+<div id="tab-chatwidget" class="tab-content hidden">
+  <style>
+    #tab-chatwidget { overflow: hidden; }
+    .cw { padding:16px; display:flex; gap:16px; flex:1; overflow:hidden; }
+    .cw-left { flex:1 1 0; display:grid; grid-template-columns:1fr 1fr; gap:12px; overflow-y:auto; padding-right:6px; }
+    .cw-right { flex:0 0 320px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+    .cw-card { background:#161b22; border:1px solid #30363d; border-radius:8px; overflow:hidden; }
+    .cw-card summary { padding:10px 14px; cursor:pointer; font-weight:600; color:#c9d1d9; font-size:13px; user-select:none; list-style:none; display:flex; align-items:center; gap:8px; }
+    .cw-card summary::-webkit-details-marker{display:none}
+    .cw-card summary::after{content:'▸'; margin-left:auto; color:#484f58; }
+    .cw-card[open] summary::after{content:'▾'}
+    .cw-body { padding:12px 14px; border-top:1px solid #30363d; display:flex; flex-direction:column; gap:10px; }
+    .cw-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .cw-field { display:flex; flex-direction:column; gap:4px; }
+    .cw-field.full { grid-column:1 / -1; }
+    .cw-label { color:#8b949e; font-size:11px; font-weight:600; }
+    .cw-input, .cw-select { padding:6px 8px; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#c9d1d9; font-size:12px; }
+    .cw-input:focus, .cw-select:focus { outline:none; border-color:#53fc18; }
+    .cw-check { display:flex; align-items:center; gap:6px; color:#c9d1d9; font-size:12px; }
+    .cw-check input { width:15px; height:15px; accent-color:#53fc18; }
+    input[type=color].cw-input { padding:1px; height:30px; }
+    input[type=range].cw-input { padding:0; }
+    .cw-titlebar { display:flex; align-items:center; gap:10px; flex-shrink:0; background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px 14px; grid-column:1/-1; }
+    .cw-titlebar h2 { font-size:15px; color:#53fc18; font-weight:700; }
+    .cw-btns { margin-left:auto; display:flex; gap:8px; }
+    .cw-sim { margin-left:auto; padding:2px 8px; font-size:11px; background:#21262d; border:1px solid #30363d; color:#8b949e; border-radius:4px; cursor:pointer; }
+    .cw-sim:hover { color:#c9d1d9; border-color:#58a6ff; }
+  </style>
+
+  <div class="cw">
+    <!-- LEFT: controls -->
+    <div class="cw-left">
+      <div class="cw-titlebar">
+        <span style="font-size:22px">💬</span>
+        <div style="line-height:1.2">
+          <h2>Chat Widget para OBS</h2>
+          <div style="font-size:11px;color:#8b949e">Control del overlay — se aplica en vivo a la preview</div>
+        </div>
+        <div class="cw-btns">
+          <button class="btn btn-primary" onclick="cwSave()">💾 Guardar</button>
+          <button class="btn" onclick="cwReset()">↺ Restablecer</button>
+        </div>
+      </div>
+
+      <!-- TEMA -->
+      <details class="cw-card" open>
+        <summary>🎨 Tema</summary>
+        <div class="cw-body">
+          <div class="cw-field full">
+            <label class="cw-label">Preset de tema</label>
+            <select class="cw-select" id="cw-presetTheme" onchange="cwApplyTheme()"></select>
+          </div>
+          <div class="cw-field full">
+            <label class="cw-label">Color de fondo</label>
+            <input type="color" class="cw-input" id="cw-backgroundColor" onchange="cwUpdate()">
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Opacidad fondo %</label><input type="range" class="cw-input" id="cw-backgroundOpacity" min="0" max="100" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Radio del borde</label><input type="number" class="cw-input" id="cw-borderRadius" min="0" max="60" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Color del borde</label><input type="color" class="cw-input" id="cw-borderColor" onchange="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Opacidad borde %</label><input type="range" class="cw-input" id="cw-borderOpacity" min="0" max="100" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Ancho borde</label><input type="number" class="cw-input" id="cw-borderWidth" min="0" max="5" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Ancho del chat px</label><input type="number" class="cw-input" id="cw-chatWidth" min="200" max="900" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-check"><input type="checkbox" id="cw-backdropBlur" onchange="cwUpdate()"><label for="cw-backdropBlur">Desenfoque de fondo (glass)</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-bubbleShadow" onchange="cwUpdate()"><label for="cw-bubbleShadow">Sombra de burbuja</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-accentGlow" onchange="cwUpdate()"><label for="cw-accentGlow">Glow de acento</label></div>
+        </div>
+      </details>
+
+      <!-- LAYOUT -->
+      <details class="cw-card" open>
+        <summary>🧱 Layout</summary>
+        <div class="cw-body">
+          <div class="cw-field full">
+            <label class="cw-label">Modo de layout</label>
+            <select class="cw-select" id="cw-layoutMode" onchange="cwUpdate()">
+              <option value="alternating">Alternando (zig-zag)</option>
+              <option value="left">Izquierda</option>
+              <option value="right">Derecha</option>
+            </select>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Dirección</label>
+              <select class="cw-select" id="cw-chatDirection" onchange="cwUpdate()">
+                <option value="up">Hacia arriba</option>
+                <option value="down">Hacia abajo</option>
+              </select>
+            </div>
+            <div class="cw-field"><label class="cw-label">Max mensajes</label><input type="number" class="cw-input" id="cw-maxMessages" min="2" max="50" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Espaciado px</label><input type="number" class="cw-input" id="cw-messageSpacing" min="0" max="40" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Padding burbuja</label>
+              <select class="cw-select" id="cw-bubblePadding" onchange="cwUpdate()">
+                <option value="compact">Compacto</option>
+                <option value="normal">Normal</option>
+                <option value="spacious">Espacioso</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- AVATAR & GLOW -->
+      <details class="cw-card">
+        <summary>👤 Avatar & Glow</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-showAvatar" onchange="cwUpdate()"><label for="cw-showAvatar">Mostrar avatar</label></div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Forma</label>
+              <select class="cw-select" id="cw-avatarShape" onchange="cwUpdate()">
+                <option value="circle">Círculo</option>
+                <option value="squircle">Squircle</option>
+                <option value="hexagon">Hexágono</option>
+                <option value="rounded">Redondeado</option>
+                <option value="square">Cuadrado</option>
+              </select>
+            </div>
+            <div class="cw-field"><label class="cw-label">Tamaño</label><input type="number" class="cw-input" id="cw-avatarSize" min="24" max="100" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Glow</label>
+              <select class="cw-select" id="cw-glowStyle" onchange="cwUpdate()">
+                <option value="neon_pink">Neon Rosa</option>
+                <option value="cyber_cyan">Cyber Cian</option>
+                <option value="neon_purple">Neon Púrpura</option>
+                <option value="kick_green">Kick Verde</option>
+                <option value="gold_vip">Oro VIP</option>
+                <option value="rainbow_rgb">Arcoíris</option>
+                <option value="match_user">Color del usuario</option>
+                <option value="custom">Personalizado</option>
+                <option value="none">Ninguno</option>
+              </select>
+            </div>
+            <div class="cw-field"><label class="cw-label">Intensidad</label>
+              <select class="cw-select" id="cw-glowIntensity" onchange="cwUpdate()">
+                <option value="soft">Suave</option>
+                <option value="medium">Media</option>
+                <option value="vibrant">Vibrante</option>
+                <option value="pulse">Pulso</option>
+              </select>
+            </div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Color custom glow</label><input type="color" class="cw-input" id="cw-glowCustomColor" onchange="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Grosor borde avatar</label><input type="number" class="cw-input" id="cw-avatarBorderWidth" min="0" max="5" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-field">
+            <label class="cw-label">Avatar por defecto</label>
+            <select class="cw-select" id="cw-avatarDefaultType" onchange="cwUpdate()">
+              <option value="bottts">bottts</option>
+              <option value="adventurer">adventurer</option>
+              <option value="avataaars">avataaars</option>
+              <option value="identicon">identicon</option>
+            </select>
+          </div>
+          <div class="cw-check"><input type="checkbox" id="cw-avatarOverlap" onchange="cwUpdate()"><label for="cw-avatarOverlap">Solapar sobre la burbuja</label></div>
+        </div>
+      </details>
+
+      <!-- TIPOGRAFÍA -->
+      <details class="cw-card">
+        <summary>✍️ Tipografía</summary>
+        <div class="cw-body">
+          <div class="cw-field full"><label class="cw-label">Fuente</label>
+            <select class="cw-select" id="cw-fontFamily" onchange="cwUpdate()">
+              <option value="Poppins">Poppins</option>
+              <option value="Fredoka">Fredoka</option>
+              <option value="Outfit">Outfit</option>
+              <option value="Nunito">Nunito</option>
+              <option value="Inter">Inter</option>
+              <option value="Press Start 2P">Press Start 2P</option>
+            </select>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Texto mensaje</label><input type="number" class="cw-input" id="cw-fontSize" min="10" max="30" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Usuario</label><input type="number" class="cw-input" id="cw-usernameSize" min="10" max="30" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Color texto</label><input type="color" class="cw-input" id="cw-messageTextColor" onchange="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Color usuario (custom)</label><input type="color" class="cw-input" id="cw-defaultUsernameColor" onchange="cwUpdate()"></div>
+          </div>
+          <div class="cw-check"><input type="checkbox" id="cw-textContrastOutline" onchange="cwUpdate()"><label for="cw-textContrastOutline">Contorno de contraste (sombra)</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-customUsernameColor" onchange="cwUpdate()"><label for="cw-customUsernameColor">Forzar color de usuario custom</label></div>
+        </div>
+      </details>
+
+      <!-- ANIMACIONES -->
+      <details class="cw-card">
+        <summary>🎬 Animaciones</summary>
+        <div class="cw-body">
+          <div class="cw-field full"><label class="cw-label">Entrada</label>
+            <select class="cw-select" id="cw-entryAnimation" onchange="cwUpdate()">
+              <option value="spring_pop">Spring Pop</option>
+              <option value="slide_in">Slide In</option>
+              <option value="neon_flash">Neon Flash</option>
+              <option value="float_up">Float Up</option>
+              <option value="elastic_zoom">Elastic Zoom</option>
+              <option value="bounce_in">Bounce In</option>
+              <option value="flip_3d">Flip 3D</option>
+            </select>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Velocidad (s)</label><input type="number" class="cw-input" id="cw-animationSpeed" step="0.01" min="0.1" max="1.5" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Salida</label>
+              <select class="cw-select" id="cw-exitAnimation" onchange="cwUpdate()">
+                <option value="fade">Fade</option>
+                <option value="slide_out">Slide Out</option>
+                <option value="shrink">Shrink</option>
+              </select>
+            </div>
+          </div>
+          <div class="cw-check"><input type="checkbox" id="cw-autoHide" onchange="cwUpdate()"><label for="cw-autoHide">Auto-ocultar mensajes</label></div>
+          <div class="cw-field full"><label class="cw-label">Duración auto-ocultar (s)</label><input type="number" class="cw-input" id="cw-autoHideDuration" min="3" max="60" oninput="cwUpdate()"></div>
+        </div>
+      </details>
+
+      <!-- EMOTES -->
+      <details class="cw-card">
+        <summary>😀 Emotes</summary>
+        <div class="cw-body">
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Tamaño</label>
+              <select class="cw-select" id="cw-seventvEmoteSize" onchange="cwUpdate()">
+                <option value="small">Pequeño</option>
+                <option value="medium">Medio</option>
+                <option value="large">Grande</option>
+                <option value="xlarge">XL</option>
+              </select>
+            </div>
+            <div class="cw-field"><label class="cw-label">Custom px</label><input type="number" class="cw-input" id="cw-emoteCustomSize" min="0" max="80" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-field full"><label class="cw-label">Hover</label>
+            <select class="cw-select" id="cw-emoteHoverAnim" onchange="cwUpdate()">
+              <option value="bounce">Bounce</option>
+              <option value="spin">Spin</option>
+              <option value="pulse">Pulse</option>
+              <option value="wiggle">Wiggle</option>
+              <option value="none">Ninguno</option>
+            </select>
+          </div>
+          <div class="cw-check"><input type="checkbox" id="cw-emoteBounce" onchange="cwUpdate()"><label for="cw-emoteBounce">Animación de emotes</label></div>
+        </div>
+      </details>
+
+      <!-- ALEJA/FÍSICA -->
+      <details class="cw-card">
+        <summary>🧨 Física de Emotes</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-emotePhysicsEnabled" onchange="cwUpdate()"><label for="cw-emotePhysicsEnabled">Habilitar física</label></div>
+          <div class="cw-field full"><label class="cw-label">Modo</label>
+            <select class="cw-select" id="cw-emotePhysicsMode" onchange="cwUpdate()">
+              <option value="bounce">Bounce</option>
+              <option value="rain">Lluvia</option>
+              <option value="fireworks">Fuegos artificiales</option>
+            </select>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Gravedad</label><input type="number" class="cw-input" id="cw-emotePhysicsGravity" step="0.1" min="0" max="2" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Cantidad</label><input type="number" class="cw-input" id="cw-emotePhysicsCount" min="1" max="20" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-field full"><label class="cw-label">Tamaño px</label><input type="number" class="cw-input" id="cw-emotePhysicsSize" min="20" max="100" oninput="cwUpdate()"></div>
+        </div>
+      </details>
+
+      <!-- ALERTAS -->
+      <details class="cw-card">
+        <summary>🔔 Alertas</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-alertsEnabled" onchange="cwUpdate()"><label for="cw-alertsEnabled">Habilitar alertas</label></div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Estilo</label>
+              <select class="cw-select" id="cw-alertStyle" onchange="cwUpdate()">
+                <option value="kick_green">Kick Verde</option>
+                <option value="cyber_neon">Cyber Neon</option>
+                <option value="gold_luxury">Oro Lujo</option>
+                <option value="minimal">Minimal</option>
+              </select>
+            </div>
+            <div class="cw-field"><label class="cw-label">Posición</label>
+              <select class="cw-select" id="cw-alertPosition" onchange="cwUpdate()">
+                <option value="bottom">Abajo</option>
+                <option value="top">Arriba</option>
+              </select>
+            </div>
+          </div>
+          <div class="cw-field full"><label class="cw-label">Duración (s)</label><input type="number" class="cw-input" id="cw-alertDuration" min="2" max="20" oninput="cwUpdate()"></div>
+          <div class="cw-check"><input type="checkbox" id="cw-alertSubscriptions" onchange="cwUpdate()"><label for="cw-alertSubscriptions">Suscripciones</label><button class="cw-sim" onclick="cwSimulateAlert('subscription')" title="Simular alerta de suscripción">▶ Simular</button></div>
+          <div class="cw-check"><input type="checkbox" id="cw-alertGiftedSubs" onchange="cwUpdate()"><label for="cw-alertGiftedSubs">Subs regaladas</label><button class="cw-sim" onclick="cwSimulateAlert('gifted_sub')" title="Simular alerta de subs regaladas">▶ Simular</button></div>
+          <div class="cw-check"><input type="checkbox" id="cw-alertFollowers" onchange="cwUpdate()"><label for="cw-alertFollowers">Seguidores</label><button class="cw-sim" onclick="cwSimulateAlert('follower')" title="Simular alerta de seguidor">▶ Simular</button></div>
+          <div class="cw-check"><input type="checkbox" id="cw-alertRaids" onchange="cwUpdate()"><label for="cw-alertRaids">Raids</label><button class="cw-sim" onclick="cwSimulateAlert('raid')" title="Simular alerta de raid">▶ Simular</button></div>
+          <div class="cw-check"><input type="checkbox" id="cw-alertKickGifts" onchange="cwUpdate()"><label for="cw-alertKickGifts">Kicks regalados</label><button class="cw-sim" onclick="cwSimulateAlert('kick_gift')" title="Simular alerta de Kicks">▶ Simular</button></div>
+          <div class="cw-field full"><label class="cw-label">Volumen alerta %</label><input type="range" class="cw-input" id="cw-alertSoundVolume" min="0" max="100" oninput="cwUpdate()"></div>
+          <div class="cw-check"><input type="checkbox" id="cw-alertSound" onchange="cwUpdate()"><label for="cw-alertSound">Sonido de alertas</label></div>
+        </div>
+      </details>
+
+      <!-- AUDIO -->
+      <details class="cw-card">
+        <summary>🔊 Audio de mensajes</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-soundEnabled" onchange="cwUpdate()"><label for="cw-soundEnabled">Sonido de mensajes</label></div>
+          <div class="cw-field full"><label class="cw-label">Tipo</label>
+            <select class="cw-select" id="cw-soundType" onchange="cwUpdate()">
+              <option value="bubble">Bubble</option>
+              <option value="pop">Pop</option>
+              <option value="chime">Chime</option>
+              <option value="arcade">Arcade</option>
+              <option value="click">Click</option>
+              <option value="mute">Silencio</option>
+            </select>
+          </div>
+          <div class="cw-field full"><label class="cw-label">Volumen %</label><input type="range" class="cw-input" id="cw-soundVolume" min="0" max="100" oninput="cwUpdate()"></div>
+        </div>
+      </details>
+
+      <!-- BADGES -->
+      <details class="cw-card">
+        <summary>🎖️ Badges & Extra</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-showBadges" onchange="cwUpdate()"><label for="cw-showBadges">Mostrar badges</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-showTimestamp" onchange="cwUpdate()"><label for="cw-showTimestamp">Mostrar hora</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-hideStreamerMessages" onchange="cwUpdate()"><label for="cw-hideStreamerMessages">Ocultar mensajes del streamer</label></div>
+        </div>
+      </details>
+
+      <!-- BOTS -->
+      <details class="cw-card">
+        <summary>🤖 Exclusión de bots</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-botExclusionEnabled" onchange="cwUpdate()"><label for="cw-botExclusionEnabled">Habilitar</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-ignoreBotPrefixes" onchange="cwUpdate()"><label for="cw-ignoreBotPrefixes">Ignorar prefijos de comandos</label></div>
+          <div class="cw-field full"><label class="cw-label">Lista de bots (separados por coma)</label><input type="text" class="cw-input" id="cw-ignoredBots" oninput="cwUpdate()"></div>
+        </div>
+      </details>
+
+      <!-- 7TV -->
+      <details class="cw-card">
+        <summary>🔥 7TV Emotes</summary>
+        <div class="cw-body">
+          <div class="cw-check"><input type="checkbox" id="cw-seventvEnabled" onchange="cwUpdate()"><label for="cw-seventvEnabled">Habilitar 7TV</label></div>
+          <div class="cw-field full"><label class="cw-label">7TV User ID</label><input type="text" class="cw-input" id="cw-seventvUserId" oninput="cwUpdate()"></div>
+          <div class="cw-field full"><label class="cw-label">Emote Set ID</label><input type="text" class="cw-input" id="cw-seventvEmoteSetId" oninput="cwUpdate()"></div>
+          <div class="cw-check"><input type="checkbox" id="cw-seventvIncludeGlobal" onchange="cwUpdate()"><label for="cw-seventvIncludeGlobal">Incluir emotes globales</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-seventvZeroWidth" onchange="cwUpdate()"><label for="cw-seventvZeroWidth">Emotes zero-width</label></div>
+        </div>
+      </details>
+    </div>
+
+    <!-- RIGHT: URL + preview -->
+    <div class="cw-right">
+      <div class="cw-card" style="padding:14px">
+        <label class="cw-label" style="display:block;margin-bottom:6px">URL para OBS Browser Source</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="cw-url" readonly style="flex:1;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#53fc18;font-family:monospace;font-size:12px">
+          <button class="btn btn-primary" onclick="cwCopy()" id="cw-copy-btn">📋 Copiar</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <input type="checkbox" id="cw-obs" style="width:15px;height:15px;accent-color:#53fc18" onchange="cwUpdateUrl()">
+          <label for="cw-obs" style="color:#c9d1d9;font-size:12px;cursor:pointer">Fondo sólido (no transparente)</label>
+        </div>
+      </div>
+
+      <div class="cw-card" style="padding:14px;flex:1;display:flex;flex-direction:column">
+        <label class="cw-label" style="display:block;margin-bottom:8px">Vista previa (en vivo)</label>
+        <iframe id="cw-preview" style="flex:1;border:1px solid #30363d;border-radius:6px;background:#0d1117;min-height:280px" title="Chat Widget Preview"></iframe>
+      </div>
+
+      <div class="cw-card" style="padding:14px">
+        <label class="cw-label" style="display:block;margin-bottom:8px">Cómo usar en OBS</label>
+        <ol style="margin-left:18px;display:flex;flex-direction:column;gap:3px;font-size:12px;color:#8b949e;line-height:1.6">
+          <li>Copia la URL de arriba</li>
+          <li>En OBS → <strong style="color:#c9d1d9">Fuentes → + → Navegador</strong></li>
+          <li>Pega la URL, pon ancho/alto (ej: 450×700)</li>
+          <li>La config se aplica en vivo desde esta pestaña sin recargar</li>
+        </ol>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="tab-strinova" class="tab-content hidden">
@@ -1599,6 +1986,7 @@ function switchTtsTab(tabId) {
 
 // -- Status --
 function updateStatus(d) {
+  if (d.lanIp && d.lanIp !== cwLanIp) { cwLanIp = d.lanIp; cwUpdateUrl(); }
   if (d.authenticated !== undefined) {
     if (d.authenticated) {
       setBadge('badge-auth', 'badge-ok', `● Streamer: ${d.channelSlug || 'OK'}`);
@@ -1636,6 +2024,149 @@ function setBadge(id, cls, text) {
   el.className = 'badge ' + cls;
   el.textContent = text;
 }
+
+// -- ChatWidget --
+let cwCfg = {};
+let cwThemes = {};
+let cwDefaults = {};
+let cwPreviewWin = null;
+let cwLanIp = null;
+
+// field key -> DOM id map
+const CW_FIELDS = {
+  presetTheme:'cw-presetTheme', backgroundColor:'cw-backgroundColor', backgroundOpacity:'cw-backgroundOpacity',
+  borderRadius:'cw-borderRadius', borderColor:'cw-borderColor', borderOpacity:'cw-borderOpacity',
+  borderWidth:'cw-borderWidth', chatWidth:'cw-chatWidth', backdropBlur:'cw-backdropBlur',
+  bubbleShadow:'cw-bubbleShadow', accentGlow:'cw-accentGlow', layoutMode:'cw-layoutMode',
+  chatDirection:'cw-chatDirection', maxMessages:'cw-maxMessages', messageSpacing:'cw-messageSpacing',
+  bubblePadding:'cw-bubblePadding', showAvatar:'cw-showAvatar', avatarShape:'cw-avatarShape',
+  avatarSize:'cw-avatarSize', glowStyle:'cw-glowStyle', glowIntensity:'cw-glowIntensity',
+  glowCustomColor:'cw-glowCustomColor', avatarBorderWidth:'cw-avatarBorderWidth',
+  avatarDefaultType:'cw-avatarDefaultType', avatarOverlap:'cw-avatarOverlap', fontFamily:'cw-fontFamily',
+  fontSize:'cw-fontSize', usernameSize:'cw-usernameSize', messageTextColor:'cw-messageTextColor',
+  defaultUsernameColor:'cw-defaultUsernameColor', textContrastOutline:'cw-textContrastOutline',
+  customUsernameColor:'cw-customUsernameColor', entryAnimation:'cw-entryAnimation',
+  animationSpeed:'cw-animationSpeed', exitAnimation:'cw-exitAnimation', autoHide:'cw-autoHide',
+  autoHideDuration:'cw-autoHideDuration', seventvEmoteSize:'cw-seventvEmoteSize',
+  emoteCustomSize:'cw-emoteCustomSize', emoteHoverAnim:'cw-emoteHoverAnim', emoteBounce:'cw-emoteBounce',
+  emotePhysicsEnabled:'cw-emotePhysicsEnabled', emotePhysicsMode:'cw-emotePhysicsMode',
+  emotePhysicsGravity:'cw-emotePhysicsGravity', emotePhysicsCount:'cw-emotePhysicsCount',
+  emotePhysicsSize:'cw-emotePhysicsSize', alertsEnabled:'cw-alertsEnabled', alertStyle:'cw-alertStyle',
+  alertPosition:'cw-alertPosition', alertDuration:'cw-alertDuration', alertSubscriptions:'cw-alertSubscriptions',
+  alertGiftedSubs:'cw-alertGiftedSubs', alertFollowers:'cw-alertFollowers', alertRaids:'cw-alertRaids',
+  alertKickGifts:'cw-alertKickGifts', alertSoundVolume:'cw-alertSoundVolume', alertSound:'cw-alertSound',
+  soundEnabled:'cw-soundEnabled', soundType:'cw-soundType', soundVolume:'cw-soundVolume',
+  showBadges:'cw-showBadges', showTimestamp:'cw-showTimestamp', hideStreamerMessages:'cw-hideStreamerMessages',
+  botExclusionEnabled:'cw-botExclusionEnabled', ignoreBotPrefixes:'cw-ignoreBotPrefixes',
+  ignoredBots:'cw-ignoredBots', seventvEnabled:'cw-seventvEnabled', seventvUserId:'cw-seventvUserId',
+  seventvEmoteSetId:'cw-seventvEmoteSetId', seventvIncludeGlobal:'cw-seventvIncludeGlobal',
+  seventvZeroWidth:'cw-seventvZeroWidth'
+};
+
+function cwFillFromConfig(cfg) {
+  for (const key in CW_FIELDS) {
+    const el = document.getElementById(CW_FIELDS[key]);
+    if (!el || cfg[key] === undefined) continue;
+    if (el.type === 'checkbox') el.checked = !!cfg[key];
+    else el.value = cfg[key];
+  }
+  // ignoredBots array -> comma string
+  const ib = document.getElementById('cw-ignoredBots');
+  if (ib && Array.isArray(cfg.ignoredBots)) ib.value = cfg.ignoredBots.join(', ');
+}
+
+function cwCollect() {
+  const cfg = {};
+  for (const key in CW_FIELDS) {
+    const el = document.getElementById(CW_FIELDS[key]);
+    if (!el) continue;
+    if (el.type === 'checkbox') cfg[key] = el.checked;
+    else if (el.type === 'number') cfg[key] = parseFloat(el.value) || 0;
+    else cfg[key] = el.value;
+  }
+  // ignoredBots -> array
+  const ib = document.getElementById('cw-ignoredBots').value.split(',').map(s=>s.trim()).filter(Boolean);
+  cfg.ignoredBots = ib;
+  return cfg;
+}
+
+function cwUpdateUrl() {
+  const obs = document.getElementById('cw-obs').checked;
+  // en LAN usar la IP del servidor, no localhost, para abrirlo desde otra PC
+  const host = cwLanIp || location.hostname || 'localhost';
+  let url = `http://${host}:${location.port}/chatwidget`;
+  if (obs) url += '?obs=true';
+  document.getElementById('cw-url').value = url;
+  // keep iframe if not set yet
+  const f = document.getElementById('cw-preview');
+  if (!f.src || !f.src.length) f.src = url;
+}
+
+async function cwInit() {
+  try {
+    const r = await fetch('/api/chatwidget/config');
+    if (r.ok) {
+      const d = await r.json();
+      cwCfg = d.config || {}; cwThemes = d.themes || {}; cwDefaults = d.defaults || {};
+    }
+  } catch (e) {}
+  // theme select
+  const sel = document.getElementById('cw-presetTheme');
+  sel.innerHTML = '';
+  for (const t in cwThemes) sel.innerHTML += `<option value="${t}">${t.replace(/_/g,' ')}</option>`;
+  cwFillFromConfig(cwCfg);
+  cwUpdateUrl();
+  cwLoadPreview();
+  cwPush();
+}
+
+function cwApplyTheme() {
+  const t = document.getElementById('cw-presetTheme').value;
+  const theme = cwThemes[t];
+  if (!theme) return;
+  cwFillFromConfig(Object.assign({}, cwCfg, theme));
+  cwPush();
+}
+
+function cwLoadPreview() {
+  const f = document.getElementById('cw-preview');
+  const obs = document.getElementById('cw-obs').checked;
+  let url = location.origin + '/chatwidget' + (obs ? '?obs=true' : '');
+  f.src = url;
+  f.onload = () => { cwPreviewWin = f.contentWindow; cwPush(); };
+}
+
+function cwPush() {
+  if (!cwPreviewWin) return;
+  const cfg = Object.assign({}, cwCfg, cwCollect());
+  cwPreviewWin.postMessage({ type:'chatwidget-config', config: cfg }, location.origin);
+}
+
+function cwUpdate() { cwPush(); }
+function cwSimulateAlert(type) {
+  cwPush();
+  if (cwPreviewWin) cwPreviewWin.postMessage({ type:'chatwidget-alert', alertType: type }, location.origin);
+}
+function cwSave() {
+  const cfg = Object.assign({}, cwCfg, cwCollect());
+  fetch('/api/chatwidget/config', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg)
+  }).then(r=>r.json()).then(d=>{ cwCfg=d.config||cfg; });
+}
+function cwReset() {
+  cwFillFromConfig(cwDefaults);
+  cwPush();
+}
+function cwCopy() {
+  const inp = document.getElementById('cw-url');
+  navigator.clipboard.writeText(inp.value).then(() => {
+    const btn = document.getElementById('cw-copy-btn');
+    btn.textContent = '✅ Copiado';
+    setTimeout(() => btn.textContent = '📋 Copiar', 1500);
+  }).catch(() => { inp.select(); document.execCommand('copy'); });
+}
+cwInit();
+
 
 // -- Feed --
 function clearFeed() {

@@ -19,6 +19,11 @@ de los **módulos** son routers montados bajo su sub-path.
 | `/api/events/subscribe` | POST | Suscribir a todos los eventos |
 | `/api/tunnel/start` | POST | Iniciar túnel Cloudflare |
 | `/api/tunnel/stop` | POST | Detener túnel |
+| `/api/7tv/:userId` | GET | Proxy 7TV — emotes del canal (cache 10min) |
+| `/api/profile/:username` | GET | Proxy perfil Kick — profile pic (cache 5min) |
+| `/api/chatwidget/config` | GET | Config del ChatWidget `{config, themes, defaults}` |
+| `/api/chatwidget/config` | POST | Guardar config del ChatWidget (merge) |
+| `/chatwidget` | GET | Chat Widget para OBS (HTML standalone) |
 | `/api/shutdown` | POST | Detener servidor + túnel |
 
 ## TTS2 (montado en `/api/tts`)

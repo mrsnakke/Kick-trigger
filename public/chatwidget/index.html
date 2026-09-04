@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Widget — OBS Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:transparent;color:#f8fafc;user-select:none}
+body.solid-bg{background:#0d1117}
+
+#widget{position:fixed;inset:0;overflow:hidden}
+#outer{position:absolute;top:12px;bottom:12px;left:12px;right:12px;display:flex;overflow:hidden}
+#messages{position:relative;width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;overflow:hidden;padding:8px 32px}
+#outer.dir-down #messages{justify-content:flex-start}
+#outer{max-width:100%}
+
+#canvas-physics{position:absolute;inset:0;pointer-events:none;z-index:30}
+
+/* ─── MESSAGE (flex-row = avatar left, flex-row-reverse = avatar right) ─── */
+.msg{display:flex;align-items:center;width:100%;margin:0;flex-shrink:0}
+.msg.exiting{opacity:0;transform:scale(.95);transition:opacity .3s,transform .3s}
+
+/* ─── AVATAR + HALO GLOW ─── */
+.avatar-halo{position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;z-index:20}
+.avatar-ring{position:relative;display:flex;align-items:center;justify-content:center;border-style:solid;transition:all .3s}
+.avatar-ring.anim-pulse{animation:pulse-glow 2.4s ease-in-out infinite}
+.avatar-ring.anim-rainbow{animation:rainbow-rotate 4s linear infinite}
+.avatar-img{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.avatar-overlap-l{-margin-right:-18px}
+.avatar-overlap-r{-margin-left:-18px}
+
+/* ─── BUBBLE ─── */
+.bubble{position:relative;flex:1;min-width:0;z-index:10;transition:all .2s}
+.bubble-backdrop{backdrop-filter:blur(12px)}
+.bubble-shadow{box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.bubble-accent{box-shadow:0 4px 20px -2px rgba(0,0,0,.5),0 0 12px -2px var(--border-c)}
+.bubble-header{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-start;margin-bottom:4px}
+.bubble-header.right{justify-content:flex-end}
+.username{font-weight:600;letter-spacing:.02em;white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.msg-body{word-break:break-word;line-height:1.5}
+
+/* text shadows */
+.tx-outline{text-shadow:0 1px 2px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.7)}
+.ts{font-size:11px;color:#a1a1aa;font-family:monospace}
+
+/* ─── BADGES ─── */
+.badges{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
+.badge-img{height:16px;width:auto;display:inline-block;vertical-align:middle}
+.badge-icon{display:inline-flex;align-items:center;justify-content:center;padding:1px;border-radius:4px;width:17px;height:17px}
+.badge-pill{display:inline-flex;align-items:center;padding:0 5px;border-radius:4px;height:16px;font-size:9px;font-weight:900;color:#000}
+
+/* ─── EMOTES ─── */
+.emote{display:inline-block;vertical-align:middle;margin:0 1px;border-radius:4px;transition:transform .2s}
+.emote.hover-bounce:hover{transform:scale(1.2)}
+.emote.hover-spin:hover{transform:rotate(360deg)}
+.emote.hover-pulse:hover{transform:scale(1.25);filter:brightness(1.25)}
+.emote.hover-wiggle:hover{transform:rotate(-12deg) scale(1.2)}
+.emote-wrap{position:relative;display:inline-block;vertical-align:middle;margin:0 1px;line-height:0}
+.emote-wrap .modifier{position:absolute;inset:0;object-fit:contain;pointer-events:none}
+
+/* ─── ALERT ─── */
+#alerts{position:fixed;left:12px;right:12px;z-index:50;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#alerts.top{top:12px;align-items:flex-start}
+#alerts.bottom{bottom:12px;align-items:flex-start}
+.alert{border:2px solid;overflow:hidden;border-radius:16px;backdrop-filter:blur(20px);padding:14px 16px;display:flex;align-items:center;gap:14px;position:relative;max-width:500px;width:auto}
+.alert.transition-enter{animation:alertIn .4s cubic-bezier(.34,1.56,.64,1) both}
+.alert.transition-exit{animation:alertOut .3s ease both}
+@keyframes alertIn{from{opacity:0;transform:translateY(20px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes alertOut{to{opacity:0;transform:translateY(-15px) scale(.95)}}
+.alert-shimmer{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);animation:shimmer 2s infinite;pointer-events:none;border-radius:16px}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.alert-icon-box{position:relative;flex-shrink:0;width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 8px rgba(0,0,0,.4)}
+.alert-icon-box .live-dot{position:absolute;bottom:-3px;right:-3px;padding:2px;border-radius:50%;background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.3)}
+.alert-icon-box .live-dot span{display:flex;width:8px;height:8px;border-radius:50%;background:#34d399;animation:ping 1.5s cubic-bezier(0,0,.2,1) infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}100%{box-shadow:0 0 0 8px rgba(52,211,153,0)}}
+.alert-content{flex:1;min-width:0;position:relative;z-index:2}
+.alert-title{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.1);display:inline-block;color:#d4d4d8;margin-bottom:4px}
+.alert-username{font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);display:inline-block}
+.alert-desc{font-size:12px;color:#a1a1aa;font-weight:500;margin-left:6px}
+.alert-progress{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(0,0,0,.4);overflow:hidden}
+.alert-progress-bar{height:100%}
+
+/* ─── CONN ─── */
+#conn{position:fixed;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#484f58;z-index:100}
+#conn.on{background:#53fc18;box-shadow:0 0 8px #53fc18}
+
+@keyframes pulse-glow{0%,100%{transform:scale(1);filter:brightness(1) drop-shadow(0 0 12px var(--glow-color,#ec4899))}50%{transform:scale(1.04);filter:brightness(1.25) drop-shadow(0 0 20px var(--glow-color,#ec4899))}}
+@keyframes rainbow-rotate{0%{filter:hue-rotate(0deg) drop-shadow(0 0 12px #ec4899)}100%{filter:hue-rotate(360deg) drop-shadow(0 0 12px #ec4899)}}
+
+/* entry animation helpers (applied via inline animation on .msg) */
+.anim-spring-pop{animation:ast-scale-y .38s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes ast-scale-y{from{opacity:0;transform:scale(.88) translateY(15px)}to{opacity:1;transform:none}}
+.anim-slide-in-l{animation:as-slide-l .38s cubic-bezier(.22,1,.36,1) both}
+@keyframes as-slide-l{from{opacity:0;transform:translateX(-40px) scale(.95)}to{opacity:1;transform:none}}
+.anim-slide-in-r{animation:as-slide-r .38s cubic-bezier(.22,1,.36,1) both}
+@keyframes as-slide-r{from{opacity:0;transform:translateX(40px) scale(.95)}to{opacity:1;transform:none}}
+.anim-neon-flash{animation:as-flash .38s ease both}
+@keyframes as-flash{from{opacity:0;transform:scale(.8);filter:brightness(2.2)}to{opacity:1;transform:none;filter:brightness(1)}}
+.anim-float-up{animation:as-float .38s cubic-bezier(.22,1,.36,1) both}
+@keyframes as-float{from{opacity:0;transform:translateY(35px) scale(.95)}to{opacity:1;transform:none}}
+.anim-elastic-zoom{animation:as-elastic .38s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes as-elastic{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:none}}
+.anim-bounce-in{animation:as-bounce .5s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes as-bounce{0%{opacity:0;transform:scale(.3) translateY(30px)}60%{opacity:1;transform:scale(1.15)}80%{transform:scale(.95)}100%{transform:scale(1)}}
+.anim-flip-3d{animation:as-flip .45s cubic-bezier(.22,1,.36,1) both}
+@keyframes as-flip{from{opacity:0;transform:perspective(600px) rotateX(85deg) scale(.85)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div id="conn"></div>
+<div id="alerts" class="bottom"></div>
+<div id="widget">
+  <div id="outer">
+    <canvas id="canvas-physics"></canvas>
+    <div id="messages"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const P = new URLSearchParams(window.location.search);
+  const OBS = P.get('obs') === 'true';
+  if (OBS) document.body.classList.add('solid-bg');
+
+  // ─────────────────────────────────────────────────────────────────
+  // CONFIG — carga de /api/chatwidget/config, aplicable en vivo
+  // ─────────────────────────────────────────────────────────────────
+  let cfg = null;
+  let emoteMap = new Map();
+  let profileCache = new Map();
+  const PROFILE_TTL = 5 * 60 * 1000;
+
+  const $ = s => document.querySelector(s);
+  const msgs = $('#messages');
+  const alerts = $('#alerts');
+  const conn = $('#conn');
+  const outer = $('#outer');
+
+  // global image fallback (emotes: 2x->1x, fullsize->src; avatars: dicebear)
+  document.addEventListener('error', (e)=>{
+    const t=e.target;
+    if(!t||t.tagName!=='IMG')return;
+    if(t.dataset.emoteUrl){
+      const a=parseInt(t.dataset.attempt||'0',10);
+      if(a===0 && t.dataset.emoteUrl.includes('/2x.webp')){
+        t.src=t.dataset.emoteUrl.replace('/2x.webp','/1x.webp');t.dataset.attempt='1';t.removeAttribute('data-emote-url');return;
+      }
+      if(a===0 && t.dataset.emoteUrl.includes('/fullsize')){
+        t.src=t.dataset.emoteUrl.replace('/fullsize','/src');t.dataset.attempt='1';t.removeAttribute('data-emote-url');return;
+      }
+      t.style.display='none';return;
+    }
+    if(t.classList.contains('avatar-img')){
+      t.src='https://api.dicebear.com/7.x/'+(cfg.avatarDefaultType||'bottts')+'/svg?seed='+encodeURIComponent(t.alt||'user');
+    }
+  }, true);
+
+  const USER_COLORS = ['#53fc18','#38bdf8','#ec4899','#a855f7','#f43f5e','#eab308','#10b981','#fb923c','#06b6d4','#8b5cf6'];
+  function uColor(u){let h=0;for(let i=0;i<u.length;i++)h=u.charCodeAt(i)+((h<<5)-h);return USER_COLORS[Math.abs(h)%USER_COLORS.length];}
+
+  function hexA(hex,opacity){
+    const a = Math.round((opacity/100)*255).toString(16).padStart(2,'0');
+    return hex + a;
+  }
+
+  function fontFamily(){
+    switch(cfg.fontFamily){
+      case 'Fredoka': return "'Fredoka',sans-serif";
+      case 'Outfit': return "'Outfit',sans-serif";
+      case 'Nunito': return "'Nunito',sans-serif";
+      case 'Press Start 2P': return "'Press Start 2P',monospace";
+      case 'Inter': return "'Inter',sans-serif";
+      default: return "'Poppins',sans-serif";
+    }
+  }
+
+  function applyConfig(){
+    document.body.style.fontFamily = fontFamily();
+    // el tema (fondo/borde/radio) se aplica solo a la burbuja del mensaje, no al widget
+    // direction
+    outer.classList.toggle('dir-down', cfg.chatDirection === 'down');
+    msgs.style.gap = (cfg.messageSpacing ?? 14)+'px';
+    // width
+    outer.style.maxWidth = (cfg.chatWidth||440)+'px';
+  }
+
+  /* ─── GLOW ─── */
+  function glowColor(){
+    const m = cfg.glowStyle;
+    if(m==='neon_pink')return '#ec4899';
+    if(m==='cyber_cyan')return '#06b6d4';
+    if(m==='neon_purple')return '#a855f7';
+    if(m==='kick_green')return '#53fc18';
+    if(m==='gold_vip')return '#eab308';
+    if(m==='custom')return cfg.glowCustomColor||'#ec4899';
+    return null;
+  }
+  function glowParams(){
+    if(cfg.glowStyle==='none'){
+      return { boxShadow:'0 2px 8px rgba(0,0,0,0.5)', borderColor:'rgba(255,255,255,0.2)' };
+    }
+    const color = glowColor();
+    let spread='14px', op=0.75;
+    if(cfg.glowIntensity==='soft'){spread='8px';op=0.5;}
+    else if(cfg.glowIntensity==='vibrant'){spread='22px';op=0.95;}
+    return {
+      boxShadow:`0 0 ${spread} ${color}, inset 0 0 8px ${color}33`,
+      borderColor:color,
+      '--glow-color':color
+    };
+  }
+  function avatarShapeClass(){
+    switch(cfg.avatarShape){
+      case 'squircle': return 'border-radius:16px';
+      case 'hexagon': return 'border-radius:12px';
+      case 'rounded': return 'border-radius:8px';
+      case 'square': return 'border-radius:2px';
+      default: return 'border-radius:50%';
+    }
+  }
+  function entryAnimClass(right){
+    switch(cfg.entryAnimation){
+      case 'slide_in': return right ? 'anim-slide-in-r' : 'anim-slide-in-l';
+      case 'neon_flash': return 'anim-neon-flash';
+      case 'float_up': return 'anim-float-up';
+      case 'elastic_zoom': return 'anim-elastic-zoom';
+      case 'bounce_in': return 'anim-bounce-in';
+      case 'flip_3d': return 'anim-flip-3d';
+      default: return 'anim-spring-pop';
+    }
+  }
+
+  /* ─── BADGES (usa las imágenes reales del backend + fallback estilo Example) ─── */
+  function badgeSvg(type){
+    // estilo lucide del Example como fallback
+    if(type==='streamer'||type==='broadcaster')return '<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 1l3.5 7.5L23 9.7l-5.5 5.2L19 23l-7-3.8L5 23l1.5-8.1L1 9.7l7.5-1.2z"/></svg>';
+    if(type==='moderator')return '<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>';
+    if(type==='vip')return '<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7-6.3-3.7L5.7 21l1.6-7L2 9.6 9 9z"/></svg>';
+    if(type==='subscriber')return '<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>';
+    if(type==='verified')return '<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2l2.5 4.5 5-1-1 5L23 14l-4.5 2.5 1 5-5-1-2.5 4.5-2.5-4.5-5 1 1-5L1 14l4.5-3.5-1-5 5 1z"/></svg>';
+    return null;
+  }
+  function renderBadges(badges){
+    if(!cfg.showBadges || !badges || !badges.length) return '';
+    let h='<span class="badges">';
+    for(const b of badges){
+      const t=(typeof b==='string'?b:b.type||'').toLowerCase();
+      const count=b.count;
+      // 1. Badge real del backend si existe
+      const real = realBadgeSource(t,count);
+      if(real){ h += `<span class="badge-img"><img src="${real}" style="height:16px;width:auto;display:inline-block" title="${b.text||t}" loading="lazy"></span>`; continue; }
+      // 2. founder/og pill verde
+      if(t==='founder'||t==='og'){ h+=`<span class="badge-pill" style="background:#53fc18;box-shadow:0 0 6px rgba(83,252,24,.5)">${t.toUpperCase()}</span>`; continue; }
+      // 3. Fallback estilo lucide
+      const color = {broadcaster:'linear-gradient(90deg,#f59e0b,#ef4444)',streamer:'linear-gradient(90deg,#f59e0b,#ef4444)',moderator:'#10b981',vip:'#ec4899',subscriber:'#9333ea',verified:'#3b82f6'}[t==='broadcaster'?'broadcaster':t];
+      const svg = badgeSvg(t==='broadcaster'?'streamer':t);
+      if(svg && color){ h+=`<span class="badge-icon" style="background:${color};box-shadow:0 0 4px ${color}55">${svg}</span>`; }
+    }
+    h+='</span>';
+    return h;
+  }
+  function realBadgeSource(type,count){
+    if(type==='broadcaster') return '/images/badges/broadcaster.svg';
+    if(type==='moderator') return '/images/badges/moderator.svg';
+    if(type==='vip') return '/images/badges/vip.svg';
+    if(type==='verified') return '/images/badges/verified.svg';
+    if(type==='staff') return '/images/badges/staff.svg';
+    if(type==='subscriber'){
+      const n=Math.min(Math.max(count||1,1),8);
+      return `/images/badges/subscriber/${n}.png`;
+    }
+    if(type==='sub_gifter'){
+      const opts=[1,25,50,100,200];
+      let best=1;for(const o of opts)if(count>=o)best=o;
+      return `/images/badges/sub_gifter/${best}.svg`;
+    }
+    return null;
+  }
+
+  /* ─── EMOTE RENDER (1:1 EmoteRenderer) ─── */
+  function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function emoteSizePx(){
+    if(cfg.emoteCustomSize && cfg.emoteCustomSize>0) return cfg.emoteCustomSize+'px';
+    switch(cfg.seventvEmoteSize){
+      case 'small': return '22px';
+      case 'large': return '34px';
+      case 'xlarge': return '42px';
+      default: return '28px';
+    }
+  }
+  function hoverClass(){
+    return {spin:'hover-spin',pulse:'hover-pulse',wiggle:'hover-wiggle',bounce:'hover-bounce',none:''}[cfg?.emoteHoverAnim] || 'hover-bounce';
+  }
+  function hoverAnimEnabled(){
+    return cfg.emoteBounce && !(cfg.emoteHoverAnim==='none' && !cfg.emoteBounce) || cfg.emoteHoverAnim!=='none';
+  }
+
+  // parse text into tokens (identical logic to EmoteRenderer)
+  function renderContent(text, webhookEmotes){
+    const recorded = [];
+    if(webhookEmotes && webhookEmotes.length){
+      webhookEmotes.forEach(em=>(em.positions||[]).forEach(pos=>recorded.push({s:pos.s,e:pos.e,id:em.emote_id})));
+      recorded.sort((a,b)=>a.s-b.s);
+    }
+    let out='';
+    let last=0;
+    const pushRange = (s,e)=>{ out += renderTokens(text.slice(s,e)); };
+
+    if(recorded.length){
+      for(const p of recorded){
+        if(p.s<last)continue;
+        pushRange(last,p.s);
+        out += `<span class="emote-wrap"><img class="emote ${(hoverAnimEnabled()&&hoverClass()!=='none')?hoverClass():''}" style="height:${emoteSizePx()};width:auto;border-radius:4px;${(hoverAnimEnabled()&&hoverClass()!=='none')?'transition:transform .2s':''}" src="https://files.kick.com/emotes/${p.id}/fullsize" title="Kick emote" referrerPolicy="no-referrer" loading="lazy" onerror="this.style.display='none'"><img class="modifier" style="display:none"></span>`;
+        last=p.e+1;
+      }
+      pushRange(last,text.length);
+      return out;
+    }
+
+    return renderTokens(text);
+  }
+
+  function renderTokens(text){
+    const raw = text.split(/(\[emote:\d+:[a-zA-Z0-9_\-\.]+\]|\s+)/);
+    let h='';
+    const parsed = []; // for zero-width attachment
+    const zwSize = emoteSizePx();
+    for(const tok of raw){
+      if(!tok)continue;
+      if(/^\s+$/.test(tok)){ h+=tok; parsed.push({type:'ws'}); continue; }
+      const kickTag = tok.match(/^\[emote:(\d+):([a-zA-Z0-9_\-.]+)\]$/);
+      if(kickTag){
+        h += emoteImg('https://files.kick.com/emotes/'+kickTag[1]+'/fullsize',kickTag[2],false,'Kick');
+        parsed.push({type:'emote'}); continue;
+      }
+      let em = emoteMap.get(tok);
+      if(!em && tok.startsWith(':')&&tok.endsWith(':')&&tok.length>2) em=emoteMap.get(tok.slice(1,-1));
+      if(!em) em=emoteMap.get(tok.toLowerCase());
+      if(em){
+        // zero-width attachment
+        if(cfg.seventvZeroWidth && em.isZeroWidth){
+          // find previous emote
+          let target=-1;
+          for(let k=parsed.length-1;k>=0;k--){
+            if(parsed[k].type==='emote'){target=k;break;}
+            if(parsed[k].type==='text')break;
+          }
+          if(target>=0){
+            // attach as modifier — simple approach: overlay using last rendered emote wrap
+            // We track via a data attribute; simpler: append modifier img to last emote-wrap
+            const wraps=h.lastIndexOf('<span class="emote-wrap">');
+            if(wraps>=0){
+              h = h.slice(0,wraps+24) + `<img class="modifier" src="${em.url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" referrerPolicy="no-referrer">` + h.slice(wraps+24);
+            } else {
+              h += `<span class="emote-wrap" style="width:${zwSize};height:${zwSize};position:relative;display:inline-block"><img src="${em.url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain" referrerPolicy="no-referrer"></span>`;
+            }
+            parsed.push({type:'emote'});
+            continue;
+          }
+        }
+        h += emoteImg(em.url, em.name, em.isZeroWidth, '7TV', em.ownerName);
+        parsed.push({type:'emote'});
+        continue;
+      }
+      h += esc(tok);
+      parsed.push({type:'text'});
+    }
+    return h;
+  }
+
+  function emoteImg(url,name,zw,src,owner){
+    const anim = (hoverAnimEnabled() && hoverClass()!=='none') ? ' '+hoverClass() : '';
+    const transition = (hoverAnimEnabled() && hoverClass()!=='none') ? 'transition:transform .2s' : '';
+    if(zw){
+      return `<span class="emote-wrap" style="width:${emoteSizePx()};height:${emoteSizePx()};position:relative;display:inline-block;margin-left:-6px"><img src="${url}" title="${src}: ${name}${owner?' ('+owner+')':''}" referrerPolicy="no-referrer" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain"></span>`;
+    }
+    const retries = (zw?'':' data-attempt="0"');
+    return `<span class="emote-wrap"><img class="emote ${anim}" style="height:${emoteSizePx()};width:auto;${transition}" data-emote-url="${url}" data-emote-name="${name}" data-emote-src="${src}" ${retries} src="${url}" title="${src}: ${name}${owner?' ('+owner+')':''}" referrerPolicy="no-referrer" loading="lazy"></span>`;
+  }
+
+  /* ─── MESSAGE ADD ─── */
+  function isBot(u,t){
+    if(!cfg.botExclusionEnabled) return false;
+    const n=(u||'').toLowerCase();
+    if((cfg.ignoredBots||[]).some(b=>b.toLowerCase()===n)) return true;
+    if(cfg.ignoreBotPrefixes){
+      const s=(t||'').trim();
+      if(s.length>1 && /^[!\/\$\.\?]/.test(s)) return true;
+    }
+    return false;
+  }
+
+  async function getProfile(username){
+    const k=username.toLowerCase();
+    const c=profileCache.get(k);
+    if(c&&Date.now()-c.ts<PROFILE_TTL)return c.url;
+    const fb='https://api.dicebear.com/7.x/'+(cfg.avatarDefaultType||'bottts')+'/svg?seed='+encodeURIComponent(username);
+    try{
+      const r=await fetch('/api/profile/'+encodeURIComponent(username));
+      if(r.ok){const d=await r.json();const u=d.profileUrl||fb;profileCache.set(k,{url:u,ts:Date.now()});return u;}
+    }catch{}
+    profileCache.set(k,{url:fb,ts:Date.now()});
+    return fb;
+  }
+
+  async function addMessage(p){
+    const user=p.sender?.username||'';
+    const text=p.content||'';
+    if(!user||!text)return;
+    if(cfg.hideStreamerMessages) return;
+    if(isBot(user,text))return;
+
+    // extract emote urls for physics
+    const emoteUrls=[];
+    if(p.emotes) p.emotes.forEach(em=>emoteUrls.push('https://files.kick.com/emotes/'+em.emote_id+'/fullsize'));
+
+    const isRight = cfg.layoutMode==='right' ? true : cfg.layoutMode==='left' ? false : msgs.querySelectorAll('.msg').length % 2 === 0;
+    const avatar = p.sender?.profile_picture || (cfg.avatarDefaultCustomUrl || 'https://api.dicebear.com/7.x/'+(cfg.avatarDefaultType||'bottts')+'/svg?seed='+encodeURIComponent(user));
+    const color = p.sender?.identity?.username_color || uColor(user);
+    const finalColor = cfg.customUsernameColor ? cfg.defaultUsernameColor : color;
+    const badges = p.sender?.identity?.badges || [];
+    const ts = new Date(p.created_at||Date.now()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const gp = glowParams();
+    const borderStyle = gp.borderColor;
+    // bubble border uses border-color w/ opacity
+    const bubbleBorder = hexA(cfg.borderColor||'#db2777', cfg.borderOpacity??50);
+    const padding = cfg.bubblePadding==='compact'?'8px 12px':cfg.bubblePadding==='spacious'?'16px 20px':'12px 16px';
+
+    const d=document.createElement('div');
+    d.className='msg '+entryAnimClass(isRight);
+    d.style.animationDuration = (cfg.animationSpeed||0.38)+'s';
+    if(isRight) d.style.flexDirection='row'; else d.style.flexDirection='row-reverse';
+
+    const haloSize=(cfg.avatarSize||48)+8;
+    const ringSize=cfg.avatarSize||48;
+    const shape = avatarShapeClass();
+    const avatarHtml = cfg.showAvatar ? `
+      <div class="avatar-halo ${cfg.avatarOverlap ? (isRight?'avatar-overlap-r':'avatar-overlap-l') : ''}" style="width:${haloSize}px;height:${haloSize}px;${isRight?'margin-left':''}">
+        <div class="avatar-ring ${cfg.glowIntensity==='pulse'?'anim-pulse':''} ${cfg.glowStyle==='rainbow_rgb'?'anim-rainbow':''}" style="width:${ringSize}px;height:${ringSize}px;${'border-width:'+(cfg.avatarBorderWidth||2)+'px'};border-radius:50%;${shape};${gp.boxShadow?'box-shadow:'+gp.boxShadow:'box-shadow:0 2px 8px rgba(0,0,0,.5);border-color:rgba(255,255,255,.2)'};border-color:${borderStyle}">
+          <img class="avatar-img" style="border-radius:50%;${shape}" src="${esc(avatar)}" alt="${esc(user)}" referrerPolicy="no-referrer" loading="lazy">
+        </div>
+      </div>` : '';
+
+    const headerAlign = isRight ? 'right' : '';
+    const bubbleHtml = `
+      <div class="bubble bubble-backdrop ${cfg.bubbleShadow?'bubble-shadow':''} ${cfg.accentGlow?'bubble-accent':''}" style="--border-c:${bubbleBorder};background-color:${hexA(cfg.backgroundColor||'#1b0d26',cfg.backgroundOpacity??85)};border:${cfg.borderWidth||1}px solid ${bubbleBorder};border-radius:${cfg.borderRadius||18}px;padding:${padding};box-shadow:${cfg.accentGlow?'0 4px 20px -2px rgba(0,0,0,.5),0 0 12px -2px '+bubbleBorder:cfg.bubbleShadow?'0 4px 12px rgba(0,0,0,.5)':'none'}">
+        <div class="bubble-header ${headerAlign}">
+          ${!isRight ? renderBadges(badges) : ''}
+          <span class="username ${cfg.textContrastOutline?'tx-outline':''}" style="color:${finalColor};font-size:${cfg.usernameSize||15}px;text-shadow:${cfg.textContrastOutline?'0 1px 3px rgba(0,0,0,.9),0 0 8px '+finalColor+'44':'none'}">${esc(user)}</span>
+          ${isRight ? renderBadges(badges) : ''}
+          ${cfg.showTimestamp?`<span class="ts">${ts}</span>`:''}
+        </div>
+        <div class="msg-body ${cfg.textContrastOutline?'tx-outline':''}" style="color:${cfg.messageTextColor||'#f8fafc'};font-size:${cfg.fontSize||15}px">${renderContent(text,p.emotes)}</div>
+      </div>`;
+
+    d.innerHTML = avatarHtml + bubbleHtml;
+    // fix halo margin for overlap
+    const halo = d.querySelector('.avatar-halo');
+    if(halo && cfg.avatarOverlap){
+      if(isRight) halo.style.marginLeft='-18px'; else halo.style.marginRight='-18px';
+    }
+    msgs.appendChild(d);
+    // avatar real en segundo plano, nunca bloquea el render del mensaje
+    if(!p.sender?.profile_picture){
+      const img=d.querySelector('.avatar-img');
+      if(img) getProfile(user).then(u=>{ if(img.isConnected) img.src=u; }).catch(()=>{});
+    }
+    // ponytail: auto-hide per message — add when cfg.autoHide
+    if(cfg.autoHide){
+      setTimeout(()=>{ d.classList.add('exiting'); setTimeout(()=>d.remove(),320); }, (cfg.autoHideDuration||12)*1000);
+    }
+    // trim
+    while(msgs.children.length > (cfg.maxMessages||15)+1){
+      const f=msgs.querySelector('.msg'); if(f){f.classList.add('exiting');setTimeout(()=>f.remove(),320);} else break;
+    }
+    sndMsg();
+    if(cfg.emotePhysicsEnabled && emoteUrls.length) spawnPhysics(emoteUrls);
+    else if(cfg.emotePhysicsEnabled){ /* no emote: skip per Example */ }
+  }
+
+  /* ─── PHYSICS (1:1 EmotePhysicsLayer) ─── */
+  const canvas = $('#canvas-physics');
+  const ctx = canvas.getContext('2d');
+  let particles=[];
+  const imgCache=new Map();
+  function getImg(url){if(imgCache.has(url))return imgCache.get(url);const i=new Image();i.crossOrigin='anonymous';i.src=url;imgCache.set(url,i);return i;}
+  function spawnPhysics(urls,countOverride,modeOverride){
+    const count=countOverride??cfg.emotePhysicsCount??6;
+    const mode=modeOverride??cfg.emotePhysicsMode??'bounce';
+    const size=cfg.emotePhysicsSize??42;
+    const w=canvas.width,h=canvas.height;
+    for(let i=0;i<count;i++){
+      const u=urls[Math.floor(Math.random()*urls.length)];
+      const img=getImg(u);
+      let x=w/2,y=h-size,vx=0,vy=0;
+      if(mode==='bounce'){x=Math.random()*(w-size*2)+size;y=h-20;vx=(Math.random()-.5)*12;vy=-(Math.random()*12+10);}
+      else if(mode==='rain'){x=Math.random()*(w-size);y=-size;vx=(Math.random()-.5)*4;vy=Math.random()*4+3;}
+      else if(mode==='fireworks'){x=w/2+(Math.random()-.5)*60;y=h*.5+(Math.random()-.5)*60;const a=Math.random()*Math.PI*2,s=Math.random()*12+6;vx=Math.cos(a)*s;vy=Math.sin(a)*s;}
+      particles.push({x,y,vx,vy,rot:Math.random()*Math.PI*2,vRot:(Math.random()-.5)*.18,size,img,life:0,maxLife:280+Math.random()*80,bounces:0,maxBounces:4+Math.floor(Math.random()*3)});
+    }
+  }
+  function resizeCanvas(){if(canvas.parentElement){canvas.width=canvas.parentElement.clientWidth;canvas.height=canvas.parentElement.clientHeight;}}
+  resizeCanvas();
+  const ro=new ResizeObserver(resizeCanvas);ro.observe(outer);
+  function physicsLoop(){
+    if(!cfg) return requestAnimationFrame(physicsLoop);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const gravity=(cfg.emotePhysicsGravity??0.6)*0.55,friction=0.985,bounceRef=0.68,floor=canvas.height,wd=canvas.width;
+    const active=[];
+    for(const p of particles){
+      p.life++; if(p.life>p.maxLife)continue;
+      p.vy+=gravity;p.vx*=friction;p.vy*=friction;
+      p.x+=p.vx;p.y+=p.vy;p.rot+=p.vRot;
+      if(p.y+p.size>floor){p.y=floor-p.size;p.vy=-p.vy*bounceRef;p.bounces++;p.vx*=.85;p.vRot*=.8;if(Math.abs(p.vy)<1.2)p.vy=0;}
+      if(p.x<0){p.x=0;p.vx=-p.vx*bounceRef;}else if(p.x+p.size>wd){p.x=wd-p.size;p.vx=-p.vx*bounceRef;}
+      const fade=Math.max(0,(p.life-(p.maxLife-50))/50);
+      const alpha=Math.max(0,Math.min(1,1-fade));
+      ctx.save();ctx.globalAlpha=alpha;ctx.translate(p.x+p.size/2,p.y+p.size/2);ctx.rotate(p.rot);
+      if(p.img.complete&&p.img.naturalWidth>0)ctx.drawImage(p.img,-p.size/2,-p.size/2,p.size,p.size);
+      ctx.restore();active.push(p);
+    }
+    particles=active;
+    requestAnimationFrame(physicsLoop);
+  }
+  requestAnimationFrame(physicsLoop);
+
+  /* ─── AUDIO (1:1 audio.ts) ─── */
+  let audioCtx=null;
+  function gac(){if(!audioCtx){const C=window.AudioContext||window.webkitAudioContext;if(C)audioCtx=new C();}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx;}
+  function master(vol){const c=gac();if(!c)return null;const g=c.createGain();g.gain.value=(vol/100)*0.25;g.connect(c.destination);return {c,g};}
+  function sndMsg(){
+    if(!cfg.soundEnabled||cfg.soundType==='mute'||(cfg.soundVolume??50)<=0)return;
+    const t=cfg.soundType||'bubble';
+    const {c,g}=master(cfg.soundVolume)||{};if(!c)return;
+    const n=c.currentTime;
+    if(t==='bubble'||t==='pop'){
+      const o=c.createOscillator(),gg=c.createGain();
+      o.type='sine';o.frequency.setValueAtTime(t==='bubble'?440:380,n);o.frequency.exponentialRampToValueAtTime(t==='bubble'?880:700,n+.08);
+      gg.gain.setValueAtTime(.7,n);gg.gain.exponentialRampToValueAtTime(.001,n+.12);o.connect(gg);gg.connect(g);o.start(n);o.stop(n+.13);
+    }else if(t==='chime'){
+      [587.33,880].forEach((f,i)=>{const o=c.createOscillator(),gg=c.createGain();o.type='triangle';o.frequency.setValueAtTime(f,n+i*.06);gg.gain.setValueAtTime(.5,n+i*.06);gg.gain.exponentialRampToValueAtTime(.001,n+i*.06+.3);o.connect(gg);gg.connect(g);o.start(n+i*.06);o.stop(n+i*.06+.32);});
+    }else if(t==='arcade'){
+      const o=c.createOscillator(),gg=c.createGain();o.type='square';o.frequency.setValueAtTime(523.25,n);o.frequency.setValueAtTime(659.25,n+.05);o.frequency.setValueAtTime(783.99,n+.1);gg.gain.setValueAtTime(.4,n);gg.gain.exponentialRampToValueAtTime(.001,n+.22);o.connect(gg);gg.connect(g);o.start(n);o.stop(n+.23);
+    }else if(t==='click'){
+      const o=c.createOscillator(),gg=c.createGain();o.type='sine';o.frequency.setValueAtTime(1200,n);o.frequency.exponentialRampToValueAtTime(300,n+.03);gg.gain.setValueAtTime(.4,n);gg.gain.exponentialRampToValueAtTime(.001,n+.04);o.connect(gg);gg.connect(g);o.start(n);o.stop(n+.045);
+    }
+  }
+  function alertSoundCfg(type){
+    if(!cfg.alertSound||(cfg.alertSoundVolume??65)<=0)return;
+    const {c,g}=master(cfg.alertSoundVolume)||{};if(!c)return;
+    const n=c.currentTime;
+    if(type==='subscription'){[523.25,659.25,783.99,1046.5].forEach((f,i)=>{const o=c.createOscillator(),gg=c.createGain();o.type='triangle';const s=n+i*.1,dd=i===3?.6:.15;o.frequency.setValueAtTime(f,s);gg.gain.setValueAtTime(.6,s);gg.gain.exponentialRampToValueAtTime(.001,s+dd);o.connect(gg);gg.connect(g);o.start(s);o.stop(s+dd+.05);});}
+    else if(type==='gifted_sub'){[440,554.37,659.25,880,1108.73,1318.51].forEach((f,i)=>{const o=c.createOscillator(),gg=c.createGain();o.type='sine';const s=n+i*.06;o.frequency.setValueAtTime(f,s);gg.gain.setValueAtTime(.5,s);gg.gain.exponentialRampToValueAtTime(.001,s+.25);o.connect(gg);gg.connect(g);o.start(s);o.stop(s+.26);});}
+    else if(type==='follower'){[659.25,987.77,1318.51].forEach((f,i)=>{const o=c.createOscillator(),gg=c.createGain();o.type='sine';const s=n+i*.08;o.frequency.setValueAtTime(f,s);gg.gain.setValueAtTime(.5,s);gg.gain.exponentialRampToValueAtTime(.001,s+.4);o.connect(gg);gg.connect(g);o.start(s);o.stop(s+.42);});}
+    else if(type==='raid'){
+      const o1=c.createOscillator(),o2=c.createOscillator(),gg=c.createGain();
+      o1.type='sawtooth';o2.type='sawtooth';
+      o1.frequency.setValueAtTime(220,n);o1.frequency.exponentialRampToValueAtTime(330,n+.15);o1.frequency.setValueAtTime(440,n+.25);
+      o2.frequency.setValueAtTime(277.18,n);o2.frequency.exponentialRampToValueAtTime(415.3,n+.15);o2.frequency.setValueAtTime(554.37,n+.25);
+      gg.gain.setValueAtTime(.4,n);gg.gain.setValueAtTime(.7,n+.25);gg.gain.exponentialRampToValueAtTime(.001,n+.85);
+      o1.connect(gg);o2.connect(gg);gg.connect(g);o1.start(n);o2.start(n);o1.stop(n+.9);o2.stop(n+.9);
+    }else if(type==='kick_gift'){[987.77,1318.51].forEach((f,i)=>{const o=c.createOscillator(),gg=c.createGain();o.type='sine';const s=n+i*.07;o.frequency.setValueAtTime(f,s);gg.gain.setValueAtTime(.6,s);gg.gain.exponentialRampToValueAtTime(.001,s+.35);o.connect(gg);gg.connect(g);o.start(s);o.stop(s+.36);});}
+  }
+
+  /* ─── ALERTS (1:1 AlertBanner) ─── */
+  let alertQueue=[],alertBusy=false;
+  const alertThemes={
+    kick_green:{border:'#53fc18',glow:'0 0 28px rgba(83,252,24,.4)',badgeBg:'#53fc18',titleColor:'#53fc18',barColor:'#53fc18',bgGrad:'linear-gradient(90deg,rgba(0,0,0,.95),rgba(13,31,8,.9),rgba(0,0,0,.95))'},
+    cyber_neon:{border:'#ec4899',glow:'0 0 28px rgba(236,72,153,.4)',badgeBg:'linear-gradient(90deg,#ec4899,#9333ea)',titleColor:'#f472b6',barColor:'linear-gradient(90deg,#ec4899,#a855f7)',bgGrad:'linear-gradient(90deg,rgba(88,28,135,.9),rgba(27,13,38,.95),rgba(0,0,0,.95))'},
+    gold_luxury:{border:'#fbbf24',glow:'0 0 28px rgba(251,191,36,.35)',badgeBg:'linear-gradient(90deg,#fbbf24,#eab308)',titleColor:'#fbbf24',barColor:'linear-gradient(90deg,#fbbf24,#facc15)',bgGrad:'linear-gradient(90deg,rgba(23,23,23,.95),rgba(35,29,11,.9),rgba(23,23,23,.95))'},
+    minimal:{border:'#404040',glow:'0 4px 12px rgba(0,0,0,.4)',badgeBg:'#fff',titleColor:'#fff',barColor:'#fff',bgGrad:'linear-gradient(90deg,rgba(23,23,23,.95),rgba(23,23,23,.95))'}
+  };
+  const alertIcons={
+    subscription:['👑','animate:🫅'],
+    gifted_sub:['🎁','🤯'],
+    follower:['❤️','💕'],
+    raid:['🔥','🚀'],
+    kick_gift:['💎','✨'],
+    renewal:['👑','♻️']
+  };
+  function showAlert(a){
+    const theme=alertThemes[cfg.alertStyle]||alertThemes.kick_green;
+    const pos=cfg.alertPosition==='top'?'top':'bottom';
+    alerts.className=pos;
+    const d=document.createElement('div');
+    d.className='alert transition-enter';
+    const dur=(cfg.alertDuration||6)*1000;
+    d.style.cssText = `border-color:${theme.border};box-shadow:${theme.glow};background:${theme.bgGrad}`;
+    const icon=alertIcons[a.type]||alertIcons.subscription;
+    d.innerHTML=`
+      <div class="alert-shimmer"></div>
+      <div class="alert-icon-box"><span style="font-size:22px">${icon[0]}</span><span class="live-dot"><span></span></span></div>
+      <div class="alert-content">
+        <span class="alert-title">${(a.title||a.type).toUpperCase().replace(/_/g,' ')}</span>
+        <span class="alert-username">${esc(a.username)}</span><span class="alert-desc">${esc(a.description||'')}</span>
+      </div>
+      <div class="alert-progress"><div class="alert-progress-bar" style="background:${theme.barColor};width:100%"></div></div>`;
+    alerts.innerHTML='';
+    alerts.appendChild(d);
+    const bar=d.querySelector('.alert-progress-bar');
+    const start=Date.now();
+    const iv=setInterval(()=>{
+      const pct=Math.max(0,100-((Date.now()-start)/dur)*100);
+      bar.style.width=pct+'%';
+      if(pct<=0){clearInterval(iv);d.classList.remove('transition-enter');d.classList.add('transition-exit');setTimeout(()=>{d.remove();nextAlert();},320);}
+    },50);
+  }
+  function queueAlert(type,username,description,title){
+    if(!cfg.alertsEnabled)return;
+    const a={type,username,description:description||'',title:title||''};
+    if(!alertBusy){alertBusy=true;showAlert(a);}else alertQueue.push(a);
+    alertSoundCfg(type);
+  }
+  function nextAlert(){if(!alertQueue.length){alertBusy=false;return;}alertBusy=true;showAlert(alertQueue.shift());}
+
+  /* ─── SSE ─── */
+  let es;
+  function connect(){
+    es=new EventSource('/api/events');
+    es.onopen=()=>conn.classList.add('on');
+    es.onerror=()=>conn.classList.remove('on');
+    es.onmessage=(ev)=>{
+      try{
+        const d=JSON.parse(ev.data);
+        if(d.type!=='event')return;
+        const et=d.eventType,p=d.payload||{};
+        if(et==='chat.message.sent')addMessage(p).catch(err=>console.error('[WIDGET] addMessage:',err));
+        else if(et==='channel.subscription.new'){
+          if(!cfg.alertSubscriptions)return;
+          const u=p.subscriber?.username||p.user?.username||'Alguien';
+          const dur=p.duration||1;
+          queueAlert('subscription',u,`Se suscribió (${dur} mes${dur>1?'es':''})`);
+        } else if(et==='channel.subscription.renewal'){
+          if(!cfg.alertSubscriptions)return;
+          const u=p.subscriber?.username||p.user?.username||'Alguien';
+          const dur=p.duration||1;
+          queueAlert('renewal',u,`Renovó (${dur} mes${dur>1?'es':''})`);
+        } else if(et==='channel.subscription.gifts'){
+          if(!cfg.alertGiftedSubs)return;
+          const u=p.is_anonymous?'Anónimo':(p.gifter?.username||'Alguien');
+          const count=p.giftees?.length||p.count||1;
+          const names=(p.giftees||[]).map(g=>g.username).join(', ');
+          queueAlert('gifted_sub',u,`Regaló ${count} sub${count>1?'s':''} a ${names||'alguien'}`);
+        } else if(et==='channel.followed'){
+          if(!cfg.alertFollowers)return;
+          const u=p.follower?.username||p.user?.username||'Alguien';
+          queueAlert('follower',u,'Comenzó a seguir el canal');
+        } else if(et==='kicks.gifted'){
+          if(!cfg.alertKickGifts)return;
+          const u=p.sender?.username||'Alguien';
+          const g=p.gift?.name||'Regalo';
+          queueAlert('kick_gift',u,`Envió ${g}${p.gift?.amount?' ('+p.gift.amount+' Kicks)':''}`);
+        } else if(et==='channel.raid'||(et&&et.includes('raid'))){
+          if(!cfg.alertRaids)return;
+          const u=p.host_username||p.username||'Canal amigo';
+          const v=p.number_viewers||p.viewers||'';
+          queueAlert('raid',u,v?`${v} espectadores`:'¡Bienvenidos!');
+        }
+      }catch(err){console.error('[WIDGET] onmessage:',err)}
+    };
+  }
+
+  /* ─── 7TV LOAD ─── */
+  async function load7tv(){
+    if(cfg.seventvEnabled===false)return;
+    try{
+      const r=await fetch('/api/7tv/'+(cfg.seventvUserId||'01GJ7PS7DR000CQ2WDRACYQ5EH'));
+      if(!r.ok)return;
+      const d=await r.json();
+      if(d.emotes)for(const e of d.emotes)emoteMap.set(e.name.toLowerCase(),e);
+    }catch{}
+  }
+
+  /* ─── LIVE CONFIG VIA postMessage ─── */
+  window.addEventListener('message',(ev)=>{
+    if(!ev.data)return;
+    if(ev.data.type==='chatwidget-config'){
+      cfg=Object.assign({},cfg,ev.data.config);
+      applyConfig();
+    } else if(ev.data.type==='chatwidget-alert'){
+      queueAlert(ev.data.alertType, ev.data.username||'Tester', ev.data.description||'Alerta simulada', ev.data.title||'');
+    }
+  });
+
+  /* ─── INIT ─── */
+  async function init(){
+    try{
+      const r=await fetch('/api/chatwidget/config');
+      if(r.ok){const d=await r.json();cfg=d.config;}
+    }catch{}
+    if(!cfg)cfg={};
+    applyConfig();
+    await load7tv();
+    connect();
+  }
+  init();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&es&&es.readyState===EventSource.CLOSED)connect();});
+})();
+</script>
+</body>
+</html>
