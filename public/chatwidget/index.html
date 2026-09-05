@@ -131,6 +131,7 @@ body.solid-bg{background:#0d1117}
   // CONFIG — carga de /api/chatwidget/config, aplicable en vivo
   // ─────────────────────────────────────────────────────────────────
   let cfg = null;
+  let streamerSlug = '';
   let emoteMap = new Map();
   let profileCache = new Map();
   const PROFILE_TTL = 5 * 60 * 1000;
@@ -412,7 +413,8 @@ body.solid-bg{background:#0d1117}
     const user=p.sender?.username||'';
     const text=p.content||'';
     if(!user||!text)return;
-    if(cfg.hideStreamerMessages) return;
+    const isStreamer = streamerSlug && (p.sender?.slug||user).toLowerCase()===streamerSlug.toLowerCase();
+    if(cfg.hideStreamerMessages && isStreamer) return;
     if(isBot(user,text))return;
 
     // extract emote urls for physics
@@ -627,6 +629,7 @@ body.solid-bg{background:#0d1117}
     es.onmessage=(ev)=>{
       try{
         const d=JSON.parse(ev.data);
+        if(d.type==='status'||d.type==='auth') streamerSlug = d.channelSlug || d.slug || streamerSlug;
         if(d.type!=='event')return;
         const et=d.eventType,p=d.payload||{};
         if(et==='chat.message.sent')addMessage(p).catch(err=>console.error('[WIDGET] addMessage:',err));
