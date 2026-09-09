@@ -49,6 +49,8 @@ kick-backend/
 │       ├── chatbot/             #   Comandos personalizados + timers
 │       ├── event-actions/       #   Detección de primer mensaje + miniprompts
 │       ├── strinova-app/        #   Ruleta Strinova + overlay OBS
+│       ├── fighting/           #   Trigger: levanta fighting-Chat (app de peleas) + glue de chat
+│       ├── fighting-Chat/      #   App independiente de peleas 1v1 (proceso hijo en :3001)
 │       └── "iA Vision"/         #   ★ Librería INTERNA (screenshot + visión AI).
 │                                #     NO es un router; la usa vtuber-ai.
 │
@@ -176,6 +178,7 @@ Lista completa de eventos: [referencia/eventos.md](referencia/eventos.md).
 | `chatbot/chatbot-data.json` | Comandos y timers del chatbot | `modules/triggers/chatbot/store.js` |
 | `Music/config.json` | Config del reproductor | `modules/triggers/Music/` |
 | `strinova-app/state.json` | Posiciones/historial/rango de la ruleta | `modules/triggers/strinova-app/` |
+| `fighting-Chat/data/config.json` + `players.json` | Visual (sprites/match) e inventario (stats/W/L) de las peleas | `modules/triggers/fighting-Chat/` (server hijo) |
 | `GACHA/...` | Datos de gacha (inventarios, banners, etc.) | `modules/triggers/GACHA/` |
 
 > 🛑 **Ojo con git:** muchos de estos archivos guardan datos locales. Revisa `.gitignore`

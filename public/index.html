@@ -160,6 +160,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="event-actions">Event Actions</button>
     <button class="tab-btn" data-tab="chatwidget">Chat Widget</button>
     <button class="tab-btn" data-tab="strinova">Strinova</button>
+    <button class="tab-btn" data-tab="peleas">🥊 Peleas</button>
   </div>
 </header>
 
@@ -485,6 +486,21 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
         <tbody>
           <tr><td><code>!rank</code></td><td>Muestra el rango actual en overlay (20s)</td><td><span class="cmd-badge user">User</span></td></tr>
           <tr><td><code>!rulet</code></td><td>Muestra el historial de personajes en overlay (20s)</td><td><span class="cmd-badge user">User</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cmd-group user">
+      <h3>🥊 Fighting Chat — Usuario</h3>
+      <table class="cmd-table" data-mod="fighting-user">
+        <thead><tr><th>Comando</th><th>Descripción</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td><code>!retar @jugador</code></td><td>Reta a un jugador (debe haber escrito antes). El duelo arranca si acepta y la arena está libre</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!aceptar</code> / <code>!si</code></td><td>Acepta el reto pendiente</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!no</code></td><td>Rechaza el reto</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!stats</code></td><td>Ficha: nivel, EXP, puntos, W/L, combates con EXP y llaves por ganar</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!invertir &lt;stat&gt;</code></td><td>Encanta un atributo (consume 1 punto)</td><td><span class="cmd-badge user">User</span></td></tr>
+          <tr><td><code>!pelea</code></td><td>Estado resumido: combates con EXP y llaves diarias del gachapón</td><td><span class="cmd-badge user">User</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -998,6 +1014,55 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   </div>
 </div>
 
+<div id="tab-peleas" class="tab-content hidden">
+  <style>
+    .fight-card { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+    .fight-url-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .fight-url-row code { background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:5px 10px; font-size:12px; color:#d2a8ff; }
+  </style>
+  <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1;overflow-y:auto">
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+      <span class="badge badge-off" id="badge-fight-tab">○ PELEAS</span>
+      <button class="btn btn-sm" onclick="peleasLoad()">🔄 Refrescar</button>
+      <button class="btn btn-sm" onclick="copyUrl(document.getElementById('fight-url-lan').textContent, this)">📋 Copiar URL overlay para otra PC</button>
+    </div>
+
+    <div class="fight-card">
+      <div style="font-weight:600;color:#c9d1d9">🖥️ Overlay de pelea — pegá esta URL en el Source OBS de la otra PC</div>
+      <div class="fight-url-row">
+        <code id="fight-url-lan">…</code>
+        <button class="btn btn-sm" onclick="copyUrl(document.getElementById('fight-url-lan').textContent, this)">📋 Copiar</button>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div style="font-weight:600;color:#c9d1d9">🎛️ Paneles del fight server</div>
+      <div class="fight-url-row">
+        <span style="font-size:12px;color:#8b949e">Jugadores / iniciar combate:</span>
+        <code id="fight-players-local">…</code>
+        <a class="btn btn-sm" id="fight-players-open" href="#" target="_blank" rel="noopener">🚀 Abrir</a>
+        <button class="btn btn-sm" onclick="copyUrl(document.getElementById('fight-players-local').textContent, this)">📋 Copiar</button>
+      </div>
+      <div class="fight-url-row">
+        <span style="font-size:12px;color:#8b949e">Calibración (sprites/fondo):</span>
+        <code id="fight-calib-local">…</code>
+        <button class="btn btn-sm" onclick="copyUrl(document.getElementById('fight-calib-local').textContent, this)">📋 Copiar</button>
+      </div>
+    </div>
+
+    <div class="fight-card">
+      <div style="font-weight:600;color:#c9d1d9;margin-bottom:4px">🏆 Liga de espectadores</div>
+      <table class="cmd-table" style="width:100%">
+        <thead><tr><th>#</th><th>Jugador</th><th>Nivel</th><th>EXP</th><th>Puntos</th><th>W/L</th><th>Combates con EXP</th></tr></thead>
+        <tbody id="fight-players-tbody"></tbody>
+      </table>
+      <div style="color:#8b949e;font-size:12px" id="fight-players-empty">Cargando…</div>
+    </div>
+
+  </div>
+</div>
+
 <div id="tab-vtuber" class="tab-content hidden">
   <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1">
 
@@ -1248,6 +1313,7 @@ function switchMainTab(tab) {
   if (tab === 'vtuber') vtuberLoadConfig();
   if (tab === 'obs') obsCheckStatus();
   if (tab === 'event-actions') eventActionsLoadConfig();
+  if (tab === 'peleas') peleasLoad();
 }
 
 document.getElementById('tab-bar').addEventListener('click', e => {
@@ -2693,6 +2759,62 @@ function vtuberTest() {
     }
   }).catch(err => alert('Error de red: ' + err.message))
   .finally(() => { btn.disabled = false; btn.textContent = 'Probar' });
+}
+
+// -- Fighting Chat --
+function setFightEl(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; return el }
+
+function copyUrl(text, btn) {
+  const done = () => {
+    const old = btn.textContent;
+    btn.textContent = '✅ Copiado';
+    setTimeout(() => { btn.textContent = old }, 1500);
+  };
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch {}
+  document.body.removeChild(ta);
+}
+
+async function peleasLoad() {
+  try {
+    const [st, list] = await Promise.all([
+      fetch('/fighting/api/status').then(r => r.json()),
+      fetch('/fighting/api/players').then(r => r.json()),
+    ]);
+    setBadge('badge-fight-tab', st.running ? 'badge-ok' : 'badge-off', st.running ? '● PELEAS' : '○ PELEAS');
+    setFightEl('fight-url-lan', st.lanUrl || st.url);
+    setFightEl('fight-players-local', (st.lanUrl || st.url) + 'players');
+    setFightEl('fight-calib-local', (st.lanUrl || st.url) + 'calibrate');
+    const open = document.getElementById('fight-players-open');
+    if (open) open.href = st.url + 'players';
+    const tbody = document.getElementById('fight-players-tbody');
+    const empty = document.getElementById('fight-players-empty');
+    tbody.innerHTML = '';
+    if (!list.ok || !list.players?.length) {
+      empty.textContent = list.error ? `Sin conexión con el fight server: ${list.error}` : 'Todavía no hay jugadores. ¡Que alguien escriba en el chat!';
+      return;
+    }
+    empty.textContent = '';
+    list.players.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i + 1}</td><td>${p.username}</td><td>${p.level}</td><td>${p.exp}/${p.expToNextLevel}</td><td>${p.attributePoints}</td><td>${p.wins}/${p.losses}</td><td>${p.battlesLeft}/5</td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    setBadge('badge-fight-tab', 'badge-off', '○ PELEAS');
+  }
 }
 
 // -- Init --

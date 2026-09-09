@@ -56,6 +56,17 @@ empiezan con `!`. Esta es la lista consolidada.
 | `!rank` | Tarjeta de rango en overlay (20s) | User |
 | `!rulet` | Historial de personajes en overlay (20s) | User |
 
+## Fighting Chat
+
+| Comando | Descripción | Permiso |
+|---|---|---|
+| `!retar @jugador` | Reta a un jugador (debe haber escrito antes). El duelo arranca si acepta y la arena está libre | User |
+| `!aceptar` / `!si` | Acepta el reto pendiente | User |
+| `!no` | Rechaza el reto | User |
+| `!stats` | Ficha: nivel, EXP, puntos, W/L, combates con EXP y llaves por ganar | User |
+| `!invertir <stat>` | Encanta un atributo (consume 1 punto) | User |
+| `!pelea` | Estado resumido: combates con EXP y llaves diarias del gachapón | User |
+
 ## Music
 
 | Comando | Descripción | Permiso |

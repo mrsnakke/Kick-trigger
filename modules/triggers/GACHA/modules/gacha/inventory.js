@@ -1,9 +1,15 @@
 // ponytail: inventory CRUD — keys, char tracking, add-to-inventory
 const store = require('../data/store')
 
+// Nunca pisamos un userName bueno con un kick_id (número) o undefined: si el nombre llega en
+// "formato id", nos quedamos con el que ya teníamos para no corromper el inventario.
+function isIdLike(name, userId) {
+  return name == null || String(name) === String(userId) || /^\d+$/.test(String(name))
+}
+
 function ensureUser(userId, userName) {
   const u = store.getUser(userId)
-  u.userName = userName
+  if (!isIdLike(userName, userId)) u.userName = userName
   return u
 }
 

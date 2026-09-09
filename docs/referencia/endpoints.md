@@ -155,6 +155,16 @@ de los **módulos** son routers montados bajo su sub-path.
 | `/api/status` | GET | Estado `{ok:true}` |
 | `/*` | GET | Estáticos (default `control.html`, `overlay.html`...) |
 
+## Fighting Chat (montado en `/fighting`)
+
+Proxy hacia el fight server (`:3001`, proceso hijo). Su API completa vive en `:3001`
+(`/api/config`, `/api/allocate`, `/api/set-match`, `/api/start`, `/api/end`, `/api/kick/*`…).
+
+| Ruta | Método | Descripción |
+|---|---|---|
+| `/api/status` | GET | `{ ok, running, url, lanUrl, lanPlayersUrl, lanCalibrateUrl }` |
+| `/api/players` | GET | Liga de jugadores del fight server |
+
 ## WebSockets
 
 | Path | Módulo | Uso |

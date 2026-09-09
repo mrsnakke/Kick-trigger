@@ -19,6 +19,7 @@ const obsActions = require('./modules/triggers/obs-actions')
 const music = require('./modules/triggers/Music')
 const chatbot = require('./modules/triggers/chatbot')
 const strinova = require('./modules/triggers/strinova-app')
+const fighting = require('./modules/triggers/fighting')
 const sevenTv = require('./modules/7tv')
 const profile = require('./modules/profile')
 const chatwidgetConfig = require('./modules/chatwidget-config')
@@ -168,6 +169,9 @@ chatbot.init()
 strinova.initWs(server)
 app.use('/strinova', strinova.router)
 
+// -- Fighting Chat --
+app.use('/fighting', fighting.router)
+
 // -- Shutdown --
 app.post('/api/shutdown', (_req, res) => {
   res.json({ ok: true })
@@ -256,5 +260,9 @@ server.listen(config.PORT, async () => {
   initTunnelWithRetry()
 
   setInterval(heartbeat, 300000)
+
+  // Último módulo en iniciar: el fight server (proceso hijo en :3001)
+  fighting.init()
+
   console.log(`\n  Abrí http://localhost:${config.PORT} en tu navegador\n`)
 })

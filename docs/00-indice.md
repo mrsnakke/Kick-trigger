@@ -36,6 +36,7 @@ Diseñada para que un desarrollador nuevo pueda ponerse al día en poco tiempo.
 - [Music — control de reproductor YouTube](modulos/music.md)
 - [Chatbot — comandos personalizados + timers](modulos/chatbot.md)
 - [Strinova — ruleta + overlay OBS](modulos/strinova.md)
+- [Fighting Chat — peleas 1v1 en overlay](modulos/fighting.md)
 - [Event Actions — primer mensaje + miniprompts](modulos/event-actions.md)
 
 ### Módulos complementarios

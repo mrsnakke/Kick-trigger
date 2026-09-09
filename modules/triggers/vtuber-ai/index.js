@@ -185,6 +185,17 @@ async function deactivateAllExpressions() {
   } catch {}
 }
 
+async function isHeld() {
+  if (!vtube?.authenticated || !vtubeModel) return false;
+  const file = vtubeModel.expressionFile('atadas');
+  if (!file) return false;
+  try {
+    const r = await vtube.getExpressionState(file);
+    return !!r.data?.expressions?.find((ex) => ex.file === file)?.active;
+  } catch {}
+  return false;
+}
+
 async function triggerVTSExpression(emotion, tempMs = 4000) {
   if (!vtube || !vtube.authenticated || !vtubeModel) return false;
   const file = vtubeModel.expressionFile(emotion);
@@ -566,7 +577,7 @@ function shutdown() {
 init();
 
 module.exports = {
-  processMessage, shutdown,
+  processMessage, isHeld, shutdown,
   handleGetStatus, handleGetConfig, handleSaveConfig, handleTest,
   handleVTSConnect, handleVTSDisconnect, handleVTSStatus,
   handleVTSExpression, handleVTSHotkey,
