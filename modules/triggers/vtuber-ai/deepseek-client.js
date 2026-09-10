@@ -109,7 +109,7 @@ function createDeepSeekClient(apiKey, searchApiKey) {
           type: 'function',
           function: {
             name: 'take_screenshot',
-            description: 'Toma un screenshot de la pantalla del stream y lo analiza, devolviéndote una descripción de lo que está pasando. Úsala SOLO cuando el chat te lo pida explícitamente ("mira la pantalla", "ves eso", "qué está pasando en el juego", "cómo se ve mi modelo") o cuando sea estrictamente necesario saber qué ocurre en pantalla para responder. NO la uses por defecto en mensajes normales: responde con el modelo estándar.',
+            description: 'Toma un screenshot de la pantalla del stream y lo analiza, devolviéndote una descripción de lo que está pasando. Úsala cuando necesites saber qué hay en pantalla para responder mejor: si el chat menciona algo visual del stream, si te preguntan por el juego, el modelo VTuber, un error, o si simplemente sientes que necesitas ver la pantalla para dar una buena respuesta. No la uses en preguntas generales que no requieren contexto visual.',
             parameters: {
               type: 'object',
               properties: {
