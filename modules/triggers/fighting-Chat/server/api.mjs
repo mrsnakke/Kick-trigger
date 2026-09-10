@@ -26,7 +26,7 @@ function ensureDirs() {
 }
 
 function defaultPlayerStats() {
-  return { level: 0, exp: 0, expToNextLevel: 50, baseMaxHp: 200, attackPower: 1.0, defense: 0, evasion: 0, accuracy: 0.94, speed: 1, critChance: 0, attributePoints: 0, allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 }, wins: 0, losses: 0 };
+  return { level: 0, exp: 0, expToNextLevel: 50, baseMaxHp: 200, attackPower: 1.0, defense: 0, evasion: 0, accuracy: 0.94, critChance: 0, attributePoints: 0, allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 }, wins: 0, losses: 0 };
 }
 
 function defaultConfig() {
@@ -66,6 +66,30 @@ function sanitizePlayers(cfg) {
         delete ps[key];
         changed = true;
       }
+    }
+  }
+  return changed;
+}
+
+// El stat "velocidad" se eliminó: los puntos invertidos se devuelven (1 punto consumido por
+// enchante) y se limpian los campos muertos. Idempotente: tras la primera escritura a disco la
+// clave ya no existe, así que nunca suma dos veces.
+export function migrateSpeedRefund(cfg) {
+  let changed = false;
+  for (const pid of Object.keys(cfg.players || {})) {
+    const s = cfg.players[pid]?.stats;
+    if (!s) continue;
+    if (s.allocated?.speed) {
+      s.attributePoints = (s.attributePoints || 0) + s.allocated.speed;
+      changed = true;
+    }
+    if (s.allocated && 'speed' in s.allocated) {
+      delete s.allocated.speed;
+      changed = true;
+    }
+    if ('speed' in s) {
+      delete s.speed;
+      changed = true;
     }
   }
   return changed;
@@ -137,7 +161,7 @@ function readConfig() {
   if (!cfg.match.p1) cfg.match.p1 = 'local-p1';
   if (!cfg.match.p2) cfg.match.p2 = 'local-p2';
 
-  const changed = sanitizePlayers(cfg) || !!embedded || !existsSync(PLAYERS_PATH);
+  const changed = sanitizePlayers(cfg) || !!embedded || !existsSync(PLAYERS_PATH) || migrateSpeedRefund(cfg);
   // El personaje del bot (GrimVTbot) es admin: recién booteado o en build vieja, se re-sella.
   if (ensureGrim(cfg) || changed) writeConfig(cfg);
   return cfg;
@@ -267,7 +291,7 @@ export function apiRoutes(req, res) {
   if (req.method === 'POST' && pathname === '/api/allocate') {
     readBody(req)
       .then(({ player, stat }) => {
-        const STATS = ['hp', 'attack', 'defense', 'evasion', 'accuracy', 'speed', 'crit'];
+        const STATS = ['hp', 'attack', 'defense', 'evasion', 'accuracy', 'crit'];
         if (!player) throw new Error('player es obligatorio');
         if (!stat || !STATS.includes(stat)) throw new Error(`stat must be one of ${STATS.join(', ')}`);
 
@@ -278,11 +302,11 @@ export function apiRoutes(req, res) {
         if (!s) throw new Error('Player stats not found');
         if ((s.attributePoints || 0) <= 0) throw new Error('No attribute points available');
 
-        const allocated = s.allocated || { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 };
+        const allocated = s.allocated || { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 };
         const invested = allocated[stat] || 0;
 
         // Sin RNG: el punto SIEMPRE mejora el atributo, pero cada punto da muy poquito
-        // (y los stats "problemáticos" — evasión, crítico, puntería, velocidad — suben menos).
+        // (y los stats "problemáticos" — evasión, crítico, puntería — suben menos).
         // Los tope duros por stat evitan que nadie se dispare en un atributo.
         const success = true;
         allocated[stat] = invested + 1;
@@ -294,7 +318,6 @@ export function apiRoutes(req, res) {
         else if (stat === 'defense') s.defense = Number(Math.min(0.5, (s.defense || 0) + 0.003).toFixed(4));
         else if (stat === 'evasion') s.evasion = Number(Math.min(0.4, (s.evasion || 0) + 0.002).toFixed(4));
         else if (stat === 'accuracy') s.accuracy = Number(Math.min(0.99, (s.accuracy || 0.94) + 0.001).toFixed(4));
-        else if (stat === 'speed') s.speed = Number(Math.min(1.8, (s.speed || 1) + 0.01).toFixed(4));
         else if (stat === 'crit') s.critChance = Number(Math.min(0.5, (s.critChance || 0) + 0.004).toFixed(4));
 
         cfg.match = { ...cfg.match, enchant: { player: playerId, stat, success, at: Date.now() } };

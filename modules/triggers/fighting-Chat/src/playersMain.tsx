@@ -6,7 +6,7 @@ import { refreshConfig } from './utils/storage';
 import { allocatePoint, startMatch, setMatchPlayers } from './utils/api';
 import { Swords, Trophy, Zap, Dices, Users } from 'lucide-react';
 
-type StatKey = 'hp' | 'attack' | 'defense' | 'evasion' | 'accuracy' | 'speed' | 'crit';
+type StatKey = 'hp' | 'attack' | 'defense' | 'evasion' | 'accuracy' | 'crit';
 
 const STAT_LABELS: Record<StatKey, string> = {
   hp: 'Vida',
@@ -14,7 +14,6 @@ const STAT_LABELS: Record<StatKey, string> = {
   defense: 'Defensa',
   evasion: 'Evasión',
   accuracy: 'Puntería',
-  speed: 'Velocidad',
   crit: 'Crítico',
 };
 
@@ -24,7 +23,6 @@ const STAT_ICONS: Record<StatKey, string> = {
   defense: '🛡️',
   evasion: '💨',
   accuracy: '🎯',
-  speed: '👟',
   crit: '💥',
 };
 
@@ -38,7 +36,6 @@ function statValue(stats: FighterStats, key: StatKey): string {
     case 'defense': return `${Math.round(stats.defense * 100)}%`;
     case 'evasion': return `${Math.round(stats.evasion * 100)}%`;
     case 'accuracy': return `${Math.round(stats.accuracy * 100)}%`;
-    case 'speed': return `${Math.round(stats.speed * 100)}%`;
     case 'crit': return `${Math.round(stats.critChance * 100)}%`;
   }
 }
@@ -67,7 +64,7 @@ function PlayerCard({
   disabled: boolean;
 }) {
   const expRatio = Math.min(1, stats.exp / stats.expToNextLevel);
-  const allocated = stats.allocated ?? { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 };
+  const allocated = stats.allocated ?? { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 };
   const statList = Object.keys(STAT_LABELS) as StatKey[];
 
   return (
@@ -187,9 +184,8 @@ function PlayersPage() {
     if (!s) return s;
     return {
       ...s,
-      speed: s.speed ?? 1,
       critChance: s.critChance ?? 0,
-      allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0, ...(s.allocated || {}) },
+      allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0, ...(s.allocated || {}) },
     };
   }
 

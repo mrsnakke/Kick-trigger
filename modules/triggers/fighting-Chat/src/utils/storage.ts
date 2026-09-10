@@ -45,12 +45,11 @@ export function calcStatsForLevel(level: number, baseHp = 200): Omit<FighterStat
     defense: Number(Math.min(0.22, (safeLevel - 1) * 0.012).toFixed(3)),
     evasion: Number(Math.min(0.10, (safeLevel - 1) * 0.006).toFixed(3)),
     accuracy: Number(Math.min(0.98, 0.94 + (safeLevel - 1) * 0.004).toFixed(3)),
-    speed: 1,
     critChance: 0,
   };
 }
 
-const EMPTY_ALLOC = { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 };
+const EMPTY_ALLOC = { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 };
 
 function normalizeAllocated(a: Partial<FighterStats['allocated']> | undefined): FighterStats['allocated'] {
   return { ...EMPTY_ALLOC, ...a };
@@ -67,7 +66,6 @@ export function getFighterStats(id: string): FighterStats {
     return {
       ...formula,
       ...stored,
-      speed: stored.speed ?? 1,
       critChance: stored.critChance ?? 0,
       expToNextLevel: formula.expToNextLevel,
       attributePoints: stored.attributePoints ?? 0,

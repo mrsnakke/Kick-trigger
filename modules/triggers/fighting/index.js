@@ -33,11 +33,10 @@ const STAT_MAP = {
   defense: 'defense', defensa: 'defense',
   evasion: 'evasion', evasión: 'evasion',
   accuracy: 'accuracy', punteria: 'accuracy', puntería: 'accuracy',
-  speed: 'speed', velocidad: 'speed',
   crit: 'crit', critico: 'crit', crítico: 'crit',
 }
-const STAT_KEYS = ['hp', 'attack', 'defense', 'evasion', 'accuracy', 'speed', 'crit']
-const STAT_LABELS = { hp: 'vida', attack: 'ataque', defense: 'defensa', evasion: 'evasión', accuracy: 'puntería', speed: 'velocidad', crit: 'crítico' }
+const STAT_KEYS = ['hp', 'attack', 'defense', 'evasion', 'accuracy', 'crit']
+const STAT_LABELS = { hp: 'vida', attack: 'ataque', defense: 'defensa', evasion: 'evasión', accuracy: 'puntería', crit: 'crítico' }
 
 // GrimVTbot es el personaje admin (nivel 999, vida casi infinita). Si lo retan en el chat,
 // el duelo se auto-acepta y la IA (vtuber-ai) se burla del retador. Lazy-require: vtuber-ai

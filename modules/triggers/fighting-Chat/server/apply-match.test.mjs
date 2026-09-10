@@ -10,6 +10,7 @@ import {
   sessionExp,
   GRIM_PLAYER_ID,
 } from './kick.mjs';
+import { migrateSpeedRefund } from './api.mjs';
 
 function player(name, over = {}) {
   return {
@@ -17,9 +18,9 @@ function player(name, over = {}) {
     username: name,
     stats: {
       level: 0, exp: 0, expToNextLevel: 50, baseMaxHp: 200, attackPower: 1,
-      defense: 0, evasion: 0, accuracy: 0.94, speed: 1, critChance: 0,
+      defense: 0, evasion: 0, accuracy: 0.94, critChance: 0,
       attributePoints: 0,
-      allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 },
+      allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 },
       wins: 0, losses: 0,
       ...over,
     },
@@ -119,3 +120,20 @@ function makeMatch(a, b, recordStart = { p1: { w: 0, l: 0 }, p2: { w: 0, l: 0 } 
 }
 
 console.log('✅ apply-match: todos los checks pasaron');
+
+// El stat "velocidad" se eliminó: devuelve los puntos invertidos y limpia los campos muertos.
+// Idempotente — tras la primera pasada la clave ya no existe, así que nunca suma dos veces.
+{
+  const cfg = {
+    players: {
+      a: { stats: { level: 0, exp: 0, attributePoints: 2, speed: 1.12, allocated: { hp: 1, speed: 8, crit: 0 } } },
+      b: { stats: { level: 1, exp: 10, attributePoints: 0, allocated: { hp: 2 } } },
+    },
+  };
+  assert.equal(migrateSpeedRefund(cfg), true, 'hubo migración');
+  assert.equal(cfg.players.a.stats.attributePoints, 10, '2 + 8 puntos de velocidad devueltos');
+  assert.equal('speed' in cfg.players.a.stats, false, 'stats.speed se limpia');
+  assert.equal('speed' in cfg.players.a.stats.allocated, false, 'allocated.speed se limpia');
+  assert.equal(cfg.players.b.stats.attributePoints, 0, 'sin speed invertido → sin devolución');
+  assert.equal(migrateSpeedRefund(cfg), false, 'segunda pasada: nada que migrar');
+}

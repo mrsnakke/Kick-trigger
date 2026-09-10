@@ -14,7 +14,6 @@ const ENCHANT_LABELS: Record<string, { name: string; icon: string }> = {
   defense: { name: 'Defensa', icon: '🛡️' },
   evasion: { name: 'Evasión', icon: '💨' },
   accuracy: { name: 'Puntería', icon: '🎯' },
-  speed: { name: 'Velocidad', icon: '👟' },
   crit: { name: 'Crítico', icon: '💥' },
 };
 

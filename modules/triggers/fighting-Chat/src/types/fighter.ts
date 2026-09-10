@@ -53,10 +53,9 @@ export interface FighterStats {
   defense: number;
   evasion: number;
   accuracy: number;
-  speed: number;
   critChance: number;
   attributePoints: number;
-  allocated: { hp: number; attack: number; defense: number; evasion: number; accuracy: number; speed: number; crit: number };
+  allocated: { hp: number; attack: number; defense: number; evasion: number; accuracy: number; crit: number };
   wins: number;
   losses: number;
 }

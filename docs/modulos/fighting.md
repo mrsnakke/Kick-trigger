@@ -33,7 +33,7 @@ Overlay OBS (http://<IP>:3001/)  ➜  escena en otra PC de la red
   app" — aquí el bot es este backend).
 - **La pelea la controla una IA** en el navegador del escenario (sin mando, sin jugadores
   reales). Debajo de la barra de HP hay una **barra de skill**: al llenarse, el personaje
-  **se cura 30% de su vida máxima** y queda **invencible mientras dura la animación** (la
+  **se cura 10% de su vida máxima** y queda **invencible mientras dura la animación** (la
   habilidad se usa una vez por carga de barra).
 - **El server es la fuente de verdad**: `data/config.json` guarda todo lo permanente.
 
@@ -73,12 +73,12 @@ Atajos en el escenario: `Espacio` = pausa, `R` = reiniciar pelea.
 ## Juego y progresión
 
 ### Stats por jugador
-`vida (hp)`, `ataque`, `defensa`, `evasión`, `puntería`, `velocidad` y `crítico`. Cada
+`vida (hp)`, `ataque`, `defensa`, `evasión`, `puntería` y `crítico`. Cada
 **subida de nivel** da **1 punto de atributo**.
 
 ### Encantamiento (`!invertir <stat>` o botón en `/players`)
 Se consume **1 punto** y **siempre mejora** el atributo en una cantidad pequeña fija
-(`vida +2`, `ataque +0.5%`, `defensa +0.3%`, `evasión +0.2%`, `puntería +0.1%`, `velocidad +1%`,
+(`vida +2`, `ataque +0.5%`, `defensa +0.3%`, `evasión +0.2%`, `puntería +0.1%`,
 `crítico +0.4%`, con tope por stat). **No hay dado ni fallo** (quitaron el RNG): cada punto
 invertido es progreso garantizado.
 - Los **enchants individuales** (por stat, `allocated`) avisan con `insufficient points` si no
@@ -176,7 +176,7 @@ fuerte** (ataque ≈ nivel 30). No lo podés tumbar: gana por desgaste.
 | `!aceptar` / `!si` | Acepta el reto pendiente. El duelo arranca solo si la arena está libre; si no, entra en cola |
 | `!no` | Rechaza el reto |
 | `!stats` | Ficha: nivel, EXP, puntos de atributo, W/L, EXP de sesión restante y en qué atributos ya invertiste |
-| `!invertir <stat>` | Encanta un atributo (`vida`, `ataque`, `defensa`, `evasion`, `punteria`, `velocidad`, `critico`). Sin argumento lista los stats disponibles. Consume 1 punto; la mejora es **garantizada** (sin suerte) |
+| `!invertir <stat>` | Encanta un atributo (`vida`, `ataque`, `defensa`, `evasion`, `punteria`, `critico`). Sin argumento lista los stats disponibles. Consume 1 punto; la mejora es **garantizada** (sin suerte) |
 | `!pelea` | Estado resumido: EXP de la sesión restante (`⚡ x/300`) y llaves diarias del gachapón disponibles (`🎟️ x/5`) |
 
 ## API del fight server (`:3001`)

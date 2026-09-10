@@ -7,7 +7,7 @@
     "channel.reward.redemption.updated": "[EVENTO: Canje de recompensa] @{username} ha canjeado \"{reward_title}\" con puntos de canal. Reacciona con emoción.",
     "livestream.metadata.updated": "[EVENTO: Stream actualizado] Se cambió el título o categoría. Nuevo título: \"{title}\". Reacciona al cambio brevemente.",
     "kicks.gifted": "[EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Agradécele su generosidad con entusiasmo.",
-    "channel.chatter.first": "[EVENTO: PRIMER MENSAJE] @{username} dice: \"{content}\". Es su primer mensaje del día. Haz un saludo corto y dale la bienvenida. Máximo dos oraciones."
+    "channel.chatter.first": "[EVENTO: PRIMER MENSAJE] @{username} dice: \"{content}\". Es su primer mensaje del día, posiblemente le hable a Snake si no te mencionan pero igual saludalo siendo tu puedes bromear incluso. Haz un saludo corto y dale la bienvenida. Máximo dos oraciones."
   },
   "enabled": {
     "channel.reward.redemption.updated": false

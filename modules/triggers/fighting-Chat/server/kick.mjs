@@ -55,8 +55,8 @@ export function grimAdminStats() {
     level: 999, exp: 0,
     expToNextLevel: expForLevel(999),
     baseMaxHp: 999999, attackPower: 1.6, defense: 0.8, evasion: 0.4,
-    accuracy: 0.99, speed: 2, critChance: 0.5, attributePoints: 0,
-    allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 },
+    accuracy: 0.99, critChance: 0.5, attributePoints: 0,
+    allocated: { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 },
     wins: 999, losses: 0,
   };
 }
@@ -115,10 +115,9 @@ function applyStatsDelta(s, { exp = 0, wins = 0, losses = 0 } = {}) {
     defense: Number(((s.defense ?? 0) + (after.defense - before.defense)).toFixed(3)),
     evasion: Number(((s.evasion ?? 0) + (after.evasion - before.evasion)).toFixed(3)),
     accuracy: Number(((s.accuracy ?? 0.94) + (after.accuracy - before.accuracy)).toFixed(3)),
-    speed: s.speed ?? 1,
     critChance: s.critChance ?? 0,
     attributePoints: points,
-    allocated: s.allocated ?? { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, speed: 0, crit: 0 },
+    allocated: s.allocated ?? { hp: 0, attack: 0, defense: 0, evasion: 0, accuracy: 0, crit: 0 },
     wins: (s.wins ?? 0) + wins,
     losses: (s.losses ?? 0) + losses,
   };
@@ -309,7 +308,7 @@ export async function kickApiRoutes(req, res, deps) {
         '!aceptar': '!aceptar (o !si) — acepta el reto pendiente. El duelo empieza automáticamente cuando la arena se libere.',
         '!no': '!no — rechaza el reto.',
         '!stats': '!stats — muestra tu nivel, EXP y puntos de atributo.',
-        '!invertir': '!invertir <vida|ataque|defensa|evasion|punteria|velocidad|critico> — encanta un atributo (consume 1 punto; si falla se pierde).',
+        '!invertir': '!invertir <vida|ataque|defensa|evasion|punteria|critico> — encanta un atributo (consume 1 punto; la mejora es garantizada).',
       },
     });
     return true;

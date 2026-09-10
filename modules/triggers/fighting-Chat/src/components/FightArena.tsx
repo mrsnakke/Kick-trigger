@@ -508,8 +508,7 @@ export const FightArena: React.FC<FightArenaProps> = ({
     fighter.x = Math.max(margin, Math.min(stageWidth - margin, fighter.x));
 
     // Continuous locomotion & smooth velocity interpolation
-    const speedMult = fighter.stats?.speed ?? 1;
-    const walkSpeed = Math.max(80, (fighter.config.speed || 10) * 15) * speedMult;
+    const walkSpeed = Math.max(80, (fighter.config.speed || 10) * 15);
     if (fighter.state === 'approaching') {
       // Maintain smooth continuous forward walk speed
       const targetVx = fighter.facing * walkSpeed;
@@ -661,7 +660,7 @@ export const FightArena: React.FC<FightArenaProps> = ({
       if (fighter.currentFrame >= hitFrame && !fighter.skillTriggered) {
         fighter.skillTriggered = true;
 
-        const heal = Math.round((fighter.stats?.baseMaxHp || fighter.maxHp) * 0.30);
+        const heal = Math.round((fighter.stats?.baseMaxHp || fighter.maxHp) * 0.10);
         const before = fighter.hp;
         fighter.hp = Math.min(fighter.maxHp, fighter.hp + heal);
         if (fighter.id === 'p1') setP1Hp(fighter.hp);
@@ -699,7 +698,7 @@ export const FightArena: React.FC<FightArenaProps> = ({
     }
 
     const dist = Math.abs(fighter.x - opponent.x);
-    const speed = fighter.config.speed * 20 * (fighter.stats?.speed ?? 1);
+    const speed = fighter.config.speed * 20;
 
     // React to opponent attack: chance to raise guard!
     if (
