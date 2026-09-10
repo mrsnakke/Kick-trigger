@@ -5,11 +5,10 @@ PARAM	VALUE
 base_url (OpenAI)	https://api.deepseek.com
 base_url (Anthropic)	https://api.deepseek.com/anthropic
 api_key	apply for an API key
-model*	deepseek-v4-flash
-deepseek-v4-pro
-deepseek-chat (to be deprecated on 2026/07/24)
-deepseek-reasoner (to be deprecated on 2026/07/24)
-* The model names deepseek-chat and deepseek-reasoner will be deprecated on 2026/07/24 15:59 UTC. For compatibility, they correspond to the non-thinking mode and thinking mode of deepseek-v4-flash, respectively.
+model*	deepseek-flash (V4.1-Flash — recommended, soporta visión nativa)
+deepseek-v4-pro (retirado 14 sep 2026, se rutara a V4.1-Flash)
+deepseek-v4-flash / deepseek-v4-flash-vision-exp (aliases obsoletos, redirigen a deepseek-flash)
+* Usar `deepseek-flash` como modelo principal. Visión, tool calls y thinking mode soportados nativamente.
 
 Integrate with Agent Tools
 The DeepSeek API is supported by many popular AI agent and coding assistant tools. If you use tools like Claude Code, GitHub Copilot, or OpenCode, you can use DeepSeek as the backend model directly — no code required.
@@ -43,24 +42,32 @@ Models & Pricing
 The prices listed below are in units of per 1M tokens. A token, the smallest unit of text that the model recognizes, can be a word, a number, or even a punctuation mark. We will bill based on the total number of input and output tokens by the model.
 
 Model Details
-MODEL	deepseek-v4-flash(1)	deepseek-v4-pro
+MODEL	deepseek-flash(1)	deepseek-v4-pro(2)
 BASE URL (OpenAI Format)	https://api.deepseek.com
 BASE URL (Anthropic Format)	https://api.deepseek.com/anthropic
-MODEL VERSION	DeepSeek-V4-Flash	DeepSeek-V4-Pro
+MODEL VERSION	DeepSeek-V4.1-Flash	DeepSeek-V4-Pro-0813
 THINKING MODE	Supports both non-thinking and thinking (default) modes
 See Thinking Mode for how to switch
 CONTEXT LENGTH	1M
 MAX OUTPUT	MAXIMUM: 384K
 FEATURES	Json Output	✓	✓
 Tool Calls	✓	✓
+Responses API	✓	✓
+Anthropic API	✓	✓
 Chat Prefix Completion（Beta）	✓	✓
 FIM Completion（Beta）	Non-thinking mode only	Non-thinking mode only
-PRICING	1M INPUT TOKENS (CACHE HIT)	$0.0028	$0.003625
-1M INPUT TOKENS (CACHE MISS)	$0.14	$0.435
-1M OUTPUT TOKENS	$0.28	$0.87
-Concurrency Limit(2)	2500	500
-(1) The model names deepseek-chat and deepseek-reasoner will be deprecated on 2026/07/24 15:59 UTC. For compatibility, they correspond to the non-thinking mode and thinking mode of deepseek-v4-flash, respectively.
-(2) For more details on concurrency limits, please refer to Rate Limit & Isolation
+Vision	✓	Not supported
+PRICING(3)	1M INPUT TOKENS (CACHE HIT) OFF-PEAK	$0.003	$0.022
+1M INPUT TOKENS (CACHE HIT) PEAK	$0.006	$0.044
+1M INPUT TOKENS (CACHE MISS) OFF-PEAK	$0.15	$0.66
+1M INPUT TOKENS (CACHE MISS) PEAK	$0.30	$1.32
+1M OUTPUT TOKENS OFF-PEAK	$0.60	$1.98
+1M OUTPUT TOKENS PEAK	$1.20	$3.96
+Concurrency Limit(4)	2500	500
+(1) Usar `deepseek-flash` como modelo principal. Los nombres legacy `deepseek-v4-flash` y `deepseek-v4-flash-vision-exp` temporalmente redirigen a V4.1-Flash.
+(2) Desde 14 sep 2026, `deepseek-v4-pro` se rutara a V4.1-Flash al precio de Flash hasta que se lance V4.1-Pro.
+(3) Off-peak = 50% de peak. Peak hours: 01:00-04:00 y 06:00-10:00 UTC, lunes a viernes.
+(4) For more details on concurrency limits, please refer to Rate Limit & Isolation
 
 Deduction Rules
 The expense = number of tokens × price. The corresponding fees will be directly deducted from your topped-up balance or granted balance, with a preference for using the granted balance first when both balances are available.
@@ -75,7 +82,7 @@ For each account, the concurrency limits for different DeepSeek API models are s
 
 If you need higher concurrency, you can submit a capacity expansion request. We will match the appropriate concurrency based on your actual business needs. There is no additional cost for capacity expansion.
 
-deepseek-v4-pro	deepseek-v4-flash
+deepseek-v4-pro	deepseek-flash
 Concurrency Limit	500	2500
 A request counts as one concurrent connection from the time it is sent until the model response is complete
 Concurrency limits are calculated at the account level, regardless of which API Key is used
@@ -87,7 +94,7 @@ Content Safety Isolation: user_id is used to distinguish user identities on your
 KVCache Isolation: user_id is used to isolate KVCache for users on your business side for privacy management
 Scheduling Isolation: user_id is used for scheduling isolation of users on your business side
 For regular API users, all user_id values are combined for concurrency limit calculation
-For API users with increased concurrency quotas, we will limit the total concurrency under your account, and we will also impose concurrency limits on each user_id you pass (an empty id is treated as a special user_id). For each user_id, the concurrency limit for deepseek-v4-pro is 500, and for deepseek-v4-flash is 2500. If a user_id exceeds its limit, requests with that user_id under your account will receive an HTTP 429 error code
+For API users with increased concurrency quotas, we will limit the total concurrency under your account, and we will also impose concurrency limits on each user_id you pass (an empty id is treated as a special user_id). For each user_id, the concurrency limit for deepseek-v4-pro is 500, and for deepseek-flash is 2500. If a user_id exceeds its limit, requests with that user_id under your account will receive an HTTP 429 error code
 Setting user_id
 The user_id parameter must be a string matching the regex [a-zA-Z0-9\-_]+, with a maximum length of 512. Do not include user privacy information in user_id.
 
@@ -900,13 +907,13 @@ A continuación tienes una guía completa en formato Markdown (`.md`) basada en 
 ```markdown
 # Guía de la API de Visión de DeepSeek
 
-El modelo experimental multimodal **`deepseek-v4-flash-vision-exp`** permite enviar imágenes junto con texto para tareas como descripción de imágenes, extracción de texto/OCR de capturas de pantalla, análisis de gráficos, diagramas y flujos de trabajo de agentes visuales.
+El modelo **`deepseek-flash`** (V4.1-Flash) soporta visión multimodal de forma nativa: permite enviar imágenes junto con texto para tareas como descripción de imágenes, extracción de texto/OCR de capturas de pantalla, análisis de gráficos, diagramas y flujos de trabajo de agentes visuales.
 
 ---
 
 ## 📌 Características Principales
 
-- **Identificador del modelo:** `deepseek-v4-flash-vision-exp`
+- **Identificador del modelo:** `deepseek-flash`
 - **Formatos soportados:** `JPEG`, `PNG`, `GIF` y `WebP` *(el formato se detecta a partir del contenido real del archivo, no por su extensión o tipo MIME)*.
 - **Facturación / Consumo de tokens:** Máximo **384 tokens de entrada por imagen** (las imágenes grandes se escalan automáticamente a ~800x800 px).
 - **Compatibilidad de endpoints:**
@@ -940,7 +947,7 @@ with open("ejemplo.jpg", "rb") as f:
     b64_image = base64.b64encode(f.read()).decode("utf-8")
 
 response = client.chat.completions.create(
-    model="deepseek-v4-flash-vision-exp",
+    model="deepseek-flash",
     messages=[
         {
             "role": "user",
@@ -966,7 +973,7 @@ curl https://api.deepseek.com/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TU_DEEPSEEK_API_KEY>" \
   -d '{
-    "model": "deepseek-v4-flash-vision-exp",
+    "model": "deepseek-flash",
     "messages": [
       {
         "role": "user",
@@ -991,7 +998,7 @@ Proporciona un enlace `http(s)://` accesible públicamente a la imagen (máximo 
 
 ```python
 response = client.chat.completions.create(
-    model="deepseek-v4-flash-vision-exp",
+    model="deepseek-flash",
     messages=[
         {
             "role": "user",
@@ -1026,7 +1033,7 @@ curl https://api.deepseek.com/files \
 #### Paso 2: Usar el `file_id` en la petición
 ```python
 response = client.chat.completions.create(
-    model="deepseek-v4-flash-vision-exp",
+    model="deepseek-flash",
     messages=[
         {
             "role": "user",
@@ -1081,7 +1088,7 @@ client = Anthropic(
 )
 
 message = client.messages.create(
-    model="deepseek-v4-flash-vision-exp",
+    model="deepseek-flash",
     max_tokens=1024,
     messages=[
         {

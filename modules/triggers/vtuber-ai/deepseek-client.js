@@ -125,7 +125,7 @@ function createDeepSeekClient(apiKey, searchApiKey) {
 
       async function call(msg, withTools) {
         const p = {
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-flash',
           messages: msg,
           temperature,
           max_tokens: maxTokens,

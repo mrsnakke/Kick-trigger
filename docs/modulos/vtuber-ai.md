@@ -95,7 +95,7 @@ endpoints ni escucha el bus. Es una **librería** consumida exclusivamente por
 - `capture()` — ejecuta `capture.ps1` (captura la pantalla primaria con PowerShell) y
   devuelve la ruta del JPEG en `os.tmpdir()/ia-see-shot.jpg`.
 - `analyze(apiKey, prompt)` — captura la pantalla, la codifica en base64 y la envía a
-  DeepSeek (`deepseek-v4-flash-vision-exp`) para obtener una descripción en texto.
+  DeepSeek (`deepseek-flash`, visión nativa de V4.1-Flash) para obtener una descripción en texto.
 
 Se dispara **indirectamente** cuando el chat le pide al bot "mirar la pantalla" (vía la
 herramienta `take_screenshot`).

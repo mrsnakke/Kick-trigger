@@ -3,7 +3,7 @@ const path = require("node:path");
 const { execFile } = require("node:child_process");
 const os = require("node:os");
 
-const MODEL = process.env.VISION_MODEL || "deepseek-v4-flash-vision-exp";
+const MODEL = process.env.VISION_MODEL || "deepseek-flash";
 const DETAIL = process.env.VISION_DETAIL || "high";
 const CAPTURE = path.join(__dirname, "capture.ps1");
 const SHOT = path.join(os.tmpdir(), "ia-see-shot.jpg");
