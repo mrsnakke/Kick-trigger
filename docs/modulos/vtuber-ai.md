@@ -28,18 +28,22 @@ controla un modelo de VTube Studio (expresiones faciales, hotkeys, parámetros).
 5. Envía la respuesta al chat como **bot** (divide en chunks de 400 chars) y emite
    `tts2:speak` (voz `24`, Dalia, origen `bot`) para que la lea el TTS.
 
-### `processMessage(username, content, skipLog?)`
+### `processMessage(username, content, skipLog?, extraContext?, skipChat?)`
 
-Función programática exportada para que **otros módulos** (p. ej. event-actions) envíen
+Función programática exportada para que **otros módulos** (p. ej. event-actions, voice-chat) envíen
 mensajes directos a la IA sin pasar por `!grim`:
 
 ```js
 const vtuber = require('./modules/triggers/vtuber-ai')
 vtuber.processMessage(usuario, 'texto o contexto', true)
+
+// Modo voz privada (sin envío a chat, solo TTS):
+vtuber.processMessage('Streamowner', 'pregunta', true, null, true)
 ```
 
 - Completa: memoria, herramientas, emoción, respuesta en chat + voz.
 - `skipLog=true` evita loguear (útil para miniprompts internos sin ensuciar el historial).
+- `skipChat=true` no envía a Kick chat ni loguea en memoria; sí emite TTS y procesa emociones VTS.
 
 ## Configuración (`vtuber-data.json` + env)
 

@@ -145,6 +145,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <span id="badge-event-actions" class="badge badge-off">○ EVENTS</span>
     <span id="badge-bot" class="badge badge-off">○ BOT</span>
     <span id="badge-strinova" class="badge badge-off">○ STRINOVA</span>
+    <span id="badge-voice" class="badge badge-off">○ VOZ</span>
   </div>
   <span id="channel-name" class="channel-name"></span>
   <button id="btn-auth" class="btn btn-primary" onclick="authorize()">🔑 Autorizar Streamer en Kick</button>
@@ -161,6 +162,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <button class="tab-btn" data-tab="chatwidget">Chat Widget</button>
     <button class="tab-btn" data-tab="strinova">Strinova</button>
     <button class="tab-btn" data-tab="peleas">🥊 Peleas</button>
+    <button class="tab-btn" data-tab="voice">🎤 Voz</button>
   </div>
 </header>
 
@@ -1063,6 +1065,57 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
   </div>
 </div>
 
+<div id="tab-voice" class="tab-content hidden">
+  <style>
+    .voice-panel { padding:16px; display:flex; flex-direction:column; gap:12px; flex:1; overflow-y:auto; max-width:700px; margin:0 auto; width:100%; }
+    .voice-card { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:14px; }
+    .voice-log { background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:12px; max-height:400px; overflow-y:auto; font-size:13px; line-height:1.6; }
+    .voice-log .voice-q { color:#e94560; }
+    .voice-log .voice-a { color:#4caf50; }
+    .voice-log .voice-err { color:#f85149; font-style:italic; }
+    .voice-log .voice-entry { margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #1c2128; }
+    .voice-status-big { font-size:48px; text-align:center; padding:30px; }
+    .voice-status-text { text-align:center; font-size:14px; color:#8b949e; }
+  </style>
+  <div class="voice-panel">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="badge badge-off" id="badge-voice-tab">○ Sin datos</span>
+      <button class="btn btn-sm" onclick="voiceCheckStatus()">🔄 Refrescar</button>
+    </div>
+
+    <div class="voice-card">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div id="voice-status-icon" class="voice-status-big" style="font-size:36px;padding:0">🎤</div>
+        <div>
+          <div style="font-weight:600;font-size:14px;color:#c9d1d9">Canal de voz privado con Grim</div>
+          <div style="font-size:12px;color:#8b949e;margin-top:4px">
+            Presioná <code style="background:#0d1117;padding:1px 5px;border-radius:3px">+</code> en cualquier lugar para hablar.
+            Grim responde por TTS — nada se envía al chat de Kick.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="voice-card">
+      <div style="font-weight:600;font-size:13px;color:#c9d1d9;margin-bottom:8px">📝 Log de conversación</div>
+      <div class="voice-log" id="voice-log">
+        <div style="color:#484f58;font-size:12px;text-align:center;padding:20px">Aún no hay conversaciones. Presioná + para hablar con Grim.</div>
+      </div>
+      <div style="margin-top:8px;text-align:right">
+        <button class="btn btn-sm" onclick="document.getElementById('voice-log').innerHTML='<div style=&quot;color:#484f58;font-size:12px;text-align:center;padding:20px&quot;>Log limpiado.</div>'">🗑 Limpiar log</button>
+      </div>
+    </div>
+
+    <div class="voice-card" style="font-size:12px;color:#8b949e">
+      <strong>¿Cómo funciona?</strong><br>
+      1. Presioná <code>+</code> o hacé click en el botón mic en la página de VOz<br>
+      2. Hablá — Whisper transcribe tu voz localmente<br>
+      3. El texto se envía a Grim (DeepSeek) y te responde por TTS<br>
+      4. Nada se envía al chat de Kick — es 100% privado
+    </div>
+  </div>
+</div>
+
 <div id="tab-vtuber" class="tab-content hidden">
   <div style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1">
 
@@ -1115,12 +1168,25 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
             <div style="color:#484f58;font-size:10px;margin-top:2px">Variable: <code>VTUBER_MAX_HISTORY</code></div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#c9d1d9;font-size:13px;user-select:none">
             <input type="checkbox" id="vtuber-memory-enabled" style="width:16px;height:16px;accent-color:#58a6ff">
-            🧠 Recordar conversaciones (memoria por usuario)
+            🧠 Memoria por usuario (SQLite)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#c9d1d9;font-size:13px;user-select:none">
+            <input type="checkbox" id="vtuber-mood-enabled" style="width:16px;height:16px;accent-color:#58a6ff">
+            🎭 Estado de ánimo
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#c9d1d9;font-size:13px;user-select:none">
+            <input type="checkbox" id="vtuber-topics-enabled" style="width:16px;height:16px;accent-color:#58a6ff">
+            📚 Temas dinámicos (12 topics)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#c9d1d9;font-size:13px;user-select:none">
+            <input type="checkbox" id="vtuber-filter-enabled" style="width:16px;height:16px;accent-color:#58a6ff">
+            🚫 Filtrar frases robóticas
           </label>
         </div>
+        <div id="vtuber-stats" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:#8b949e;margin-bottom:12px"></div>
         <div style="display:flex;gap:6px">
           <button type="button" class="btn btn-primary" onclick="vtuberSaveConfig()">💾 Guardar configuración</button>
           <button type="button" class="btn btn-sm" onclick="vtuberClearMemory()" style="color:#f85149">🗑️ Limpiar memoria</button>
@@ -1247,6 +1313,7 @@ function handleEvent(d) {
   if (d._source === 'vtuber') { handleVtuberEvent(d); return }
   if (d._source === 'obs') { handleObsEvent(d); return }
   if (d._source === 'event-actions') { handleEventActionsEvent(d); return }
+  if (d._source === 'voice-chat') { handleVoiceChatEvent(d); return }
   switch (d.type) {
     case 'status':
       updateStatus(d);
@@ -1314,6 +1381,7 @@ function switchMainTab(tab) {
   if (tab === 'obs') obsCheckStatus();
   if (tab === 'event-actions') eventActionsLoadConfig();
   if (tab === 'peleas') peleasLoad();
+  if (tab === 'voice') voiceCheckStatus();
 }
 
 document.getElementById('tab-bar').addEventListener('click', e => {
@@ -2650,6 +2718,9 @@ function vtuberLoadConfig() {
     document.getElementById('vtuber-system-prompt-custom').value = d.SYSTEM_PROMPT_CUSTOM || '';
     document.getElementById('vtuber-vts-prompt').textContent = d.VTS_PROMPT || '';
     document.getElementById('vtuber-memory-enabled').checked = d.MEMORY_ENABLED !== false;
+    document.getElementById('vtuber-mood-enabled').checked = d.MOOD_ENABLED !== false;
+    document.getElementById('vtuber-topics-enabled').checked = d.TOPICS_ENABLED !== false;
+    document.getElementById('vtuber-filter-enabled').checked = d.RESPONSE_FILTER_ENABLED !== false;
     document.getElementById('vts-host').value = d.VTS_HOST || 'localhost';
     document.getElementById('vts-port').value = d.VTS_PORT || 8002;
     const badge = document.getElementById('badge-vtuber-tab');
@@ -2660,6 +2731,28 @@ function vtuberLoadConfig() {
       badge.className = 'badge badge-off';
       badge.textContent = '○ Sin API key';
     }
+    vtuberLoadStats();
+  }).catch(() => {});
+}
+
+function vtuberLoadStats() {
+  Promise.all([
+    fetch('/api/vtuber/memory/stats').then(r => r.json()).catch(() => null),
+    fetch('/api/vtuber/mood').then(r => r.json()).catch(() => null),
+  ]).then(([ms, md]) => {
+    const el = document.getElementById('vtuber-stats');
+    const parts = [];
+    if (ms?.ok && ms.stats) {
+      parts.push(`🧠 ${ms.stats.totalMessages} mensajes · ${ms.stats.totalUsers} usuarios · ${ms.stats.totalDays} días · ${ms.stats.totalKnowledge} conocimientos`);
+    } else {
+      parts.push('🧠 memoria no disponible');
+    }
+    if (md?.ok && md.mood) {
+      parts.push(`🎭 ánimo: ${md.mood.mood}${md.mood.intensity ? ' (' + Math.round(md.mood.intensity * 100) + '%)' : ''}`);
+    } else {
+      parts.push('🎭 ánimo: no disponible');
+    }
+    el.textContent = parts.join(' · ');
   }).catch(() => {});
 }
 
@@ -2674,7 +2767,10 @@ function vtuberSaveConfig() {
     MAX_HISTORY_TURNS: parseInt(document.getElementById('vtuber-max-history').value, 10),
     VTUBER_NAME: document.getElementById('vtuber-name').value.trim(),
     COMMAND: document.getElementById('vtuber-command').value.trim(),
-    MEMORY_ENABLED: document.getElementById('vtuber-memory-enabled').checked
+    MEMORY_ENABLED: document.getElementById('vtuber-memory-enabled').checked,
+    MOOD_ENABLED: document.getElementById('vtuber-mood-enabled').checked,
+    TOPICS_ENABLED: document.getElementById('vtuber-topics-enabled').checked,
+    RESPONSE_FILTER_ENABLED: document.getElementById('vtuber-filter-enabled').checked
   };
   fetch('/api/vtuber/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2817,6 +2913,119 @@ async function peleasLoad() {
   }
 }
 
+// -- Voice Chat --
+let _voiceStatusCache = null
+let _voiceStatusTs = 0
+let _voiceRecorder = null
+let _voiceChunks = []
+let _voiceRecording = false
+
+function voiceCheckStatus(force) {
+  const now = Date.now()
+  if (!force && _voiceStatusCache && (now - _voiceStatusTs < 10000)) {
+    voiceApplyStatus(_voiceStatusCache)
+    return
+  }
+  fetch('/api/voice-chat/status').then(r => r.json()).then(d => {
+    _voiceStatusCache = d
+    _voiceStatusTs = Date.now()
+    voiceApplyStatus(d)
+  }).catch(() => {
+    voiceApplyStatus({ running: false, error: true })
+  });
+}
+function voiceApplyStatus(d) {
+  if (d.error) {
+    setBadge('badge-voice', 'badge-gray', '○ VOZ')
+    setBadge('badge-voice-tab', 'badge-off', '○ Error de conexión')
+    document.getElementById('voice-status-icon').textContent = '⚠️'
+  } else if (d.running) {
+    setBadge('badge-voice', 'badge-ok', '● VOZ')
+    setBadge('badge-voice-tab', 'badge-ok', '● Conectado en :' + d.port)
+    document.getElementById('voice-status-icon').textContent = '🟢'
+  } else {
+    setBadge('badge-voice', 'badge-off', '○ VOZ')
+    setBadge('badge-voice-tab', 'badge-off', '○ Servidor Python no detectado')
+    document.getElementById('voice-status-icon').textContent = '🔴'
+  }
+}
+
+async function voiceStartRecording() {
+  if (_voiceRecording) return
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    _voiceRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+    _voiceChunks = []
+    _voiceRecorder.ondataavailable = e => _voiceChunks.push(e.data)
+    _voiceRecorder.start()
+    _voiceRecording = true
+    document.getElementById('voice-status-icon').textContent = '🔴'
+    console.log('[VOICE] Grabando...')
+  } catch (e) {
+    console.error('[VOICE] Error al acceder al micrófono:', e.message)
+  }
+}
+
+function voiceStopRecording() {
+  if (!_voiceRecorder || _voiceRecorder.state !== 'recording') return
+  _voiceRecording = false
+  _voiceRecorder.stop()
+  _voiceRecorder.stream.getTracks().forEach(t => t.stop())
+  document.getElementById('voice-status-icon').textContent = '🟡'
+  console.log('[VOICE] Grabación terminada, enviando...')
+
+  _voiceRecorder.onstop = async () => {
+    const blob = new Blob(_voiceChunks, { type: 'audio/webm' })
+    if (blob.size < 1000) {
+      console.log('[VOICE] Audio muy corto, ignorando')
+      voiceApplyStatus(_voiceStatusCache || { running: true })
+      return
+    }
+    const form = new FormData()
+    form.append('file', blob, 'audio.webm')
+    try {
+      const res = await fetch('/api/voice-chat/ask-recording', { method: 'POST', body: form })
+      const data = await res.json()
+      console.log('[VOICE] Respuesta:', data)
+      voiceApplyStatus(_voiceStatusCache || { running: true })
+    } catch (e) {
+      console.error('[VOICE] Error enviando audio:', e.message)
+      voiceApplyStatus(_voiceStatusCache || { running: true })
+    }
+  }
+}
+
+function handleVoiceChatEvent(d) {
+  if (d.direction === 'start') { voiceStartRecording(); return }
+  if (d.direction === 'stop') { voiceStopRecording(); return }
+
+  const log = document.getElementById('voice-log');
+  if (!log) return;
+  if (d.direction === 'user') {
+    const entry = document.createElement('div');
+    entry.className = 'voice-entry';
+    entry.dataset.voiceUser = Date.now();
+    entry.innerHTML = '<span class="voice-q">🎤 Yo:</span> ' + escHtml(d.content);
+    log.appendChild(entry);
+  } else if (d.direction === 'bot') {
+    const entries = log.querySelectorAll('.voice-entry');
+    const last = entries[entries.length - 1];
+    if (last) {
+      last.innerHTML += '<br><span class="voice-a">🤖 Grim:</span> ' + escHtml(d.content);
+    } else {
+      const entry = document.createElement('div');
+      entry.className = 'voice-entry';
+      entry.innerHTML = '<span class="voice-a">🤖 Grim:</span> ' + escHtml(d.content);
+      log.appendChild(entry);
+    }
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 // -- Init --
 window.addEventListener('beforeunload', () => { if (statusPollInterval) clearInterval(statusPollInterval); });
 connectSSE();
@@ -2833,6 +3042,7 @@ fetch('/api/event-actions/config').then(r => r.json()).then(d => {
   badge.className = d.chattersCount > 0 ? 'badge badge-ok' : 'badge badge-gray';
   badge.textContent = d.chattersCount > 0 ? `● ${d.chattersCount}` : '○ 0';
 }).catch(() => {});
+voiceCheckStatus();
 
 </script>
 </body>

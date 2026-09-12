@@ -2,9 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { loadSystemPrompt, setSystemPrompt, resetSystemPrompt } = require('./config');
 const { createDeepSeekClient } = require('./deepseek-client');
-const { logMessage, getConversation, clearConversation, clearAllConversations } = require('./logger');
 const { VTubeClient } = require('./vtube-client');
 const { VTubeModel } = require('./vtube-model');
+const { GrimMemory } = require('./memory');
+const { filterMessage, BotRateLimiter, updateConfig: updateFilterConfig, getConfig: getFilterConfig } = require('./chat-filter');
+const { TopicManager } = require('./topics');
+const { MoodSystem } = require('./mood');
+const { getEventResponse } = require('./event-responses');
+const { filterResponse } = require('./response-filter');
 const eventBus = require('../../../lib/event-bus');
 const sse = require('../../sse');
 const chat = require('../../chat');
@@ -14,7 +19,7 @@ const { env } = process;
 
 const defaults = {
   TEMPERATURE: parseFloat(env.VTUBER_TEMPERATURE || '1.0'),
-  MAX_HISTORY_TURNS: parseInt(env.VTUBER_MAX_HISTORY || '5', 10),
+  MAX_HISTORY_TURNS: parseInt(env.VTUBER_MAX_HISTORY || '15', 10),
   MAX_TOKENS: parseInt(env.VTUBER_MAX_TOKENS || '500', 10),
   VTUBER_NAME: env.VTUBER_NAME || 'Grim',
   COMMAND: (env.VTUBER_COMMAND || '!grim').toLowerCase(),
@@ -24,7 +29,10 @@ const defaults = {
   VTS_PLUGIN_DEV: env.VTS_PLUGIN_DEV || 'MrsnakeVT',
   VTS_MODEL_NAME: env.VTS_MODEL_NAME || 'Grim',
   VTS_AUTO_CONNECT: env.VTS_AUTO_CONNECT !== 'false',
-  MEMORY_ENABLED: env.VTUBER_MEMORY_ENABLED !== 'false'
+  MEMORY_ENABLED: env.VTUBER_MEMORY_ENABLED !== 'false',
+  MOOD_ENABLED: true,
+  TOPICS_ENABLED: true,
+  RESPONSE_FILTER_ENABLED: true,
 };
 
 let cfg = { ...defaults };
@@ -36,6 +44,10 @@ cfg.SYSTEM_PROMPT_CUSTOM = null;
 let deepseek = null;
 let vtube = null;
 let vtubeModel = null;
+let memory = null;
+let topicManager = null;
+let moodSystem = null;
+let rateLimiter = null;
 let initialized = false;
 
 function loadConfig() {
@@ -62,6 +74,9 @@ function loadConfig() {
     if (saved.VTS_AUTO_CONNECT != null) cfg.VTS_AUTO_CONNECT = saved.VTS_AUTO_CONNECT;
     if (saved.VTS_TOKEN) cfg.VTS_TOKEN = saved.VTS_TOKEN;
     if (saved.MEMORY_ENABLED != null) cfg.MEMORY_ENABLED = saved.MEMORY_ENABLED;
+    if (saved.MOOD_ENABLED != null) cfg.MOOD_ENABLED = saved.MOOD_ENABLED;
+    if (saved.TOPICS_ENABLED != null) cfg.TOPICS_ENABLED = saved.TOPICS_ENABLED;
+    if (saved.RESPONSE_FILTER_ENABLED != null) cfg.RESPONSE_FILTER_ENABLED = saved.RESPONSE_FILTER_ENABLED;
   } catch {}
 }
 
@@ -85,6 +100,9 @@ function saveConfig() {
     VTS_TOKEN: cfg.VTS_TOKEN,
     VTS_PROMPT: cfg.VTS_PROMPT,
     MEMORY_ENABLED: cfg.MEMORY_ENABLED,
+    MOOD_ENABLED: cfg.MOOD_ENABLED,
+    TOPICS_ENABLED: cfg.TOPICS_ENABLED,
+    RESPONSE_FILTER_ENABLED: cfg.RESPONSE_FILTER_ENABLED,
   }, null, 2), 'utf-8');
 }
 
@@ -92,14 +110,42 @@ const VISION_HINT = /mira la pantalla|miren la pantalla|ves la pantalla|vean la 
 
 const VISION_TAG = '\n\n[PERCEPCIÓN VISUAL: El usuario te pide explícitamente VER la pantalla. Usa la herramienta take_screenshot y responde en tu tono con lo que veas.]';
 
-function getSystemPrompt() {
-  const base = loadSystemPrompt()
-    .replace('{name}', cfg.VTUBER_NAME);
+const GAME_HINT = /que juego|que estas jugando|que juegas|que juego es|estas jugando|que andas jugando|que te toca|que vas a jugar|que vamos a jugar/i;
+
+const GAME_TAG = '\n\n[CONTEXTO: El usuario pregunta qué estás jugando o qué juego es. Usa la herramienta get_running_apps para ver qué hay abierto en el PC, identifica el juego y responde con lo que encuentres. Después usa web_search con el nombre del juego para buscar un dato curioso reciente: última actualización, parche, evento o polémica. Combina el dato del juego con eso para dar una respuesta más interesante.]';
+
+function timeTag() {
+  const now = new Date().toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  return '\n\n[HORA ACTUAL: ' + now + ']';
+}
+
+function getSystemPrompt(message) {
+  const base = loadSystemPrompt().replace('{name}', cfg.VTUBER_NAME);
   const custom = cfg.SYSTEM_PROMPT_CUSTOM || '';
   const vts = cfg.VTS_PROMPT || '';
-  return (base + (custom ? '\n\n' + custom : '') + (vts ? '\n\n' + vts : ''))
-    + '\n\nPERCEPCIÓN VISUAL: Tienes la capacidad de VER la pantalla del stream con la herramienta take_screenshot, pero úsala SOLO cuando el chat te lo pida explícitamente ("mira la pantalla", "ves eso", "qué está pasando en el juego", "cómo se ve mi modelo") o cuando sea estrictamente imprescindible para responder bien. En conversación normal NO la uses: responde con el modelo estándar con tus conocimientos y contexto, sin capturar la pantalla.'
-    + '\n\nIMPORTANTE: Si no sabes la respuesta o necesitas información actualizada, usa la herramienta web_search para buscar en internet antes de responder. Si necesitas saber la fecha y hora actual, usa la herramienta get_current_time.';
+
+  let topicContext = '';
+  if (cfg.TOPICS_ENABLED && topicManager && message) {
+    const topic = topicManager.detectTopic(message);
+    if (topic) {
+      topicContext = '\n\n[CONTEXTO ESPECIAL - "' + topic.title + '"]\n' + topic.payload.system;
+      if (topic.payload.fewShots && topic.payload.fewShots.length > 0) {
+        topicContext += '\n\nEjemplos de cómo responder en este contexto:';
+        for (const fs of topic.payload.fewShots) {
+          topicContext += '\nUsuario: ' + fs.user + '\nTú: ' + fs.assistant;
+        }
+      }
+    }
+  }
+
+  let moodContext = '';
+  if (cfg.MOOD_ENABLED && moodSystem) {
+    moodContext = moodSystem.getMoodContext();
+  }
+
+  const tools = '\n\nHerramientas: web_search (internet), get_current_time (hora), take_screenshot (ver pantalla cuando te lo piden), get_running_apps (saber qué juegos/apps están abiertos en el PC).';
+
+  return base + (custom ? '\n\n' + custom : '') + topicContext + moodContext + tools + (vts ? '\n\n' + vts : '');
 }
 
 function sanitizeUserId(name) {
@@ -115,14 +161,13 @@ function emitStatus() {
     command: cfg.COMMAND,
     name: cfg.VTUBER_NAME,
     vtsConnected: vtube ? vtube.connected : false,
-    vtsAuthenticated: vtube ? vtube.authenticated : false
+    vtsAuthenticated: vtube ? vtube.authenticated : false,
+    mood: moodSystem ? moodSystem.getState() : null,
   });
 }
 
 function initVTS() {
-  // If vtube exists and is still alive, skip
   if (vtube?.connected && vtube?.authenticated) return;
-  // Kill stale client before re-creating
   if (vtube) { vtube.disconnect(); vtube = null; }
   try {
     vtubeModel = new VTubeModel(cfg.VTS_MODEL_NAME, path.join(__dirname, 'model_dict.json'));
@@ -160,14 +205,11 @@ function initVTS() {
   }
 }
 
-// ponytail: periodic VTS reconnection poll — retries every 15s if not connected/authd
 let _vtsPoller = null;
 function startVTSPoller() {
   if (_vtsPoller) return;
   _vtsPoller = setInterval(() => {
-    if (!vtube?.connected || !vtube?.authenticated) {
-      initVTS();
-    }
+    if (!vtube?.connected || !vtube?.authenticated) initVTS();
   }, 15000);
 }
 
@@ -218,6 +260,15 @@ function init() {
 
   loadConfig();
 
+  memory = new GrimMemory();
+  topicManager = new TopicManager();
+  moodSystem = new MoodSystem();
+  rateLimiter = new BotRateLimiter();
+
+  console.log('[VTUBER-AI] Memoria SQLite cargada ✅');
+  console.log('[VTUBER-AI] Topics cargados (' + require('./topics').topics.length + ' topics) ✅');
+  console.log('[VTUBER-AI] Sistema de mood activo ✅');
+
   if (cfg.VTS_AUTO_CONNECT) initVTS();
 
   if (!cfg.API_KEY) {
@@ -235,93 +286,142 @@ function init() {
 
 async function sendChatMessage(content) {
   try {
-    const data = await chat.sendAsBot(content)
-    if (data.data?.is_sent) return true
-    console.error('[VTUBER-AI] Kick API rechazó el mensaje:', JSON.stringify(data))
-    return false
+    const data = await chat.sendAsBot(content);
+    if (data.data?.is_sent) return true;
+    console.error('[VTUBER-AI] Kick API rechazó el mensaje:', JSON.stringify(data));
+    return false;
   } catch (err) {
-    console.error('[VTUBER-AI] Error enviando chat:', err.message)
-    return false
+    console.error('[VTUBER-AI] Error enviando chat:', err.message);
+    return false;
   }
 }
 
-async function processMessage(username, content, skipLog = false) {
+async function processMessage(username, content, skipLog, extraContext, skipChat) {
   if (!deepseek) return { error: 'No inicializado' };
 
-  console.log(`[VTUBER-AI] ${username}: ${content}`);
+  console.log('[VTUBER-AI] ' + username + ': ' + content);
 
-  const history = cfg.MEMORY_ENABLED ? await getConversation(username, cfg.MAX_HISTORY_TURNS) : [];
-  let userContent = `${username}: ${content}`;
+  let history = [];
+  let profileContext = '';
+  let knowledgeContext = '';
+  let summaryContext = '';
+
+  if (cfg.MEMORY_ENABLED && memory) {
+    const smart = memory.getSmartContext(username, content, cfg.MAX_HISTORY_TURNS);
+    history = smart.recentHistory.map(e => ({
+      role: e.role,
+      content: e.role === 'user' ? e.username + ': ' + e.content : e.content,
+    }));
+    if (smart.userProfile) {
+      const p = smart.userProfile;
+      profileContext = '\n\nCONTEXTO DEL USUARIO "' + username + '": messages totales: ' + p.message_count + ', relación: ' + p.relationship;
+      if (p.notes) profileContext += ', notas: ' + p.notes;
+    }
+    if (smart.relevantMemory && smart.relevantMemory.length > 0) {
+      knowledgeContext = '\n\nCONOCIMIENTO RELEVANTE DE CONVERSACIONES PASADAS:\n' +
+        smart.relevantMemory.slice(0, 5).map(function(m) {
+          return '- ' + m.username + ': "' + m.content + '"';
+        }).join('\n');
+    }
+    const pastSummaries = memory.getConversationSummary(3);
+    if (pastSummaries.length > 0) {
+      summaryContext = '\n\nRESÚMENES DE STREAMS ANERIORES:\n' +
+        pastSummaries.map(function(s) { return '- ' + s.summary; }).join('\n');
+    }
+  }
+
+  let userContent = username + ': ' + content + timeTag();
   if (VISION_HINT.test(content)) {
     userContent += VISION_TAG;
   }
+  if (GAME_HINT.test(content)) {
+    userContent += GAME_TAG;
+  }
+
+  const systemPrompt = getSystemPrompt(content) + profileContext + knowledgeContext + summaryContext;
+
   const messages = [
-    { role: 'system', content: getSystemPrompt() },
-    ...history.map(e => ({
-      role: e.role,
-      content: e.role === 'user' ? `${e.username}: ${e.content}` : e.content
-    })),
-    { role: 'user', content: userContent }
+    { role: 'system', content: systemPrompt },
+    ...history,
+    { role: 'user', content: userContent },
   ];
 
-  if (cfg.MEMORY_ENABLED && !skipLog) await logMessage({ username, role: 'user', content });
+  if (cfg.MEMORY_ENABLED && !skipLog && memory) {
+    memory.logMessage(username, 'user', content);
+  }
+
+  if (cfg.MOOD_ENABLED && moodSystem) {
+    moodSystem.processMessageContent(content);
+  }
 
   try {
     const start = Date.now();
     const result = await deepseek.complete({
-      messages, temperature: cfg.TEMPERATURE, maxTokens: cfg.MAX_TOKENS, userId: sanitizeUserId(username)
+      messages,
+      temperature: cfg.TEMPERATURE,
+      maxTokens: cfg.MAX_TOKENS,
+      userId: sanitizeUserId(username),
     });
     const elapsed = Date.now() - start;
 
     const promptMiss = Math.max(0, result.usage.prompt - result.usage.cacheHit);
-    const cost = (result.usage.cacheHit * 0.0028 + promptMiss * 0.14 + result.usage.completion * 0.28) / 1_000_000;
+    const cost = (result.usage.cacheHit * 0.0028 + promptMiss * 0.14 + result.usage.completion * 0.28) / 1000000;
     console.log(
-      `[VTUBER-AI] ✅ ${result.usage.total} tokens ` +
-      `(prompt:${result.usage.prompt}, completion:${result.usage.completion}, ` +
-      `cache_hit:${result.usage.cacheHit}) en ${elapsed}ms ` +
-      `~$${cost.toFixed(6)}`
+      '[VTUBER-AI] ✅ ' + result.usage.total + ' tokens ' +
+      '(prompt:' + result.usage.prompt + ', completion:' + result.usage.completion + ', ' +
+      'cache_hit:' + result.usage.cacheHit + ') en ' + elapsed + 'ms ' +
+      '~$' + cost.toFixed(6)
     );
 
-    if (cfg.MEMORY_ENABLED && !skipLog) await logMessage({ username, role: 'assistant', content: result.text });
+    let finalText = result.text;
+    if (cfg.RESPONSE_FILTER_ENABLED) {
+      finalText = filterResponse(finalText);
+    }
 
-    // Extract emotions for VTS and clean text
-    let displayText = result.text
+    if (cfg.MEMORY_ENABLED && !skipLog && memory) {
+      memory.logMessage(cfg.VTUBER_NAME, 'assistant', finalText);
+    }
+
+    let displayText = finalText;
     if (vtubeModel) {
-      const emotions = vtubeModel.extractEmotion(result.text)
+      const emotions = vtubeModel.extractEmotion(finalText);
       if (emotions.length) {
-        console.log(`[VTUBER-AI] Emociones detectadas: ${emotions.join(', ')}`)
+        console.log('[VTUBER-AI] Emociones detectadas: ' + emotions.join(', '));
         for (const em of emotions) {
-          await triggerVTSExpression(em)
-          await new Promise(r => setTimeout(r, 100))
+          await triggerVTSExpression(em);
+          await new Promise(r => setTimeout(r, 100));
         }
       }
-      displayText = vtubeModel.removeEmotion(result.text) || result.text
+      displayText = vtubeModel.removeEmotion(finalText) || finalText;
     }
 
-    const maxLen = 400
-    const chunks = []
-    for (let i = 0; i < displayText.length; ) {
+    const maxLen = 400;
+    const chunks = [];
+    for (let i = 0; i < displayText.length;) {
       if (i + maxLen >= displayText.length) {
-        chunks.push(displayText.slice(i))
-        break
+        chunks.push(displayText.slice(i));
+        break;
       }
-      let end = displayText.lastIndexOf(' ', i + maxLen)
-      if (end <= i) end = i + maxLen
-      chunks.push(displayText.slice(i, end))
-      i = end + 1
+      let end = displayText.lastIndexOf(' ', i + maxLen);
+      if (end <= i) end = i + maxLen;
+      chunks.push(displayText.slice(i, end));
+      i = end + 1;
     }
-    if (chunks.length > 1) console.warn(`[VTUBER-AI] Respuesta larga (${displayText.length} chars), dividiendo en ${chunks.length} mensajes`)
-    let chatSent = false
-    for (const chunk of chunks) {
-      const sent = await sendChatMessage(chunk)
-      if (sent) chatSent = true
-      else break
+    let chatSent = false;
+    if (skipChat) {
+      console.log('[VTUBER-AI] Modo voz privado — sin envío a chat');
+    } else {
+      if (chunks.length > 1) console.warn('[VTUBER-AI] Respuesta larga (' + displayText.length + ' chars), dividiendo en ' + chunks.length + ' mensajes');
+      for (const chunk of chunks) {
+        const sent = await sendChatMessage(chunk);
+        if (sent) chatSent = true;
+        else break;
+      }
+      console.log('[VTUBER-AI] Chat ' + (chatSent ? 'enviado ✅' : 'falló ❌') + ' (' + chunks.length + ' parte(s))');
     }
-    console.log(`[VTUBER-AI] Chat ${chatSent ? 'enviado ✅' : 'falló ❌'} (${chunks.length} parte(s))`);
 
-    // Speak via TTS2 with Dalia voice directly
-    if (chatSent) {
-      eventBus.emit('tts2:speak', { text: displayText, voice: '24', origin: 'bot' })
+    if (chatSent || skipChat) {
+      eventBus.emit('tts2:speak', { text: displayText, voice: '24', origin: 'bot' });
     }
 
     return { ok: true, text: displayText, usage: result.usage, chatSent };
@@ -333,14 +433,30 @@ async function processMessage(username, content, skipLog = false) {
 
 async function onChatMessage(data) {
   const { payload } = data;
+
+  const filter = filterMessage(payload);
+  if (!filter.shouldProcess) {
+    return;
+  }
+
+  const rateCheck = rateLimiter.canRespond();
+  if (!rateCheck.allowed) {
+    return;
+  }
+
   const content = (payload.content || '').trim();
   if (!content.toLowerCase().startsWith(cfg.COMMAND)) return;
+
   const message = content.slice(cfg.COMMAND.length).trim();
   if (!message.length) return;
-  await processMessage(payload.sender?.username || 'anon', message);
-}
 
-// -- HTTP handlers --
+  const username = (payload.sender && payload.sender.username) || 'anon';
+  const result = await processMessage(username, message);
+
+  if (result.ok && result.chatSent) {
+    rateLimiter.recordResponse();
+  }
+}
 
 function handleGetStatus(req, res) {
   res.json({
@@ -350,7 +466,9 @@ function handleGetStatus(req, res) {
     vtsConnected: vtube ? vtube.connected : false,
     vtsAuthenticated: vtube ? vtube.authenticated : false,
     vtsHost: cfg.VTS_HOST,
-    vtsPort: cfg.VTS_PORT
+    vtsPort: cfg.VTS_PORT,
+    mood: moodSystem ? moodSystem.getState() : null,
+    memoryStats: memory ? memory.stats() : null,
   });
 }
 
@@ -375,11 +493,16 @@ function handleGetConfig(req, res) {
     VTS_AUTO_CONNECT: cfg.VTS_AUTO_CONNECT,
     VTS_PROMPT: cfg.VTS_PROMPT || '',
     MEMORY_ENABLED: cfg.MEMORY_ENABLED,
+    MOOD_ENABLED: cfg.MOOD_ENABLED,
+    TOPICS_ENABLED: cfg.TOPICS_ENABLED,
+    RESPONSE_FILTER_ENABLED: cfg.RESPONSE_FILTER_ENABLED,
+    chatFilter: getFilterConfig(),
   });
 }
 
 function handleSaveConfig(req, res) {
-  const { API_KEY, SEARCH_API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM, VTS_HOST, VTS_PORT, VTS_PLUGIN_NAME, VTS_PLUGIN_DEV, VTS_MODEL_NAME, VTS_AUTO_CONNECT, VTS_TOKEN, MEMORY_ENABLED } = req.body;
+  const body = req.body || {};
+  const { API_KEY, SEARCH_API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM, VTS_HOST, VTS_PORT, VTS_PLUGIN_NAME, VTS_PLUGIN_DEV, VTS_MODEL_NAME, VTS_AUTO_CONNECT, VTS_TOKEN, MEMORY_ENABLED, MOOD_ENABLED, TOPICS_ENABLED, RESPONSE_FILTER_ENABLED, chatFilter } = body;
 
   if (API_KEY && typeof API_KEY === 'string' && API_KEY.trim()) {
     cfg.API_KEY = API_KEY.trim();
@@ -392,7 +515,6 @@ function handleSaveConfig(req, res) {
   }
 
   if (SEARCH_API_KEY !== undefined) cfg.SEARCH_API_KEY = SEARCH_API_KEY;
-
   if (TEMPERATURE != null) cfg.TEMPERATURE = parseFloat(TEMPERATURE);
   if (MAX_TOKENS != null) cfg.MAX_TOKENS = parseInt(MAX_TOKENS, 10);
   if (MAX_HISTORY_TURNS != null) cfg.MAX_HISTORY_TURNS = parseInt(MAX_HISTORY_TURNS, 10);
@@ -405,10 +527,7 @@ function handleSaveConfig(req, res) {
     else resetSystemPrompt();
   }
 
-  if (SYSTEM_PROMPT_CUSTOM !== undefined) {
-    cfg.SYSTEM_PROMPT_CUSTOM = SYSTEM_PROMPT_CUSTOM || null;
-  }
-
+  if (SYSTEM_PROMPT_CUSTOM !== undefined) cfg.SYSTEM_PROMPT_CUSTOM = SYSTEM_PROMPT_CUSTOM || null;
   if (VTS_HOST) cfg.VTS_HOST = VTS_HOST;
   if (VTS_PORT != null) cfg.VTS_PORT = parseInt(VTS_PORT, 10);
   if (VTS_PLUGIN_NAME) cfg.VTS_PLUGIN_NAME = VTS_PLUGIN_NAME;
@@ -417,7 +536,12 @@ function handleSaveConfig(req, res) {
   if (VTS_AUTO_CONNECT != null) cfg.VTS_AUTO_CONNECT = !!VTS_AUTO_CONNECT;
   if (VTS_TOKEN) cfg.VTS_TOKEN = VTS_TOKEN;
   if (MEMORY_ENABLED != null) cfg.MEMORY_ENABLED = !!MEMORY_ENABLED;
-  // Re-init VTS if settings changed
+  if (MOOD_ENABLED != null) cfg.MOOD_ENABLED = !!MOOD_ENABLED;
+  if (TOPICS_ENABLED != null) cfg.TOPICS_ENABLED = !!TOPICS_ENABLED;
+  if (RESPONSE_FILTER_ENABLED != null) cfg.RESPONSE_FILTER_ENABLED = !!RESPONSE_FILTER_ENABLED;
+
+  if (chatFilter) updateFilterConfig(chatFilter);
+
   if (VTS_AUTO_CONNECT || VTS_HOST || VTS_PORT || VTS_PLUGIN_NAME || VTS_PLUGIN_DEV || VTS_TOKEN) {
     if (vtube) { vtube.disconnect(); vtube = null; }
     if (cfg.VTS_AUTO_CONNECT) initVTS();
@@ -433,50 +557,45 @@ async function handleTest(req, res) {
   if (!deepseek) {
     return res.status(400).json({ ok: false, message: 'Configura una API key primero' });
   }
-  const content = req.body?.content || 'Hola!';
+  const content = (req.body && req.body.content) || 'Hola!';
   try {
     const start = Date.now();
     const result = await deepseek.complete({
       messages: [
-        { role: 'system', content: getSystemPrompt() },
-        { role: 'user', content }
+        { role: 'system', content: getSystemPrompt(content) },
+        { role: 'user', content },
       ],
       temperature: cfg.TEMPERATURE,
       maxTokens: cfg.MAX_TOKENS,
-      userId: 'test'
+      userId: 'test',
     });
     const elapsed = Date.now() - start;
 
-    let displayText = result.text;
+    let finalText = result.text;
+    if (cfg.RESPONSE_FILTER_ENABLED) finalText = filterResponse(finalText);
+
+    let displayText = finalText;
     if (vtubeModel) {
-      const emotions = vtubeModel.extractEmotion(result.text);
+      const emotions = vtubeModel.extractEmotion(finalText);
       if (emotions.length) {
         for (const em of emotions) {
           await triggerVTSExpression(em);
           await new Promise(r => setTimeout(r, 100));
         }
       }
-      displayText = vtubeModel.removeEmotion(result.text) || result.text;
+      displayText = vtubeModel.removeEmotion(finalText) || finalText;
     }
 
     const chatSent = await sendChatMessage(displayText);
     if (chatSent) {
-      eventBus.emit('tts2:speak', { text: displayText, voice: '24', origin: 'bot' })
+      eventBus.emit('tts2:speak', { text: displayText, voice: '24', origin: 'bot' });
     }
 
-    res.json({
-      ok: true,
-      text: displayText,
-      usage: result.usage,
-      elapsed,
-      chatSent
-    });
+    res.json({ ok: true, text: displayText, usage: result.usage, elapsed, chatSent });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
 }
-
-// -- VTS HTTP handlers --
 
 function handleVTSConnect(req, res) {
   if (!vtube || vtube.connected) {
@@ -507,7 +626,7 @@ async function handleVTSExpression(req, res) {
   if (!emotion) return res.status(400).json({ ok: false, message: 'emotion requerida' });
   if (!vtube || !vtube.authenticated) return res.status(400).json({ ok: false, message: 'VTS no conectado' });
   const file = vtubeModel ? vtubeModel.expressionFile(emotion) : emotion;
-  if (!file) return res.status(400).json({ ok: false, message: `Emoción "${emotion}" no mapeada` });
+  if (!file) return res.status(400).json({ ok: false, message: 'Emoción "' + emotion + '" no mapeada' });
   try {
     await vtube.setExpression(file, active !== false, fadeTime || 0.3);
     res.json({ ok: true, emotion, file, active: active !== false });
@@ -528,20 +647,32 @@ async function handleVTSHotkey(req, res) {
   }
 }
 
-async function handleClearMemory(req, res) {
+function handleClearMemory(req, res) {
   const { username } = req.body || {};
   try {
-    if (username) {
-      await clearConversation(username);
-      console.log(`[VTUBER-AI] Memoria limpiada para ${username}`);
-    } else {
-      await clearAllConversations();
-      console.log('[VTUBER-AI] Memoria global limpiada');
+    if (memory) {
+      if (username) {
+        memory.clearUser(username);
+        console.log('[VTUBER-AI] Memoria limpiada para ' + username);
+      } else {
+        memory.clearAll();
+        console.log('[VTUBER-AI] Memoria global limpiada');
+      }
     }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
   }
+}
+
+function handleMemoryStats(req, res) {
+  if (!memory) return res.json({ ok: false, message: 'Memoria no disponible' });
+  res.json({ ok: true, stats: memory.stats() });
+}
+
+function handleMoodStatus(req, res) {
+  if (!moodSystem) return res.json({ ok: false, message: 'Mood system no disponible' });
+  res.json({ ok: true, mood: moodSystem.getState() });
 }
 
 async function handleVTSParams(req, res) {
@@ -566,11 +697,10 @@ async function handleVTSInjectParam(req, res) {
   }
 }
 
-// -- Shutdown --
-
 function shutdown() {
   initialized = false;
   if (vtube) { vtube.disconnect(); vtube = null; }
+  if (memory) { memory.close(); memory = null; }
   console.log('[VTUBER-AI] Apagado');
 }
 
@@ -582,5 +712,5 @@ module.exports = {
   handleVTSConnect, handleVTSDisconnect, handleVTSStatus,
   handleVTSExpression, handleVTSHotkey,
   handleVTSParams, handleVTSInjectParam,
-  handleClearMemory,
+  handleClearMemory, handleMemoryStats, handleMoodStatus,
 };

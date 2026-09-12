@@ -18,3 +18,5 @@ tokens.json
 modules/triggers/vtuber-ai/vtuber-data.json
 modules/triggers/event-actions/chatters.json
 logs/vtuber-ai/
+modules/triggers/VOz/venv/
+modules/triggers/VOz/__pycache__/

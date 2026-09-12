@@ -8,9 +8,14 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "express": "^4.21.0",
+    "koffi": "^3.2.1",
     "multer": "^2.2.0",
     "openai": "^4.104.0",
     "ws": "^8.16.0"
+  },
+  "allowScripts": {
+    "koffi@3.2.1": true
   }
 }

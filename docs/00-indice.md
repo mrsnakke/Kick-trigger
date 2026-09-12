@@ -31,6 +31,7 @@ Diseñada para que un desarrollador nuevo pueda ponerse al día en poco tiempo.
 ### Módulos de reacción (`modules/triggers/`)
 - [TTS2 — texto a voz con SAPI](modulos/tts.md)
 - [VTuber AI — IA conversacional + VTube Studio (+ iA Vision)](modulos/vtuber-ai.md)
+- [Voice Chat — voz privada → Grim → TTS](modulos/voice-chat.md)
 - [GACHA — sistema de gacha](modulos/gacha.md)
 - [OBS Actions — control de OBS](modulos/obs-actions.md)
 - [Music — control de reproductor YouTube](modulos/music.md)

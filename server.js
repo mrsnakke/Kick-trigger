@@ -1,7 +1,42 @@
 const express = require('express')
 const http = require('http')
 const path = require('path')
+const fs = require('fs')
+const { spawn } = require('child_process')
 const os = require('os')
+
+// -- Colorear [TAGS] en consola --
+;(() => {
+  const TAG_COLORS = {
+    'VTUBER-AI': '\x1b[35m',  'VOZ': '\x1b[36m',       'VOICE-CHAT': '\x1b[36m',
+    'SEND-BOT': '\x1b[33m',   'HEARTBEAT': '\x1b[90m',  'FWD': '\x1b[90m',
+    'TUNNEL': '\x1b[32m',     'GACHA': '\x1b[33m',      'STORE': '\x1b[33m',
+    'ENGINE': '\x1b[33m',     'CMDS': '\x1b[33m',       'INV': '\x1b[33m',
+    'ADMIN': '\x1b[33m',      'TRADE': '\x1b[33m',      'WS': '\x1b[90m',
+    'TTS2': '\x1b[94m',       'CHATBOT': '\x1b[32m',    'MUSIC': '\x1b[32m',
+    'Strinova': '\x1b[36m',   'OBS-Actions': '\x1b[35m','OBS': '\x1b[35m',
+    'EVENT-ACTIONS': '\x1b[35m', 'FIGHT': '\x1b[31m',   'GrimMemory': '\x1b[35m',
+    'Store': '\x1b[33m',      'WEBHOOK': '\x1b[36m',    'SSE': '\x1b[90m',
+    'SUB': '\x1b[32m',
+  }
+  const RST = '\x1b[0m'
+  const re = /\[([A-Za-z0-9_-]+)\]/
+  function colorize(args) {
+    if (!args.length) return args
+    const s = String(args[0])
+    const m = s.match(re)
+    if (m && TAG_COLORS[m[1]]) {
+      args[0] = s.replace(m[0], TAG_COLORS[m[1]] + m[0] + RST)
+    }
+    return args
+  }
+  const origLog = console.log
+  const origErr = console.error
+  const origWarn = console.warn
+  console.log = (...a) => origLog.apply(console, colorize(a))
+  console.error = (...a) => origErr.apply(console, colorize(a))
+  console.warn = (...a) => origWarn.apply(console, colorize(a))
+})()
 const config = require('./lib/config')
 const state = require('./lib/state')
 const auth = require('./modules/auth')
@@ -139,6 +174,45 @@ app.post('/api/vtuber/vts/hotkey', express.json(), vtuber.handleVTSHotkey)
 app.get('/api/vtuber/vts/params', vtuber.handleVTSParams)
 app.post('/api/vtuber/vts/param', express.json(), vtuber.handleVTSInjectParam)
 app.post('/api/vtuber/memory/clear', express.json(), vtuber.handleClearMemory)
+app.get('/api/vtuber/memory/stats', vtuber.handleMemoryStats)
+app.get('/api/vtuber/mood', vtuber.handleMoodStatus)
+
+// -- Voice Chat (voz privada → Grim → TTS) --
+app.get('/api/voice-chat/status', (_req, res) => {
+  let sent = false
+  const send = (data) => { if (!sent) { sent = true; res.json(data) } }
+  const req = http.get('http://127.0.0.1:8000/', { timeout: 2000 }, () => {
+    send({ ok: true, running: true, port: 8000 })
+  })
+  req.on('error', () => send({ ok: true, running: false, port: 8000 }))
+  req.on('timeout', () => { req.destroy(); send({ ok: true, running: false, port: 8000 }) })
+})
+app.post('/api/voice-chat/ask', express.json(), async (req, res) => {
+  const { text } = req.body || {}
+  if (!text || typeof text !== 'string') return res.status(400).json({ ok: false, error: 'text requerido' })
+  console.log('[VOICE-CHAT] Voz recibida:', text.slice(0, 80))
+  sse.broadcast({ type: 'voice-chat', _source: 'voice-chat', direction: 'user', content: text })
+  try {
+    const result = await vtuber.processMessage('Streamowner', text, true, null, true)
+    if (result.error) return res.status(500).json({ ok: false, error: result.error })
+    sse.broadcast({ type: 'voice-chat', _source: 'voice-chat', direction: 'bot', content: result.text })
+    res.json({ ok: true, text: result.text })
+  } catch (err) {
+    console.error('[VOICE-CHAT] Error:', err.message)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// Proxy audio recording → Python /ask (evita CORS)
+app.post('/api/voice-chat/ask-recording', (req, res) => {
+  const proxyReq = http.request(`http://127.0.0.1:8000/ask`, { method: 'POST', headers: { 'content-type': req.headers['content-type'], 'content-length': req.headers['content-length'] }, timeout: 30000 }, (proxyRes) => {
+    let body = ''; proxyRes.on('data', c => body += c); proxyRes.on('end', () => {
+      res.status(proxyRes.statusCode).set('Content-Type', 'application/json').end(body)
+    })
+  })
+  proxyReq.on('error', (e) => { console.error('[VOZ] Proxy error:', e.message); res.status(502).json({ error: e.message }) })
+  req.pipe(proxyReq)
+})
 
 // -- Event Actions --
 app.get('/api/event-actions/config', eventActions.handleGetConfig)
@@ -263,6 +337,78 @@ server.listen(config.PORT, async () => {
 
   // Último módulo en iniciar: el fight server (proceso hijo en :3001)
   fighting.init()
+
+  // -- Voice Chat (Python VOz server, auto-start) --
+  ;(() => {
+    const VOZ_ROOT = path.join(__dirname, 'modules/triggers', 'VOz')
+    const VOZ_PORT = 8000
+    let vozChild = null
+    let vozAttempts = 0
+    const VOZ_MAX = 3
+
+    function spawnVoz() {
+      if (vozChild || vozAttempts >= VOZ_MAX) return
+      const req = http.get(`http://127.0.0.1:${VOZ_PORT}/`, { timeout: 2000 }, () => {
+        console.log(`[VOZ] Ya corriendo en :${VOZ_PORT}`)
+      })
+      req.on('error', () => {
+        const venvPy = path.join(VOZ_ROOT, 'venv', 'Scripts', 'python.exe')
+        const py = fs.existsSync(venvPy) ? venvPy : 'python'
+        vozAttempts++
+        console.log(`[VOZ] Arrancando voice-chat en :${VOZ_PORT} (intento ${vozAttempts}/${VOZ_MAX})`)
+        vozChild = spawn(py, ['-m', 'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', String(VOZ_PORT)], {
+          cwd: VOZ_ROOT,
+          detached: true,
+          stdio: 'ignore',
+        })
+        vozChild.unref()
+        vozChild.on('exit', (code) => {
+          console.log(`[VOZ] Proceso Python terminó (code ${code})`)
+          vozChild = null
+          if (code !== 0 && code !== null && vozAttempts < VOZ_MAX) {
+            setTimeout(spawnVoz, 5000)
+          }
+        })
+      })
+      req.on('timeout', () => { req.destroy(); console.log(`[VOZ] Ya corriendo en :${VOZ_PORT}`) })
+    }
+
+    process.on('exit', () => { if (vozChild) try { vozChild.kill() } catch {} })
+    spawnVoz()
+
+    // -- Hotkey global '+' detectado en Node.js via GetAsyncKeyState --
+    try {
+      const koffi = require('koffi')
+      const user32 = koffi.load('user32.dll')
+      const GetAsyncKeyState = user32.func('short GetAsyncKeyState(int vKey)')
+      const VK_OEM_PLUS = 0xBB
+      const VK_ADD = 0x6B
+      let wasDown = false
+      function pollHotkey() {
+        const down = !!(GetAsyncKeyState(VK_OEM_PLUS) & 0x8000) || !!(GetAsyncKeyState(VK_ADD) & 0x8000)
+        if (down && !wasDown) {
+          wasDown = true
+          sse.broadcast({ type: 'voice-recording', _source: 'voice-chat', direction: 'start' })
+          const r = http.request(`http://127.0.0.1:${VOZ_PORT}/hotkey`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, timeout: 2000 })
+          r.on('error', () => {})
+          r.end(JSON.stringify({ event: 'start' }))
+          r.end(JSON.stringify({ event: 'start' }))
+        } else if (!down && wasDown) {
+          wasDown = false
+          sse.broadcast({ type: 'voice-recording', _source: 'voice-chat', direction: 'stop' })
+          const r = http.request(`http://127.0.0.1:${VOZ_PORT}/hotkey`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, timeout: 2000 })
+          r.on('error', () => {})
+          r.end(JSON.stringify({ event: 'stop' }))
+          r.end(JSON.stringify({ event: 'stop' }))
+        }
+        setTimeout(pollHotkey, 50)
+      }
+      pollHotkey()
+      console.log('[VOZ] Hotkey global + activo (GetAsyncKeyState)')
+    } catch (e) {
+      console.warn('[VOZ] No se pudo activar hotkey global:', e.message)
+    }
+  })()
 
   console.log(`\n  Abrí http://localhost:${config.PORT} en tu navegador\n`)
 })

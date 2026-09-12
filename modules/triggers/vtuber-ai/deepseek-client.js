@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const vision = require('../iA Vision/server');
 
-const VISION_PROMPT = 'Actúas como los ojos de Grim, una VTuber tsundere transmitiendo en vivo en Kick. Describe en español, en presente y con estilo de narración en vivo, TODO lo relevante que ves en la pantalla: estado del juego si es gameplay, el modelo VTuber, textos del chat, overlays, menús, errores o momentos graciosos. Sé específico y factual: NO inventes nada que no esté realmente en la pantalla.';
+const VISION_PROMPT = 'Actúas como los ojos de Grim, una VTuber tsundere transmitiendo en vivo en Kick. Describe en español, en presente y con estilo de narración en vivo TODO lo relevante que ves en la pantalla, sea lo que sea que esté mostrando: un juego si hay gameplay, un video, un meme (lee su texto tal cual si se ve), una página web, el modelo VTuber, textos del chat, overlays, menús, errores o momentos graciosos. Sé específico y factual: NO inventes nada que no esté realmente en la pantalla. Si el contenido es un meme o video, describe lo que se ve con detalle para poder identificarlo después.'
 
 function createDeepSeekClient(apiKey, searchApiKey) {
   if (!apiKey) throw new Error('VTUBER_API_KEY no configurada');
@@ -62,6 +62,15 @@ function createDeepSeekClient(apiKey, searchApiKey) {
         return `No pude capturar o analizar la pantalla: ${e.message}`;
       }
     }
+    if (toolCall.function.name === 'get_running_apps') {
+      try {
+        const apps = await vision.getRunningApps();
+        if (!apps.length) return 'No hay aplicaciones con ventana abierta detectadas.';
+        return 'APLICACIONES ABIERTAS EN EL PC:\n' + apps.map(a => `- ${a.name}: "${a.title}"`).join('\n');
+      } catch (e) {
+        return `No pude obtener la lista de aplicaciones: ${e.message}`;
+      }
+    }
     return `Función '${toolCall.function.name}' no disponible.`;
   }
 
@@ -109,7 +118,7 @@ function createDeepSeekClient(apiKey, searchApiKey) {
           type: 'function',
           function: {
             name: 'take_screenshot',
-            description: 'Toma un screenshot de la pantalla del stream y lo analiza, devolviéndote una descripción de lo que está pasando. Úsala cuando necesites saber qué hay en pantalla para responder mejor: si el chat menciona algo visual del stream, si te preguntan por el juego, el modelo VTuber, un error, o si simplemente sientes que necesitas ver la pantalla para dar una buena respuesta. No la uses en preguntas generales que no requieren contexto visual.',
+            description: 'Toma un screenshot de la pantalla del stream y lo analiza, devolviéndote una descripción de lo que está pasando. Úsala cuando necesites saber qué hay en pantalla para responder mejor: si el chat menciona algo visual del stream (un juego, un video, un meme, una web), si te preguntan por el juego, el modelo VTuber, un error, o si simplemente sientes que necesitas ver la pantalla para dar una buena respuesta. Usa web_search después si el contenido que viste necesita ser identificado o verificado. No la uses en preguntas generales que no requieren contexto visual.',
             parameters: {
               type: 'object',
               properties: {
@@ -118,6 +127,17 @@ function createDeepSeekClient(apiKey, searchApiKey) {
                   description: 'Qué quieres ver o verificar en la pantalla. Opcional.',
                 },
               },
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'get_running_apps',
+            description: 'Lista las aplicaciones con ventana abierta en el PC del streamer (nombre del proceso y título de ventana). Úsala para saber qué juego o aplicación está usando, cuándo el chat pregunte qué está jugando, o cuando necesites identificar algo que corre en el PC sin tomar screenshot.',
+            parameters: {
+              type: 'object',
+              properties: {},
             },
           },
         },
@@ -147,24 +167,49 @@ function createDeepSeekClient(apiKey, searchApiKey) {
       const usage = toUsage(response.usage);
 
       if (choice.finish_reason === 'tool_calls' && choice.message?.tool_calls) {
-        const toolResults = [];
-        for (const tc of choice.message.tool_calls) {
-          toolResults.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            content: await executeToolCall(tc),
-          });
+        const allMessages = [...messages];
+        let lastChoice = choice;
+        let totalUsage = usage;
+
+        for (let round = 0; round < 2; round++) {
+          allMessages.push(lastChoice.message);
+          const toolResults = [];
+          for (const tc of lastChoice.message.tool_calls) {
+            toolResults.push({
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: await executeToolCall(tc),
+            });
+          }
+          allMessages.push(...toolResults);
+
+          const followUp = await call(allMessages, true);
+          if (!followUp.choices?.length) {
+            throw new Error('DeepSeek API: respuesta vacía tras tool call');
+          }
+          totalUsage = toUsage(followUp.usage);
+          lastChoice = followUp.choices[0];
+
+          if (lastChoice.finish_reason !== 'tool_calls' || !lastChoice.message?.tool_calls) {
+            return {
+              text: lastChoice.message.content,
+              usage: {
+                prompt: usage.prompt + totalUsage.prompt,
+                completion: usage.completion + totalUsage.completion,
+                total: usage.total + totalUsage.total,
+                cacheHit: usage.cacheHit + totalUsage.cacheHit,
+              },
+            };
+          }
         }
 
-        const followUp = await call([...messages, choice.message, ...toolResults], false);
-
-        if (!followUp.choices?.length) {
-          throw new Error('DeepSeek API: respuesta vacía tras tool call');
+        const finalResponse = await call([...allMessages], false);
+        if (!finalResponse.choices?.length) {
+          throw new Error('DeepSeek API: respuesta vacía tras tool calls');
         }
-
-        const finalUsage = toUsage(followUp.usage);
+        const finalUsage = toUsage(finalResponse.usage);
         return {
-          text: followUp.choices[0].message.content,
+          text: finalResponse.choices[0].message.content,
           usage: {
             prompt: usage.prompt + finalUsage.prompt,
             completion: usage.completion + finalUsage.completion,

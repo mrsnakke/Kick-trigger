@@ -45,7 +45,7 @@
         {
           "name": "Frieren",
           "rarity": "5_star",
-          "stock": 1
+          "stock": 0
         },
         {
           "name": "Phoebe",
@@ -65,7 +65,7 @@
         {
           "name": "Dorothy",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 1
         },
         {
           "name": "Musashi",
@@ -174,6 +174,45 @@
           "name": "Eris Greyrat",
           "rarity": "5_star",
           "stock": 4
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "label": "Temporada 4",
+      "month": "2026-09",
+      "start_date": "2026-09-01",
+      "end_date": "2026-09-30",
+      "characters": [
+        {
+          "name": "YaniNeko",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Hahari Hanazono",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Reze",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "klukai",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Mirko",
+          "rarity": "5_star",
+          "stock": 5
+        },
+        {
+          "name": "Remielle",
+          "rarity": "5_star",
+          "stock": 5
         }
       ]
     }
