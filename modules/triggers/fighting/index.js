@@ -39,8 +39,8 @@ const STAT_KEYS = ['hp', 'attack', 'defense', 'evasion', 'accuracy', 'crit']
 const STAT_LABELS = { hp: 'vida', attack: 'ataque', defense: 'defensa', evasion: 'evasión', accuracy: 'puntería', crit: 'crítico' }
 
 // GrimVTbot es el personaje admin (nivel 999, vida casi infinita). Si lo retan en el chat,
-// el duelo se auto-acepta y la IA (vtuber-ai) se burla del retador. Lazy-require: vtuber-ai
-// se inicializa solo cuando hace falta, para no depender del orden de carga de los módulos.
+// el duelo se auto-acepta. Lazy-require: vtuber-ai (solo usado por isHeld) se inicializa solo
+// cuando hace falta, para no depender del orden de carga de los módulos.
 const GRIM_KICK_ID = Number(process.env.FIGHT_GRIM_ID || 65967692)
 const GRIM_USERNAME = process.env.FIGHT_GRIM_NAME || 'GrimVTbot'
 const SNAKE_KICK_ID = Number(process.env.FIGHT_SNAKE_ID || 4623815)
@@ -150,14 +150,6 @@ async function handleMessage(data) {
           reply(res.started
             ? `@${username} 🥊 ¡GRIM acepta el duelo! Nivel 999 bajando a la arena…`
             : `@${username} ⏳ Grim acepta, pero hay pelea en curso: quedás en cola.`)
-          setTimeout(() => {
-            vtuberAI().processMessage(
-              username,
-              `@${username} acaba de retarte a un duelo en la arena. Responde con UNA burla corta, sarcástica y con mucha actitud antes de la pelea.`
-            ).then((r) => {
-              if (!r?.ok) reply(`@${username} ¿Seguro que querés tocarme? Nivel 999, admin, invicto. Pensalo bien 😈`)
-            }).catch(() => reply(`@${username} ¿Seguro que querés tocarme? Nivel 999, admin, invicto. Pensalo bien 😈`))
-          }, 1200)
           return
         }
 

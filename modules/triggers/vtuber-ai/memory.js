@@ -8,6 +8,11 @@ const LOG_DIR = process.env.VTUBER_LOG_DIR || './logs/vtuber-ai';
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
+function truncate(content, max = 300) {
+  if (!content || content.length <= max) return content;
+  return content.slice(0, max).trimEnd() + '…';
+}
+
 class GrimMemory {
   constructor(dbPath) {
     this.db = new Database(dbPath || DB_PATH);
@@ -85,28 +90,21 @@ class GrimMemory {
     return {
       recentHistory: this._getRecentHistory(username, maxTurns),
       userProfile: this._getUserProfile(username),
-      relevantMemory: this._searchRelevant(currentMessage),
+      relevantMemory: this._searchRelevant(username, currentMessage),
+      userKnowledge: this._getUserKnowledge(username),
       todaySummary: this._getTodaySummary(),
     };
   }
 
   _getRecentHistory(username, maxTurns) {
-    let messages = this.db.prepare(
+    const messages = this.db.prepare(
       'SELECT role, content, username, timestamp FROM messages WHERE username = ? ORDER BY timestamp DESC LIMIT ?'
-    ).all(username, maxTurns * 2);
-
-    if (messages.length < maxTurns) {
-      const general = this.db.prepare(
-        'SELECT role, content, username, timestamp FROM messages WHERE username != ? ORDER BY timestamp DESC LIMIT ?'
-      ).all(username, maxTurns - messages.length);
-      messages = [...general.reverse(), ...messages.reverse()];
-    } else {
-      messages = messages.reverse();
-    }
+    ).all(username, maxTurns * 2).reverse();
+    for (const m of messages) m.content = truncate(m.content);
     return messages;
   }
 
-  _searchRelevant(query) {
+  _searchRelevant(username, query) {
     if (!query) return [];
     const keywords = query.toLowerCase()
       .replace(/[¿?¡!.,;:]/g, '')
@@ -114,11 +112,17 @@ class GrimMemory {
       .filter(w => w.length > 3);
     if (keywords.length === 0) return [];
 
-    const conditions = keywords.map(() => 'LOWER(content) LIKE ?').join(' OR ');
-    const params = keywords.map(k => '%' + k + '%');
+    const conditions = keywords.map(() => 'username = ? AND LOWER(content) LIKE ?').join(' OR ');
+    const params = keywords.flatMap(k => [username, '%' + k + '%']);
     return this.db.prepare(
       'SELECT content, username, timestamp, role FROM messages WHERE ' + conditions + ' ORDER BY timestamp DESC LIMIT 10'
-    ).all(...params);
+    ).all(...params).map(m => ({ ...m, content: truncate(m.content) }));
+  }
+
+  _getUserKnowledge(username) {
+    return this.db.prepare(
+      'SELECT relation, value FROM knowledge WHERE source_user = ? ORDER BY last_seen DESC LIMIT 10'
+    ).all(username);
   }
 
   _getUserProfile(username) {

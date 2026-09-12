@@ -304,6 +304,7 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
   let history = [];
   let profileContext = '';
   let knowledgeContext = '';
+  let userKnowledgeContext = '';
   let summaryContext = '';
 
   if (cfg.MEMORY_ENABLED && memory) {
@@ -318,9 +319,15 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
       if (p.notes) profileContext += ', notas: ' + p.notes;
     }
     if (smart.relevantMemory && smart.relevantMemory.length > 0) {
-      knowledgeContext = '\n\nCONOCIMIENTO RELEVANTE DE CONVERSACIONES PASADAS:\n' +
+      knowledgeContext = '\n\nCONOCIMIENTO RELEVANTE DE CONVERSACIONES PASADAS (solo de ' + username + '):\n' +
         smart.relevantMemory.slice(0, 5).map(function(m) {
           return '- ' + m.username + ': "' + m.content + '"';
+        }).join('\n');
+    }
+    if (smart.userKnowledge && smart.userKnowledge.length > 0) {
+      userKnowledgeContext = '\n\nDATOS QUE RECUERDAS DE "' + username + '":\n' +
+        smart.userKnowledge.map(function(k) {
+          return '- le ' + (k.relation === 'dislikes' ? 'disgusta' : 'gusta') + ': ' + k.value;
         }).join('\n');
     }
     const pastSummaries = memory.getConversationSummary(3);
@@ -338,7 +345,7 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
     userContent += GAME_TAG;
   }
 
-  const systemPrompt = getSystemPrompt(content) + profileContext + knowledgeContext + summaryContext;
+  const systemPrompt = getSystemPrompt(content) + profileContext + knowledgeContext + userKnowledgeContext + summaryContext;
 
   const messages = [
     { role: 'system', content: systemPrompt },
