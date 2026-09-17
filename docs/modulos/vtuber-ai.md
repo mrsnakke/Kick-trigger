@@ -57,7 +57,7 @@ Copia `vtuber-data.example.json` como `vtuber-data.json` y rellena tus claves.
 | `VTUBER_MAX_TOKENS` | `512` | Máx. tokens |
 | `VTUBER_NAME` | `Grim` | Nombre |
 | `VTUBER_COMMAND` | `!grim` | Comando del chat |
-| `VTS_HOST` (en config) | `192.168.1.119:8002` | Host de VTube Studio |
+| `VTS_HOST` (en config) | `192.168.1.127:8002` | Host de VTube Studio |
 
 ## Comandos de chat
 

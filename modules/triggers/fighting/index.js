@@ -46,6 +46,10 @@ const GRIM_USERNAME = process.env.FIGHT_GRIM_NAME || 'GrimVTbot'
 const SNAKE_KICK_ID = Number(process.env.FIGHT_SNAKE_ID || 4623815)
 const vtuberAI = () => require('../vtuber-ai')
 
+// Anuncio por TTS (voz Dalia '24', igual que el vtuber). Texto plano, sin arrobas.
+const announceTTS = (text) =>
+  eventBus.emit('tts2:speak', { text: text.replace(/@/g, ' ').replace(/\s+/g, ' ').trim(), voice: '24', origin: 'bot' })
+
 async function api(fpath, { method = 'GET', body, timeout } = {}) {
   const res = await fetch(`${FIGHTING_URL}${fpath}`, {
     method,
@@ -147,6 +151,7 @@ async function handleMessage(data) {
             method: 'POST',
             body: { player_kick_id: GRIM_KICK_ID },
           })
+          announceTTS(`${username} retó a Grim. Grim acepta el duelo.`)
           reply(res.started
             ? `@${username} 🥊 ¡GRIM acepta el duelo! Nivel 999 bajando a la arena…`
             : `@${username} ⏳ Grim acepta, pero hay pelea en curso: quedás en cola.`)
@@ -174,9 +179,11 @@ async function handleMessage(data) {
           const mine = list.challenges.find((c) => c.to === `kick_${t.id}` && c.status === 'awaiting_accept')
           if (mine) {
             await api(`/api/kick/challenges/${mine.id}/accept`, { method: 'POST', body: { player_kick_id: t.id } })
+            announceTTS(`${username} retó a ${t.name}. ${t.name} está atado y no puede decir que no.`)
             return reply(`@${username} retó a @${t.name} 🥊 ¡pero ${t.name} está atado y no puede decir que no!`)
           }
         }
+        announceTTS(`${username} retó a ${t.name}. Responde ${t.name}.`)
         return reply(`@${username} retó a @${t.name} 🥊 ¡@${t.name} responde !aceptar (o !si) o !no!`)
       }
       case '!aceptar':

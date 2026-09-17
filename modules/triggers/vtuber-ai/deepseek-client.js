@@ -3,7 +3,7 @@ const vision = require('../iA Vision/server');
 
 const VISION_PROMPT = 'Actúas como los ojos de Grim, una VTuber tsundere transmitiendo en vivo en Kick. Describe en español, en presente y con estilo de narración en vivo TODO lo relevante que ves en la pantalla, sea lo que sea que esté mostrando: un juego si hay gameplay, un video, un meme (lee su texto tal cual si se ve), una página web, el modelo VTuber, textos del chat, overlays, menús, errores o momentos graciosos. Sé específico y factual: NO inventes nada que no esté realmente en la pantalla. Si el contenido es un meme o video, describe lo que se ve con detalle para poder identificarlo después.'
 
-function createDeepSeekClient(apiKey, searchApiKey) {
+function createDeepSeekClient(apiKey, searchApiKey, services) {
   if (!apiKey) throw new Error('VTUBER_API_KEY no configurada');
 
   const client = new OpenAI({
@@ -13,7 +13,10 @@ function createDeepSeekClient(apiKey, searchApiKey) {
     fetch: (url, init) => fetch(url, init),
   });
 
-  async function executeToolCall(toolCall) {
+  const memory = services ? services.memory : null;
+  const embedder = services ? services.embedder : null;
+
+  async function executeToolCall(toolCall, ctx) {
     if (toolCall.function.name === 'web_search') {
       const { query } = JSON.parse(toolCall.function.arguments);
       if (!searchApiKey) {
@@ -71,6 +74,30 @@ function createDeepSeekClient(apiKey, searchApiKey) {
         return `No pude obtener la lista de aplicaciones: ${e.message}`;
       }
     }
+    if (toolCall.function.name === 'search_memory' && memory) {
+      try {
+        const { query, only_username = '', since_days } = JSON.parse(toolCall.function.arguments);
+        const res = await memory.searchMemory(query, {
+          username: only_username || ctx.username || null,
+          sinceDays: since_days || null,
+          embedder,
+          limit: 8,
+        });
+        if (!res.results.length) return 'No encontré nada relacionado en mis recuerdos.';
+        return 'RECUERDOS ENCONTRADOS (usa esto si responde sobre la persona/tema):\n' + res.text;
+      } catch (e) {
+        return 'Error buscando en memoria: ' + e.message;
+      }
+    }
+    if (toolCall.function.name === 'remember_memory' && memory) {
+      try {
+        const { subject, predicate, object, confidence } = JSON.parse(toolCall.function.arguments);
+        memory.rememberMemory({ subject, predicate, object, confidence, sourceUser: ctx.username });
+        return 'Guardado en memoria a largo plazo.';
+      } catch (e) {
+        return 'Error guardando en memoria: ' + e.message;
+      }
+    }
     return `Función '${toolCall.function.name}' no disponible.`;
   }
 
@@ -84,7 +111,7 @@ function createDeepSeekClient(apiKey, searchApiKey) {
   }
 
   return {
-    async complete({ messages, temperature = 1.3, maxTokens = 512, userId }) {
+    async complete({ messages, temperature = 1.3, maxTokens = 512, userId, userName = null, noTools = false }) {
       const tools = [
         {
           type: 'function',
@@ -143,6 +170,63 @@ function createDeepSeekClient(apiKey, searchApiKey) {
         },
       ];
 
+      if (memory) {
+        tools.push({
+          type: 'function',
+          function: {
+            name: 'search_memory',
+            description: 'Busca RECUERDOS a largo plazo de conversaciones, datos personales de viewers (gustos, datos que han contado) y resúmenes de streams pasados. Úsala cuando el chat mencione a alguien que conozcas o te pregunte "te acuerdas", o cuando necesites contexto de otra conversación. No la abusen por cada mensaje.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'Qué quieres recordar, en lenguaje natural',
+                },
+                only_username: {
+                  type: 'string',
+                  description: 'Opcional. Si estás recordando sobre un viewer concreto, su nombre de Kick',
+                },
+                since_days: {
+                  type: 'integer',
+                  description: 'Opcional. Solo recuerdos de los últimos N días',
+                },
+              },
+              required: ['query'],
+            },
+          },
+        });
+        tools.push({
+          type: 'function',
+          function: {
+            name: 'remember_memory',
+            description: 'Guarda un DATO PERSONAL a largo plazo que un viewer haya dicho sobre sí mismo, sobre otra persona o algo que debas recordar para siempre (gustos, aniversarios, juegos favoritos, anécdotas). Úsala cuando un viewer comparta algo personal y memorable. No guardes mensajes triviales o preguntas normales.',
+            parameters: {
+              type: 'object',
+              properties: {
+                subject: {
+                  type: 'string',
+                  description: 'La persona o cosa de quien se habla (ej: "marco")',
+                },
+                predicate: {
+                  type: 'string',
+                  description: 'La relación, en tercera persona (ej: "le gusta", "juega a", "vive en", "odia")',
+                },
+                object: {
+                  type: 'string',
+                  description: 'Qué es lo que le gusta/juega/etc (ej: "el anime")',
+                },
+                confidence: {
+                  type: 'number',
+                  description: 'Qué seguridad tienes (0.5 dudoso, 1.0 seguro). Opcional, por defecto 0.8',
+                },
+              },
+              required: ['subject', 'predicate', 'object'],
+            },
+          },
+        });
+      }
+
       async function call(msg, withTools) {
         const p = {
           model: 'deepseek-flash',
@@ -157,7 +241,8 @@ function createDeepSeekClient(apiKey, searchApiKey) {
         return client.chat.completions.create(p);
       }
 
-      const response = await call(messages, true);
+      const ctx = { username: userName };
+      const response = await call(messages, !noTools);
 
       if (!response.choices?.length) {
         throw new Error('DeepSeek API: respuesta vacía');
@@ -178,12 +263,12 @@ function createDeepSeekClient(apiKey, searchApiKey) {
             toolResults.push({
               role: 'tool',
               tool_call_id: tc.id,
-              content: await executeToolCall(tc),
+              content: await executeToolCall(tc, ctx),
             });
           }
           allMessages.push(...toolResults);
 
-          const followUp = await call(allMessages, true);
+          const followUp = await call(allMessages, !noTools);
           if (!followUp.choices?.length) {
             throw new Error('DeepSeek API: respuesta vacía tras tool call');
           }

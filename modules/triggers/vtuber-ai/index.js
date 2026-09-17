@@ -7,6 +7,7 @@ const { VTubeModel } = require('./vtube-model');
 const { GrimMemory } = require('./memory');
 const { filterMessage, BotRateLimiter, updateConfig: updateFilterConfig, getConfig: getFilterConfig } = require('./chat-filter');
 const { TopicManager } = require('./topics');
+const { createEmbedder } = require('./embed');
 const { MoodSystem } = require('./mood');
 const { getEventResponse } = require('./event-responses');
 const { filterResponse } = require('./response-filter');
@@ -23,7 +24,7 @@ const defaults = {
   MAX_TOKENS: parseInt(env.VTUBER_MAX_TOKENS || '500', 10),
   VTUBER_NAME: env.VTUBER_NAME || 'Grim',
   COMMAND: (env.VTUBER_COMMAND || '!grim').toLowerCase(),
-  VTS_HOST: env.VTS_HOST || '192.168.1.119',
+  VTS_HOST: env.VTS_HOST || '192.168.1.127',
   VTS_PORT: parseInt(env.VTS_PORT || '8002', 10),
   VTS_PLUGIN_NAME: env.VTS_PLUGIN_NAME || 'GrimAI',
   VTS_PLUGIN_DEV: env.VTS_PLUGIN_DEV || 'MrsnakeVT',
@@ -33,6 +34,8 @@ const defaults = {
   MOOD_ENABLED: true,
   TOPICS_ENABLED: true,
   RESPONSE_FILTER_ENABLED: true,
+  EMBEDDING_API_KEY: env.EMBEDDING_API_KEY || env.GEMINI_API_KEY || '',
+  EMBEDDING_MODEL: env.EMBEDDING_MODEL || 'gemini-embedding-001',
 };
 
 let cfg = { ...defaults };
@@ -45,6 +48,13 @@ let deepseek = null;
 let vtube = null;
 let vtubeModel = null;
 let memory = null;
+let embedder = null;
+let currentStreamId = null;
+let currentStreamStart = null;
+let _episodeBusy = false;
+let _embedLoop = null;
+let _episodeLoop = null;
+let _decayLoop = null;
 let topicManager = null;
 let moodSystem = null;
 let rateLimiter = null;
@@ -56,6 +66,8 @@ function loadConfig() {
     const saved = JSON.parse(raw);
     if (saved.API_KEY) cfg.API_KEY = saved.API_KEY;
     if (saved.SEARCH_API_KEY) cfg.SEARCH_API_KEY = saved.SEARCH_API_KEY;
+    if (saved.EMBEDDING_API_KEY !== undefined) cfg.EMBEDDING_API_KEY = saved.EMBEDDING_API_KEY;
+    if (saved.EMBEDDING_MODEL) cfg.EMBEDDING_MODEL = saved.EMBEDDING_MODEL;
     if (saved.TEMPERATURE != null) cfg.TEMPERATURE = saved.TEMPERATURE;
     if (saved.MAX_TOKENS != null) cfg.MAX_TOKENS = saved.MAX_TOKENS;
     if (saved.MAX_HISTORY_TURNS != null) cfg.MAX_HISTORY_TURNS = saved.MAX_HISTORY_TURNS;
@@ -84,6 +96,8 @@ function saveConfig() {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify({
     API_KEY: cfg.API_KEY,
     SEARCH_API_KEY: cfg.SEARCH_API_KEY,
+    EMBEDDING_API_KEY: cfg.EMBEDDING_API_KEY,
+    EMBEDDING_MODEL: cfg.EMBEDDING_MODEL,
     TEMPERATURE: cfg.TEMPERATURE,
     MAX_TOKENS: cfg.MAX_TOKENS,
     MAX_HISTORY_TURNS: cfg.MAX_HISTORY_TURNS,
@@ -143,13 +157,19 @@ function getSystemPrompt(message) {
     moodContext = moodSystem.getMoodContext();
   }
 
-  const tools = '\n\nHerramientas: web_search (internet), get_current_time (hora), take_screenshot (ver pantalla cuando te lo piden), get_running_apps (saber qué juegos/apps están abiertos en el PC).';
+  const tools = '\n\nHerramientas: web_search (internet), get_current_time (hora), take_screenshot (ver pantalla cuando te lo piden), get_running_apps (saber qué juegos/apps están abiertos en el PC)' +
+    (cfg.MEMORY_ENABLED ? ', search_memory (recordar conversaciones o datos de viewers), remember_memory (guardar datos personales memorable)' : '') + '.';
 
   return base + (custom ? '\n\n' + custom : '') + topicContext + moodContext + tools + (vts ? '\n\n' + vts : '');
 }
 
 function sanitizeUserId(name) {
   return name.replace(/[^a-zA-Z0-9\-_]/g, '_').slice(0, 512);
+}
+
+function truncate(content, max) {
+  if (!content || content.length <= max) return content;
+  return content.slice(0, max).trimEnd() + '…';
 }
 
 function emitStatus() {
@@ -254,6 +274,98 @@ async function triggerVTSExpression(emotion, tempMs = 4000) {
   return false;
 }
 
+const EPISODE_PROMPT = 'Eres la encargada de bitácoras del stream de ' + cfg.VTUBER_NAME + '. Resume el siguiente log de chat de una sesión de stream. Devuelve SOLO un objeto JSON válido con exactamente estas claves: title (título corto y llamativo del stream), summary (resumen en español de 2-4 oraciones: qué pasó, temas, bromas, momentos), keywords (array de 3 a 8 strings con los temas clave), participants (array con los usernames de los viewers que más participaron, máximo 5). No añadas texto fuera del JSON.';
+
+function extractJson(text) {
+  const s = String(text || '').trim();
+  try {
+    return JSON.parse(s);
+  } catch {}
+  const from = s.indexOf('{');
+  const to = s.lastIndexOf('}');
+  if (from >= 0 && to > from) {
+    try {
+      return JSON.parse(s.slice(from, to + 1));
+    } catch {}
+  }
+  return null;
+}
+
+function onLivestreamStatus(data) {
+  const livestream = data?.payload?.livestream || {};
+  const isLive = !!livestream.is_live;
+  if (isLive) {
+    currentStreamId = livestream.id ? String(livestream.id) : ('s' + Date.now());
+    currentStreamStart = Date.now();
+    console.log('[VTUBER-AI] Stream ONLINE (sesión ' + currentStreamId + ')');
+  } else {
+    console.log('[VTUBER-AI] Stream OFFLINE, generando episodio...');
+    const end = Date.now();
+    const start = currentStreamStart || (end - 6 * 3600 * 1000);
+    const sid = currentStreamId;
+    currentStreamId = null;
+    currentStreamStart = null;
+    generateEpisodeFromWindow(start, end, sid).catch(e =>
+      console.warn('[VTUBER-AI] Episodio falló: ' + e.message)
+    );
+  }
+}
+
+async function generateEpisodeFromWindow(start, end, streamId) {
+  if (!memory || !deepseek || _episodeBusy) return false;
+  const transcript = memory.getWindowMessages(start, end, 400);
+  if (transcript.length < 4) return false;
+
+  _episodeBusy = true;
+  try {
+    const chunk = transcript.map(t => t.username + ': ' + truncate(t.content, 200)).join('\n');
+    const result = await deepseek.complete({
+      messages: [
+        { role: 'system', content: EPISODE_PROMPT },
+        { role: 'user', content: chunk },
+      ],
+      temperature: 0.7,
+      maxTokens: 600,
+      noTools: true,
+    });
+    const ep = extractJson(result.text);
+    if (!ep) throw new Error('JSON inválido del resumen');
+    const participants = (ep.participants && ep.participants.length ? ep.participants
+      : [...new Set(transcript.map(t => t.username))]).slice(0, 5);
+    const id = memory.addEpisode({
+      title: ep.title || 'Stream',
+      summary: ep.summary || '',
+      keywords: ep.keywords || [],
+      participants,
+      startTime: start,
+      endTime: end,
+    });
+    if (embedder) {
+      const v = await embedder.embedSingle((ep.title || '') + '. ' + (ep.summary || ''));
+      if (v) memory.setVector('episode', id, v);
+    }
+    console.log('[VTUBER-AI] Episodio generado ✅ "' + ep.title + '" (' + transcript.length + ' mensajes)');
+    return true;
+  } catch (e) {
+    console.warn('[VTUBER-AI] Episodio falló: ' + e.message);
+    return false;
+  } finally {
+    _episodeBusy = false;
+  }
+}
+
+async function checkPendingEpisode() {
+  if (!memory || !deepseek || _episodeBusy) return;
+  const end = Date.now();
+  const lastEnd = memory.lastEpisodeEnd();
+  if (end - lastEnd < 30 * 60 * 1000) return;
+  const pending = memory.pendingMessagesCount(lastEnd || end - 24 * 3600 * 1000);
+  if (pending >= 40) {
+    console.log('[VTUBER-AI] Episodio de respaldo (' + pending + ' mensajes pendientes)');
+    await generateEpisodeFromWindow(lastEnd || end - 24 * 3600 * 1000, end, null);
+  }
+}
+
 function init() {
   if (initialized) return;
   initialized = true;
@@ -264,8 +376,9 @@ function init() {
   topicManager = new TopicManager();
   moodSystem = new MoodSystem();
   rateLimiter = new BotRateLimiter();
+  embedder = createEmbedder({ apiKey: cfg.EMBEDDING_API_KEY, model: cfg.EMBEDDING_MODEL });
 
-  console.log('[VTUBER-AI] Memoria SQLite cargada ✅');
+  console.log('[VTUBER-AI] Memoria SQLite cargada ✅' + (embedder ? (' (embeddings: ' + embedder.model + ')') : ' (sin embeddings, solo keywords)'));
   console.log('[VTUBER-AI] Topics cargados (' + require('./topics').topics.length + ' topics) ✅');
   console.log('[VTUBER-AI] Sistema de mood activo ✅');
 
@@ -277,8 +390,40 @@ function init() {
     return;
   }
 
-  deepseek = createDeepSeekClient(cfg.API_KEY, cfg.SEARCH_API_KEY);
+  deepseek = createDeepSeekClient(cfg.API_KEY, cfg.SEARCH_API_KEY, { memory: cfg.MEMORY_ENABLED ? memory : null, embedder });
   eventBus.on('chat.message.sent', onChatMessage);
+  eventBus.on('livestream.status.updated', onLivestreamStatus);
+
+  if (embedder) {
+    _embedLoop = setInterval(async () => {
+      if (!memory || !embedder) return;
+      try {
+        const pending = memory.getPendingVectors(24);
+        if (pending.length) {
+          const vecs = await embedder.embedBatch(pending.map(p => p.text));
+          for (let i = 0; i < pending.length; i++) {
+            if (vecs[i]) memory.setVector(pending[i].kind, pending[i].id, vecs[i]);
+          }
+          console.log('[VTUBER-AI] Embeddings: ' + pending.length + ' textos vectorizados (' + memory.stats().pendingVectors + ' pendientes)');
+        }
+      } catch (e) {
+        console.warn('[VTUBER-AI] Fallo en cola de embeddings: ' + e.message);
+      }
+    }, 10000);
+  }
+
+  _decayLoop = setInterval(() => {
+    if (!memory) return;
+    try {
+      const r = memory.runDecay();
+      if (r.decayed || r.pruned) console.log('[VTUBER-AI] Decay: ' + r.decayed + ' bajados, ' + r.pruned + ' podados');
+    } catch (e) {
+      console.warn('[VTUBER-AI] Fallo en decay: ' + e.message);
+    }
+  }, 60 * 60 * 1000);
+  if (memory) memory.runDecay();
+
+  _episodeLoop = setInterval(async () => checkPendingEpisode(), 20 * 60 * 1000);
 
   console.log('[VTUBER-AI] Módulo VTuber cargado ✅');
   emitStatus();
@@ -327,13 +472,14 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
     if (smart.userKnowledge && smart.userKnowledge.length > 0) {
       userKnowledgeContext = '\n\nDATOS QUE RECUERDAS DE "' + username + '":\n' +
         smart.userKnowledge.map(function(k) {
-          return '- le ' + (k.relation === 'dislikes' ? 'disgusta' : 'gusta') + ': ' + k.value;
+          return '- ' + truncate(k.line, 140);
         }).join('\n');
     }
-    const pastSummaries = memory.getConversationSummary(3);
-    if (pastSummaries.length > 0) {
-      summaryContext = '\n\nRESÚMENES DE STREAMS ANERIORES:\n' +
-        pastSummaries.map(function(s) { return '- ' + s.summary; }).join('\n');
+    if (smart.recentEpisodes && smart.recentEpisodes.length > 0) {
+      summaryContext = '\n\nRESÚMENES DE STREAMS RECIENTES:\n' +
+        smart.recentEpisodes.map(function(s) {
+          return '- [' + s.title + '] ' + s.summary;
+        }).join('\n');
     }
   }
 
@@ -354,7 +500,7 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
   ];
 
   if (cfg.MEMORY_ENABLED && !skipLog && memory) {
-    memory.logMessage(username, 'user', content);
+    memory.logMessage(username, 'user', content, currentStreamId);
   }
 
   if (cfg.MOOD_ENABLED && moodSystem) {
@@ -368,6 +514,7 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
       temperature: cfg.TEMPERATURE,
       maxTokens: cfg.MAX_TOKENS,
       userId: sanitizeUserId(username),
+      userName: username,
     });
     const elapsed = Date.now() - start;
 
@@ -386,7 +533,7 @@ async function processMessage(username, content, skipLog, extraContext, skipChat
     }
 
     if (cfg.MEMORY_ENABLED && !skipLog && memory) {
-      memory.logMessage(cfg.VTUBER_NAME, 'assistant', finalText);
+      memory.logMessage(cfg.VTUBER_NAME, 'assistant', finalText, currentStreamId);
     }
 
     let displayText = finalText;
@@ -476,6 +623,7 @@ function handleGetStatus(req, res) {
     vtsPort: cfg.VTS_PORT,
     mood: moodSystem ? moodSystem.getState() : null,
     memoryStats: memory ? memory.stats() : null,
+    embedderEnabled: !!embedder,
   });
 }
 
@@ -485,6 +633,9 @@ function handleGetConfig(req, res) {
     API_KEY_SET: !!cfg.API_KEY,
     SEARCH_API_KEY: cfg.SEARCH_API_KEY ? '****' : '',
     SEARCH_API_KEY_SET: !!cfg.SEARCH_API_KEY,
+    EMBEDDING_API_KEY: cfg.EMBEDDING_API_KEY ? '****' : '',
+    EMBEDDING_API_KEY_SET: !!cfg.EMBEDDING_API_KEY,
+    EMBEDDING_MODEL: cfg.EMBEDDING_MODEL,
     TEMPERATURE: cfg.TEMPERATURE,
     MAX_HISTORY_TURNS: cfg.MAX_HISTORY_TURNS,
     MAX_TOKENS: cfg.MAX_TOKENS,
@@ -509,12 +660,12 @@ function handleGetConfig(req, res) {
 
 function handleSaveConfig(req, res) {
   const body = req.body || {};
-  const { API_KEY, SEARCH_API_KEY, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM, VTS_HOST, VTS_PORT, VTS_PLUGIN_NAME, VTS_PLUGIN_DEV, VTS_MODEL_NAME, VTS_AUTO_CONNECT, VTS_TOKEN, MEMORY_ENABLED, MOOD_ENABLED, TOPICS_ENABLED, RESPONSE_FILTER_ENABLED, chatFilter } = body;
+  const { API_KEY, SEARCH_API_KEY, EMBEDDING_API_KEY, EMBEDDING_MODEL, TEMPERATURE, MAX_TOKENS, MAX_HISTORY_TURNS, VTUBER_NAME, COMMAND, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_CUSTOM, VTS_HOST, VTS_PORT, VTS_PLUGIN_NAME, VTS_PLUGIN_DEV, VTS_MODEL_NAME, VTS_AUTO_CONNECT, VTS_TOKEN, MEMORY_ENABLED, MOOD_ENABLED, TOPICS_ENABLED, RESPONSE_FILTER_ENABLED, chatFilter } = body;
 
   if (API_KEY && typeof API_KEY === 'string' && API_KEY.trim()) {
     cfg.API_KEY = API_KEY.trim();
     if (cfg.API_KEY) {
-      deepseek = createDeepSeekClient(cfg.API_KEY, cfg.SEARCH_API_KEY);
+      deepseek = createDeepSeekClient(cfg.API_KEY, cfg.SEARCH_API_KEY, { memory: cfg.MEMORY_ENABLED ? memory : null, embedder });
       if (!eventBus.listenerCount('chat.message.sent')) {
         eventBus.on('chat.message.sent', onChatMessage);
       }
@@ -522,6 +673,15 @@ function handleSaveConfig(req, res) {
   }
 
   if (SEARCH_API_KEY !== undefined) cfg.SEARCH_API_KEY = SEARCH_API_KEY;
+  if (EMBEDDING_API_KEY !== undefined) cfg.EMBEDDING_API_KEY = EMBEDDING_API_KEY;
+  if (EMBEDDING_MODEL !== undefined) cfg.EMBEDDING_MODEL = EMBEDDING_MODEL;
+  if (EMBEDDING_API_KEY !== undefined || EMBEDDING_MODEL !== undefined) {
+    const apiKey = EMBEDDING_API_KEY !== undefined ? EMBEDDING_API_KEY : cfg.EMBEDDING_API_KEY;
+    const model = EMBEDDING_MODEL !== undefined ? EMBEDDING_MODEL : cfg.EMBEDDING_MODEL;
+    embedder = createEmbedder({ apiKey, model });
+    if (deepseek) deepseek = createDeepSeekClient(cfg.API_KEY, cfg.SEARCH_API_KEY, { memory: cfg.MEMORY_ENABLED ? memory : null, embedder });
+    console.log('[VTUBER-AI] Embeddings: ' + (embedder ? 'activados (' + embedder.model + ')' : 'desactivados'));
+  }
   if (TEMPERATURE != null) cfg.TEMPERATURE = parseFloat(TEMPERATURE);
   if (MAX_TOKENS != null) cfg.MAX_TOKENS = parseInt(MAX_TOKENS, 10);
   if (MAX_HISTORY_TURNS != null) cfg.MAX_HISTORY_TURNS = parseInt(MAX_HISTORY_TURNS, 10);
@@ -706,6 +866,9 @@ async function handleVTSInjectParam(req, res) {
 
 function shutdown() {
   initialized = false;
+  if (_embedLoop) { clearInterval(_embedLoop); _embedLoop = null; }
+  if (_decayLoop) { clearInterval(_decayLoop); _decayLoop = null; }
+  if (_episodeLoop) { clearInterval(_episodeLoop); _episodeLoop = null; }
   if (vtube) { vtube.disconnect(); vtube = null; }
   if (memory) { memory.close(); memory = null; }
   console.log('[VTUBER-AI] Apagado');

@@ -65,7 +65,7 @@
         {
           "name": "Dorothy",
           "rarity": "5_star",
-          "stock": 1
+          "stock": 0
         },
         {
           "name": "Musashi",
@@ -115,7 +115,7 @@
         {
           "name": "Power",
           "rarity": "5_star",
-          "stock": 3
+          "stock": 2
         },
         {
           "name": "2B",
@@ -135,7 +135,7 @@
         {
           "name": "Mika Misono",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         },
         {
           "name": "Camellya",

@@ -50,7 +50,7 @@ CF_TUNNEL_NAME=kick-backend
 CF_DOMAIN=tudominio.ejemplo.com
 
 # --- Opcional: reenviar eventos a otras máquinas ---
-# FORWARD_URL_1=http://192.168.1.119:4000/kick-events
+# FORWARD_URL_1=http://192.168.1.127:4000/kick-events
 # FORWARD_URL_2=http://localhost:4001/kick-events
 
 # --- Opcional: override del puerto ---
@@ -78,7 +78,7 @@ CF_DOMAIN=tudominio.ejemplo.com
 
 ### Otras configuraciones relevantes
 
-- `VTS_HOST` (en `vtuber-data.json` / config): IP:puerto de VTube Studio (default `192.168.1.119:8002`).
+- `VTS_HOST` (en `vtuber-data.json` / config): IP:puerto de VTube Studio (default `192.168.1.127:8002`).
 - Puerto del reproductor de YouTube (módulo Music): default `26538` (en `Music/config.json`).
 
 ## Crear la aplicación en Kick Developers
