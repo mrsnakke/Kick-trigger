@@ -47,6 +47,7 @@ router.get('/view-character', async (req, res) => {
     character: {
       name: c.name.toUpperCase(),
       image,
+      imagePosition: c.image_position || null,
       quality,
     },
     userOwnsCharacter,
@@ -102,6 +103,7 @@ router.get('/show-character', async (req, res) => {
       character: {
         name: c.name.toUpperCase(),
         image: store.normalizeImageUrl(c.image_url),
+        imagePosition: c.image_position || null,
         quality: typeof c.rarity === 'string' ? parseInt(c.rarity.match(/^(\d+)/)?.[1] || '0') : (c.rarity || 0),
       },
       userOwnsCharacter: false,

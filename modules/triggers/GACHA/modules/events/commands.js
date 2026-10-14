@@ -476,6 +476,7 @@ case 'multi':
             character: {
               name: c.name || cKey,
               image: store.normalizeImageUrl(c.image_url),
+              imagePosition: c.image_position || null,
               quality: typeof c.rarity === 'string' ? parseInt(c.rarity.match(/^(\d+)/)?.[1] || '0') : (c.rarity || 0),
             },
             userOwnsCharacter,
@@ -493,18 +494,69 @@ case 'multi':
         const pity = u.pity || { '4_star': 0, '5_star': 0 }
         const hp = store.state.pityData.pity_thresholds?.['5_star']?.hard_pity || 90
         const pullsLeft = hp - pity['5_star']
-        const owned = []
-        const ownedSet = new Set()
-        for (const r of ['5_star', '4_star', '3_star']) {
-          if (u[r]) {
-            for (const n of u[r]) {
-              if (!ownedSet.has(n)) { ownedSet.add(n); owned.push(n) }
-            }
+
+        // Índice de personajes por nombre en minúsculas (el banner y el inventario
+        // pueden diferir en mayúsculas, p. ej. "albedo" vs "Albedo").
+        const charByLower = new Map()
+        for (const [k, c] of Object.entries(store.state.characterData)) {
+          charByLower.set(k.toLowerCase(), c)
+        }
+        const infoOf = (name) => {
+          const c = charByLower.get(String(name).toLowerCase()) || store.state.characterData[name] || {}
+          let rarity = c.rarity
+          if (typeof rarity === 'number') rarity = `${rarity}_star`
+          else if (typeof rarity === 'string' && !rarity.includes('_star')) rarity = `${rarity}_star`
+          return {
+            name: c.name || name,
+            rarity: rarity || '5_star',
+            image: store.normalizeImageUrl(c.image_url),
           }
         }
-        const missing = Object.keys(store.state.characterData)
-          .filter(k => !ownedSet.has(k))
-          .sort()
+
+        // Personajes poseídos (nombres en minúsculas para comparar sin ambigüedad).
+        const ownedLower = new Set()
+        for (const r of ['5_star', '4_star', '3_star']) {
+          for (const n of (u[r] || [])) ownedLower.add(String(n).toLowerCase())
+        }
+
+        // Destacados: sus 5★ y luego 4★ (las 3★ se resumen en un contador).
+        const highlights = []
+        for (const r of ['5_star', '4_star']) {
+          const seen = new Set()
+          const list = (u[r] || [])
+            .filter((n) => {
+              const k = String(n).toLowerCase()
+              if (seen.has(k)) return false
+              seen.add(k)
+              return true
+            })
+            .sort((a, b) => a.localeCompare(b))
+          for (const n of list) highlights.push(infoOf(n))
+        }
+
+        // "Obtenible actualmente": banner estándar + temporada con stock disponible.
+        const obtainable = new Map()
+        const addObtainable = (name, rarity) => {
+          const k = String(name).toLowerCase()
+          if (!k || obtainable.has(k)) return
+          const info = infoOf(name)
+          obtainable.set(k, { name: info.name, rarity: rarity || info.rarity, image: info.image })
+        }
+        const std = store.state.standardBanner || {}
+        for (const r of ['3_star', '4_star', '5_star']) {
+          for (const n of (std[r] || [])) addObtainable(n, r)
+        }
+        for (const c of store.getAllSeasonalCharacters()) {
+          const stock = store.getStock(c.name)
+          if (stock === undefined || stock > 0) addObtainable(c.name)
+        }
+
+        const missing = []
+        for (const [k, info] of obtainable) {
+          if (!ownedLower.has(k)) missing.push(info)
+        }
+        missing.sort((a, b) => a.name.localeCompare(b.name))
+
         broadcast({
           type: 'showInventory',
           data: {
@@ -515,12 +567,16 @@ case 'multi':
             pity5: pity['5_star'],
             hardPity: hp,
             pullsLeft,
-            owned: owned.sort(),
-            missing,
-            charCounts: {
+            highlights,
+            ownedCounts: {
               '3_star': (u['3_star'] || []).length,
               '4_star': (u['4_star'] || []).length,
               '5_star': (u['5_star'] || []).length,
+            },
+            obtainable: {
+              total: obtainable.size,
+              owned: obtainable.size - missing.length,
+              missing,
             },
           },
         })

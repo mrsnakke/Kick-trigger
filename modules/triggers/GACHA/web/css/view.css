@@ -1,299 +1,509 @@
-/* Estilos generales para el body */
-body {
-    margin: 0;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background-color: transparent;
-}
+/* GACHA — Estilos de view.html (carta de personaje + inventario)
+   Overlay transparente, sin interacción: todo se auto-reproduce y se oculta. */
 
-/* Tailwind equivalents for view.html */
-#character-card-container {
+/* ===================== Escenario ===================== */
+.stage {
     position: fixed;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    perspective: 1600px;
     z-index: 50;
-    perspective: 1000px;
-}
-#character-card-container.hidden {
-    display: none;
 }
 
-#overlay {
-    position: absolute;
-    inset: 0;
-    transition: opacity 300ms;
-    opacity: 0;
+.stage.hidden { display: none; }
+
+/* ===================== Carta de personaje ===================== */
+#character-card {
+    --card-w: clamp(300px, 24vw, 430px);
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 28px 32px;
 }
 
-.card-container {
-    position: relative;
-    width: 380px;
-    height: 620px;
-}
-
-.card-back {
-    background-color: #1f2937;
-}
-
-.absolute { position: absolute; }
-.inset-0 { inset: 0; }
-.w-full { width: 100%; }
-.h-full { height: 100%; }
-.object-cover { object-fit: cover; }
-
-.glass-bg {
-    position: absolute;
-    inset: 0;
-    background: rgba(30, 41, 59, 0.2);
-    backdrop-filter: blur(40px);
-    border: 2px solid rgba(168, 85, 247, 0.3);
-    box-shadow: 0 25px 50px -12px rgba(168, 85, 247, 0.4);
-}
-
-.gradient-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
-}
-
-.content-container {
-    position: relative;
-    z-index: 10;
+.card {
+    width: calc(var(--card-w) * var(--scale));
+    aspect-ratio: 3 / 5;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .04);
+    transform-origin: center;
+}
+
+/* --- Arte (parte superior limpia) --- */
+.card__art {
+    position: relative;
+    flex: 0 0 58%;
+    overflow: hidden;
+    background: #0a0d18;
+}
+
+.card__art img {
+    width: 100%;
     height: 100%;
-    padding: 24px;
-    color: white;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
 }
 
-.flex-grow { flex: 1 0 0%; }
+.card__scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom,
+        rgba(6, 8, 18, 0) 42%,
+        rgba(6, 8, 18, .55) 72%,
+        rgba(6, 8, 18, .95) 100%);
+}
 
-.character-name {
-    font-size: 3rem;
+.card__name {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    margin: 0;
+    font-size: clamp(20px, 2.1vw, 30px);
     font-weight: 800;
-    letter-spacing: 0.05em;
-    text-shadow: 0 2px 10px rgba(76, 29, 149, 0.9);
+    line-height: 1.05;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, .95);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-.stars-container {
+.stars {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 3px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(6, 8, 18, .55);
+    border: 1px solid rgba(255, 255, 255, .14);
+}
+
+.stars svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+    filter: drop-shadow(0 0 6px currentColor);
+}
+
+.stars.r3 { color: var(--r3); }
+.stars.r4 { color: var(--r4); }
+.stars.r5 { color: var(--r5); }
+
+/* --- Panel de datos (opaco, no tapa la cara) --- */
+.card__panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(11, 14, 26, .9), rgba(8, 10, 18, .98));
+}
+
+.badge {
+    align-self: flex-start;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.badge--own {
+    color: #67e8f9;
+    border-color: rgba(34, 211, 238, .55);
+    background: rgba(34, 211, 238, .12);
+}
+
+.badge--miss {
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, .5);
+    background: rgba(239, 68, 68, .12);
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chip {
     display: flex;
     align-items: center;
-    margin: 8px 0;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid var(--panel-border);
 }
 
-.status-box {
-    margin: 12px 0;
-    padding: 12px 16px;
-    background: rgba(0,0,0,0.4);
+.chip svg {
+    width: 22px;
+    height: 22px;
+    color: #4ade80;
+    flex: 0 0 auto;
+}
+
+.chip__label {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.chip__value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* --- Ticker de propietarios --- */
+.card__owners {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    min-height: 46px;
+    background: var(--panel-bg-solid);
+    border-top: 1px solid var(--panel-border);
+}
+
+.owners__label {
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.owners__viewport {
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.owners__track {
+    display: inline-flex;
+    white-space: nowrap;
+    will-change: transform;
+}
+
+.owners__track.is-static {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.owners__group {
+    display: inline-flex;
+    gap: 8px;
+    padding-right: 8px;
+}
+
+.owner {
+    padding: 4px 10px;
     border-radius: 8px;
-    border: 1px solid;
-    text-align: center;
-}
-
-.status-text {
-    font-size: 1.125rem;
+    font-size: 13px;
     font-weight: 600;
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
 }
 
-.stats-container {
-    margin-top: 16px;
+.owner--empty {
+    color: var(--muted);
+    font-style: italic;
+    background: transparent;
+    border-color: transparent;
+}
+
+.owners__track.is-marquee {
+    animation: owners-marquee var(--marquee-duration, 18s) linear infinite;
+}
+
+@keyframes owners-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* ===================== Inventario — Vitrina de colección ===================== */
+#inventory-view {
+    --inv-w: clamp(540px, 42vw, 700px);
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 28px 32px;
+}
+
+.inv {
+    width: calc(var(--inv-w) * var(--scale));
+    max-width: 94vw;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    padding: 22px 26px;
+    border-radius: var(--radius);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .85);
+    transform-origin: center;
 }
 
-.stat-item {
+.inv__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.inv__title {
+    margin: 0;
+    font-size: clamp(18px, 1.9vw, 26px);
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+.inv__hud {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.hud {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid var(--panel-border);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.hud span {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.hud .mini-prog {
+    width: 70px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    overflow: hidden;
+}
+
+.hud .mini-prog i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--r4), var(--r5));
+    transition: width .4s ease;
+}
+
+/* --- Escenario: preview grande + metadatos --- */
+.inv__stage {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    min-height: 190px;
+}
+
+.inv__stage.is-swap {
+    animation: hl-in .45s cubic-bezier(.2, .85, .25, 1) both;
+}
+
+.inv__preview {
+    position: relative;
+    flex: 0 0 auto;
+    width: 152px;
+    height: 190px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #0a0d18;
+    border: 2px solid var(--pc-line, var(--panel-border));
+    box-shadow: 0 12px 30px -14px rgba(0, 0, 0, .95), 0 0 30px -8px var(--pc-line, transparent);
+}
+
+.inv__preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+}
+
+.inv__fallback {
+    position: absolute;
+    inset: 0;
+    display: none;
+    place-items: center;
+    font-size: 56px;
+    font-weight: 800;
+    color: var(--muted);
+    background: #0a0d18;
+}
+
+.inv__preview.r3 { --pc-line: var(--r3-line); }
+.inv__preview.r4 { --pc-line: var(--r4-line); }
+.inv__preview.r5 { --pc-line: var(--r5-line); }
+
+.inv__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.inv__name {
+    font-size: clamp(24px, 2.6vw, 42px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .9);
+}
+
+.inv__stars {
+    display: flex;
+    gap: 5px;
+}
+
+.inv__stars svg {
+    width: 26px;
+    height: 26px;
+    display: block;
+    filter: drop-shadow(0 0 6px currentColor);
+}
+
+.inv__stars.r3 { color: var(--r3); }
+.inv__stars.r4 { color: var(--r4); }
+.inv__stars.r5 { color: var(--r5); }
+
+.inv__note {
+    font-size: 14px;
+    color: var(--muted);
+}
+
+/* --- Barra de obtenibles y tira de faltantes --- */
+.inv__progress,
+.inv__missing {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.inventory-icon {
-    width: 28px;
-    height: 28px;
-    color: #4ade80;
-    filter: drop-shadow(0 0 5px rgba(74, 222, 128, 0.7));
+.inv__label {
+    flex: 0 0 auto;
+    width: 92px;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
 }
 
-.text-left { text-align: left; }
-
-.stat-label {
-    font-size: 0.875rem;
-    font-weight: 300;
-    color: #d1d5db;
-}
-
-.stat-value {
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-.owners-box {
-    padding: 12px;
-    background: rgba(0,0,0,0.4);
-    backdrop-filter: blur(4px);
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.1);
-    height: 110px;
-    display: flex;
-    flex-direction: column;
-}
-
-.owners-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    flex-shrink: 0;
-}
-
-.owners-icon {
-    width: 20px;
-    height: 20px;
-    color: #60a5fa;
-}
-
-.owners-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #d1d5db;
-}
-
-.owners-list {
-    flex: 1 0 0%;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-content: flex-start;
-}
-
-
-/* Animación personalizada para un sutil efecto flotante */
-@keyframes float {
-    0% {
-        transform: translatey(0px);
-    }
-    50% {
-        transform: translatey(-10px);
-    }
-    100% {
-        transform: translatey(0px);
-    }
-}
-.float-animation {
-    animation: float 6s ease-in-out infinite;
-}
-
-/* Nueva animación para el ciclo de la lista de propietarios */
-@keyframes fadeInOut {
-    0% {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    15% { /* Fade in fast */
-        opacity: 1;
-        transform: translateY(0);
-    }
-    85% { /* Stay visible */
-        opacity: 1;
-        transform: translateY(0);
-    }
-    100% { /* Fade out */
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-}
-.animate-fade-in-out {
-    animation: fadeInOut 2.5s ease-in-out forwards;
-}
-
-/* Custom scrollbar para navegadores webkit */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(192, 132, 252, 0.5); /* Un color púrpura para que coincida con el tema */
-    border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(192, 132, 252, 0.8);
-}
-
-/* Nuevos estilos para el flip de la tarjeta */
-@keyframes fly-flip-in {
-    from {
-        transform: translateY(50vh) scale(0.7) rotateY(-180deg);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0) scale(1) rotateY(0deg);
-        opacity: 1;
-    }
-}
-
-@keyframes fly-flip-out {
-    from {
-        transform: translateY(0) scale(1) rotateY(0deg);
-        opacity: 1;
-    }
-    to {
-        transform: translateY(-50vh) scale(0.7) rotateY(180deg);
-        opacity: 0;
-    }
-}
-
-.card-flipper {
-    transform-style: preserve-3d;
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-.card-face {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    -webkit-backface-visibility: hidden; /* Safari */
-    backface-visibility: hidden;
-    border-radius: 1.5rem; /* 24px */
+.prog {
+    flex: 1 1 auto;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .1);
     overflow: hidden;
 }
 
-.card-back {
-    transform: rotateY(180deg) translateZ(1px);
+.prog i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--r3), var(--r4), var(--r5));
+    transition: width .6s ease;
 }
 
-.animate-fly-flip-in {
-    animation: fly-flip-in 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+.inv__count {
+    flex: 0 0 auto;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
 }
 
-.animate-fly-flip-out {
-    animation: fly-flip-out 1.8s cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
+.missing-strip {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 6px;
+    overflow: hidden;
 }
 
-/* Estilos para el texto de posesión */
-.owns-character {
-    border-color: #22d3ee; /* border-cyan-400/50 */
+.missing-thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 50px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #11151f;
+    border: 1px solid rgba(255, 255, 255, .08);
 }
 
-.owns-character .text-status {
-    color: #67e8f9; /* text-cyan-300 */
+.missing-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    filter: grayscale(1) brightness(.45);
 }
 
-.not-owns-character {
-    border-color: #ef4444; /* border-red-500/50 */
+.missing-more {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    height: 50px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid var(--panel-border);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
 }
 
-.not-owns-character .text-status {
-    color: #f87171; /* text-red-400 */
+@keyframes hl-in {
+    from { opacity: 0; transform: translateY(8px) scale(.97); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ===================== Animaciones de entrada/salida ===================== */
+.card.is-in,
+.inv.is-in {
+    animation: overlay-in 1.05s cubic-bezier(.2, .85, .25, 1) both;
+}
+
+.card.is-out,
+.inv.is-out {
+    animation: overlay-out .7s cubic-bezier(.5, 0, .75, 0) both;
+}
+
+@keyframes overlay-in {
+    0%   { opacity: 0; transform: translateY(5vh) scale(.86) rotateY(-18deg); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotateY(0); }
+}
+
+@keyframes overlay-out {
+    0%   { opacity: 1; transform: translateY(0) scale(1) rotateY(0); }
+    100% { opacity: 0; transform: translateY(-5vh) scale(.9) rotateY(14deg); }
 }

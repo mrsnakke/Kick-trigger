@@ -1,46 +1,41 @@
-<!-- Waifu Wisher para Streamer.bot -->
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<meta charset="utf-8">
-<title>Waifu Wisher Streamer.bot</title>
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/gachaAnimations.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gacha — Tiradas</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/gachaAnimations.css">
 </head>
-
-
 <body>
-<div id="websocket-status-indicator"></div>
-<div id="wrapper">
-    
-    <div id="test-message-display" class="hidden"></div>
+    <div id="websocket-status-indicator" title="Estado WebSocket"></div>
 
-    <div id="gacha-preview" class="hidden">
-        <img id="preview-image" src="" alt="Gacha Preview">
-    </div>
-    <div id="gashapon-animation" class="hidden">
-        <!-- Gashapon animation elements, e.g., a GIF or video -->
-        <img src="img/gashapon.gif" alt="Gashapon Machine" id="gashapon-machine-img">
-    </div>
-    <div id="single-pull-display" class="hidden">
-        <div id="single-pull-redeemer" class="redeemer-name"></div>
-        <img id="single-character-image" src="" alt="Character">
-        <div id="single-character-name" class="character-name"></div>
-    </div>
-    <div id="multi-pull-display" class="hidden">
-        <div id="multi-pull-grid" class="character-grid"></div>
-    </div>
-    <div id="multi-rarity-reveal-display" class="hidden"></div>
-</div>
+    <div id="wrapper">
+        <div id="test-message-display" class="hidden"></div>
 
+        <!-- Máquina de gashapon antes del resultado -->
+        <div id="gashapon-animation" class="hidden">
+            <img src="img/gashapon.gif" alt="Máquina gashapon" id="gashapon-machine-img">
+        </div>
+
+        <!-- Tirada simple -->
+        <div id="single-pull-display" class="hidden">
+            <div id="single-pull-redeemer" class="redeemer-name"></div>
+            <div id="single-pull-card" class="single-card-slot"></div>
+            <div id="single-character-name" class="character-name"></div>
+        </div>
+
+        <!-- Tirada múltiple (10) -->
+        <div id="multi-pull-display" class="hidden">
+            <div id="multi-pull-grid" class="card-grid"></div>
+        </div>
+
+        <!-- Revelado ampliado de 4★ / 5★ -->
+        <div id="multi-rarity-reveal-display" class="hidden"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script type="module" src="js/gachaAnimations.js"></script>
+    <script type="module" src="js/websocket.js"></script>
 </body>
-
-<script>
-    console.log('index.html: Scripts are about to be loaded.');
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-<script type="module" src="js/gachaAnimations.js"></script>
-<script type="module" src="js/script.js"></script>
-<script type="module" src="js/websocket.js"></script>
-
 </html>

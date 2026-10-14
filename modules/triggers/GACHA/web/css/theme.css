@@ -1,0 +1,87 @@
+/* GACHA — Tema compartido para overlays de OBS
+   Variables de color por rareza, tipografía, radios y base del overlay.
+   Lo usan view.html (carta/inventario) e index.html (tiradas). */
+
+:root {
+  --font-display: "Segoe UI", system-ui, -apple-system, "Roboto", "Helvetica Neue", Arial, sans-serif;
+  --font-body: var(--font-display);
+
+  /* Rareza */
+  --r3: #38bdf8;
+  --r4: #c084fc;
+  --r5: #fbbf24;
+
+  --r3-soft: rgba(56, 189, 248, .16);
+  --r4-soft: rgba(192, 132, 252, .16);
+  --r5-soft: rgba(251, 191, 36, .18);
+
+  --r3-line: rgba(56, 189, 248, .55);
+  --r4-line: rgba(192, 132, 252, .60);
+  --r5-line: rgba(251, 191, 36, .72);
+
+  /* Superficies */
+  --panel-bg: rgba(11, 14, 26, .86);
+  --panel-bg-solid: rgba(9, 11, 20, .95);
+  --panel-border: rgba(255, 255, 255, .12);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+
+  --radius: 18px;
+
+  /* Escala global del overlay (configurable con ?scale= en la URL) */
+  --scale: 1;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+#wrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Indicador de estado del WebSocket (esquina superior derecha) */
+#websocket-status-indicator {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, .7);
+  z-index: 1000;
+  opacity: .85;
+  transition: background-color .3s ease, box-shadow .3s ease;
+}
+
+#websocket-status-indicator.connected {
+  background-color: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, .7);
+}
+
+/* Accesibilidad: respeta la preferencia de movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
