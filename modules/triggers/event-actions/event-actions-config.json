@@ -6,10 +6,16 @@
     "channel.subscription.gifts": "[EVENTO: Suscripciones regaladas] @{username} ha regalado suscripciones a la comunidad. Agradece su generosidad.",
     "channel.reward.redemption.updated": "[EVENTO: Canje de recompensa] @{username} ha canjeado \"{reward_title}\" con puntos de canal. Reacciona con emoción.",
     "livestream.metadata.updated": "[EVENTO: Stream actualizado] Se cambió el título o categoría. Nuevo título: \"{title}\". Reacciona al cambio brevemente.",
-    "kicks.gifted": "[EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Agradécele su generosidad con entusiasmo.",
+    "kicks.gifted": "[EVENTO: KICKS regalados] @{username} regaló {amount} KICKS en {count} aporte(s). Agradécele su generosidad con entusiasmo en una sola frase.",
     "channel.chatter.first": "[EVENTO: PRIMER MENSAJE] @{username} dice: \"{content}\". Es su primer mensaje del día, posiblemente le hable a Snake si no te mencionan pero igual saludalo siendo tu puedes bromear incluso. Haz un saludo corto y dale la bienvenida. Máximo dos oraciones."
   },
   "enabled": {
-    "channel.reward.redemption.updated": false
+    "channel.reward.redemption.updated": false,
+    "kicks.gifted": true
+  },
+  "settings": {
+    "kicksAggWindowMs": 5000,
+    "kicksMinAmount": 5,
+    "kicksCooldownMs": 60000
   }
 }

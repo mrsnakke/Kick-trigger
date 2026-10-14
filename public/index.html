@@ -783,23 +783,36 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
         </div>
       </details>
 
-      <!-- ALEJA/FÍSICA -->
-      <details class="cw-card">
-        <summary>🧨 Física de Emotes</summary>
+      <!-- OVERLAY DE EMOTES -->
+      <details class="cw-card" open>
+        <summary>🌧️ Overlay de Emotes (pantalla completa)</summary>
         <div class="cw-body">
-          <div class="cw-check"><input type="checkbox" id="cw-emotePhysicsEnabled" onchange="cwUpdate()"><label for="cw-emotePhysicsEnabled">Habilitar física</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-emoteOverlayEnabled" onchange="cwUpdate()"><label for="cw-emoteOverlayEnabled">Habilitar lluvia de emotes</label><button class="cw-sim" onclick="cwTestEmotes()" title="Probar en la preview de emotes">▶ Probar</button></div>
           <div class="cw-field full"><label class="cw-label">Modo</label>
-            <select class="cw-select" id="cw-emotePhysicsMode" onchange="cwUpdate()">
-              <option value="bounce">Bounce</option>
-              <option value="rain">Lluvia</option>
-              <option value="fireworks">Fuegos artificiales</option>
+            <select class="cw-select" id="cw-emoteOverlayMode" onchange="cwUpdate()">
+              <option value="rain">Lluvia (caen desde arriba)</option>
+              <option value="fountain">Fuente (salen desde abajo)</option>
+              <option value="burst">Explosión (desde un punto)</option>
             </select>
           </div>
           <div class="cw-row">
-            <div class="cw-field"><label class="cw-label">Gravedad</label><input type="number" class="cw-input" id="cw-emotePhysicsGravity" step="0.1" min="0" max="2" oninput="cwUpdate()"></div>
-            <div class="cw-field"><label class="cw-label">Cantidad</label><input type="number" class="cw-input" id="cw-emotePhysicsCount" min="1" max="20" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Tamaño px</label><input type="number" class="cw-input" id="cw-emoteOverlaySize" min="32" max="400" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Gravedad</label><input type="number" class="cw-input" id="cw-emoteOverlayGravity" step="0.05" min="0" max="2" oninput="cwUpdate()"></div>
           </div>
-          <div class="cw-field full"><label class="cw-label">Tamaño px</label><input type="number" class="cw-input" id="cw-emotePhysicsSize" min="20" max="100" oninput="cwUpdate()"></div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Rebote</label><input type="number" class="cw-input" id="cw-emoteOverlayBounce" step="0.05" min="0" max="1" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Vida (s)</label><input type="number" class="cw-input" id="cw-emoteOverlayLife" step="0.5" min="1" max="30" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Máx. en pantalla</label><input type="number" class="cw-input" id="cw-emoteOverlayMaxParticles" min="1" max="100" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Viento</label><input type="number" class="cw-input" id="cw-emoteOverlayWind" step="0.1" min="-6" max="6" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-row">
+            <div class="cw-field"><label class="cw-label">Giro</label><input type="number" class="cw-input" id="cw-emoteOverlaySpin" step="0.1" min="0" max="4" oninput="cwUpdate()"></div>
+            <div class="cw-field"><label class="cw-label">Origen X %</label><input type="number" class="cw-input" id="cw-emoteOverlayOriginXPct" min="0" max="100" oninput="cwUpdate()"></div>
+          </div>
+          <div class="cw-check"><input type="checkbox" id="cw-emoteOverlayShadow" onchange="cwUpdate()"><label for="cw-emoteOverlayShadow">Sombra bajo el emote</label></div>
+          <div class="cw-check"><input type="checkbox" id="cw-emoteOverlayDedupe" onchange="cwUpdate()"><label for="cw-emoteOverlayDedupe">Un solo emote por emote (sin repetir)</label></div>
         </div>
       </details>
 
@@ -890,7 +903,7 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
     <!-- RIGHT: URL + preview -->
     <div class="cw-right">
       <div class="cw-card" style="padding:14px">
-        <label class="cw-label" style="display:block;margin-bottom:6px">URL para OBS Browser Source</label>
+        <label class="cw-label" style="display:block;margin-bottom:6px">URL del chat para OBS</label>
         <div style="display:flex;gap:6px">
           <input type="text" id="cw-url" readonly style="flex:1;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#53fc18;font-family:monospace;font-size:12px">
           <button class="btn btn-primary" onclick="cwCopy()" id="cw-copy-btn">📋 Copiar</button>
@@ -901,17 +914,36 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
         </div>
       </div>
 
-      <div class="cw-card" style="padding:14px;flex:1;display:flex;flex-direction:column">
-        <label class="cw-label" style="display:block;margin-bottom:8px">Vista previa (en vivo)</label>
-        <iframe id="cw-preview" style="flex:1;border:1px solid #30363d;border-radius:6px;background:#0d1117;min-height:280px" title="Chat Widget Preview"></iframe>
+      <div class="cw-card" style="padding:14px">
+        <label class="cw-label" style="display:block;margin-bottom:6px">URL solo emotes (1920×1080)</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="cw-emote-url" readonly style="flex:1;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#53fc18;font-family:monospace;font-size:12px">
+          <button class="btn btn-primary" onclick="cwCopyEmote()" id="cw-emote-copy-btn">📋 Copiar</button>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:#8b949e;line-height:1.5">Fondo transparente. En OBS: ancho <strong style="color:#c9d1d9">1920</strong> × alto <strong style="color:#c9d1d9">1080</strong>.</div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <input type="checkbox" id="cw-emote-obs" style="width:15px;height:15px;accent-color:#53fc18" onchange="cwUpdateEmoteUrl()">
+          <label for="cw-emote-obs" style="color:#c9d1d9;font-size:12px;cursor:pointer">Fondo sólido (debug)</label>
+        </div>
+      </div>
+
+      <div class="cw-card" style="padding:14px;display:flex;flex-direction:column">
+        <label class="cw-label" style="display:block;margin-bottom:8px">Preview chat (en vivo)</label>
+        <iframe id="cw-preview" style="height:240px;border:1px solid #30363d;border-radius:6px;background:#0d1117" title="Chat Widget Preview"></iframe>
+      </div>
+
+      <div class="cw-card" style="padding:14px;display:flex;flex-direction:column">
+        <label class="cw-label" style="display:block;margin-bottom:8px">Preview emotes (en vivo)</label>
+        <iframe id="cw-emote-preview" style="height:180px;border:1px solid #30363d;border-radius:6px;background:#0d1117" title="Emote Overlay Preview"></iframe>
+        <button class="cw-sim" style="margin-top:8px;align-self:flex-start" onclick="cwTestEmotes()">▶ Probar emotes</button>
       </div>
 
       <div class="cw-card" style="padding:14px">
         <label class="cw-label" style="display:block;margin-bottom:8px">Cómo usar en OBS</label>
         <ol style="margin-left:18px;display:flex;flex-direction:column;gap:3px;font-size:12px;color:#8b949e;line-height:1.6">
-          <li>Copia la URL de arriba</li>
-          <li>En OBS → <strong style="color:#c9d1d9">Fuentes → + → Navegador</strong></li>
-          <li>Pega la URL, pon ancho/alto (ej: 450×700)</li>
+          <li><strong style="color:#c9d1d9">Chat:</strong> copiá la URL del chat → OBS → Fuentes → + → Navegador (ej: 450×700)</li>
+          <li><strong style="color:#c9d1d9">Emotes:</strong> copiá la URL solo emotes → otra Fuente → Navegador <strong style="color:#c9d1d9">1920×1080</strong> (fondo transparente)</li>
+          <li>Poné la fuente de emotes <strong style="color:#c9d1d9">arriba</strong> de cámara/juego para que caigan frente a tu stream</li>
           <li>La config se aplica en vivo desde esta pestaña sin recargar</li>
         </ol>
       </div>
@@ -971,7 +1003,21 @@ header h1 { font-size: 16px; font-weight: 600; color: #58a6ff; margin-right: 4px
       <strong>Miniprompts por evento</strong> — texto que recibe la VTuber AI antes de contestar.
       <code style="background:#0d1117;padding:1px 5px;border-radius:3px;color:#d2a8ff">{username}</code> se reemplaza por el usuario.
       <code>{reward_title}</code> para canje, <code>{title}</code> para metadata,
-      <code>{content}</code> para primer mensaje de chatter.
+      <code>{content}</code> para primer mensaje de chatter,
+      <code>{amount}</code> y <code>{count}</code> para KICKS regalados.
+    </div>
+
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;flex-shrink:0;padding:10px 14px;background:#161b22;border:1px solid #30363d;border-radius:8px">
+      <span style="font-size:12px;font-weight:600;color:#c9d1d9">💎 Anti-spam KICKS</span>
+      <label style="font-size:12px;color:#8b949e;display:flex;align-items:center;gap:6px">Ventana agrupado
+        <input type="number" id="ea-set-window" min="0" step="1" style="width:70px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">s
+      </label>
+      <label style="font-size:12px;color:#8b949e;display:flex;align-items:center;gap:6px">Mínimo por gift
+        <input type="number" id="ea-set-min" min="0" step="1" style="width:70px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">KICKS
+      </label>
+      <label style="font-size:12px;color:#8b949e;display:flex;align-items:center;gap:6px">Cooldown por usuario
+        <input type="number" id="ea-set-cooldown" min="0" step="1" style="width:70px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px">s
+      </label>
     </div>
 
     <div id="ea-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;flex:1;align-content:start">
@@ -2120,7 +2166,7 @@ function switchTtsTab(tabId) {
 
 // -- Status --
 function updateStatus(d) {
-  if (d.lanIp && d.lanIp !== cwLanIp) { cwLanIp = d.lanIp; cwUpdateUrl(); }
+  if (d.lanIp && d.lanIp !== cwLanIp) { cwLanIp = d.lanIp; cwUpdateUrl(); cwUpdateEmoteUrl(); }
   if (d.authenticated !== undefined) {
     if (d.authenticated) {
       setBadge('badge-auth', 'badge-ok', `● Streamer: ${d.channelSlug || 'OK'}`);
@@ -2164,6 +2210,7 @@ let cwCfg = {};
 let cwThemes = {};
 let cwDefaults = {};
 let cwPreviewWin = null;
+let cwEmotePreviewWin = null;
 let cwLanIp = null;
 
 // field key -> DOM id map
@@ -2183,9 +2230,12 @@ const CW_FIELDS = {
   animationSpeed:'cw-animationSpeed', exitAnimation:'cw-exitAnimation', autoHide:'cw-autoHide',
   autoHideDuration:'cw-autoHideDuration', seventvEmoteSize:'cw-seventvEmoteSize',
   emoteCustomSize:'cw-emoteCustomSize', emoteHoverAnim:'cw-emoteHoverAnim', emoteBounce:'cw-emoteBounce',
-  emotePhysicsEnabled:'cw-emotePhysicsEnabled', emotePhysicsMode:'cw-emotePhysicsMode',
-  emotePhysicsGravity:'cw-emotePhysicsGravity', emotePhysicsCount:'cw-emotePhysicsCount',
-  emotePhysicsSize:'cw-emotePhysicsSize', alertsEnabled:'cw-alertsEnabled', alertStyle:'cw-alertStyle',
+  emoteOverlayEnabled:'cw-emoteOverlayEnabled', emoteOverlayMode:'cw-emoteOverlayMode',
+  emoteOverlaySize:'cw-emoteOverlaySize', emoteOverlayGravity:'cw-emoteOverlayGravity',
+  emoteOverlayBounce:'cw-emoteOverlayBounce', emoteOverlayLife:'cw-emoteOverlayLife',
+  emoteOverlayMaxParticles:'cw-emoteOverlayMaxParticles', emoteOverlayWind:'cw-emoteOverlayWind',
+  emoteOverlaySpin:'cw-emoteOverlaySpin', emoteOverlayShadow:'cw-emoteOverlayShadow',
+  emoteOverlayDedupe:'cw-emoteOverlayDedupe', alertsEnabled:'cw-alertsEnabled', alertStyle:'cw-alertStyle',
   alertPosition:'cw-alertPosition', alertDuration:'cw-alertDuration', alertSubscriptions:'cw-alertSubscriptions',
   alertGiftedSubs:'cw-alertGiftedSubs', alertFollowers:'cw-alertFollowers', alertRaids:'cw-alertRaids',
   alertKickGifts:'cw-alertKickGifts', alertSoundVolume:'cw-alertSoundVolume', alertSound:'cw-alertSound',
@@ -2207,6 +2257,9 @@ function cwFillFromConfig(cfg) {
   // ignoredBots array -> comma string
   const ib = document.getElementById('cw-ignoredBots');
   if (ib && Array.isArray(cfg.ignoredBots)) ib.value = cfg.ignoredBots.join(', ');
+  // emoteOverlayOriginX (0..1) -> slider %
+  const ox = document.getElementById('cw-emoteOverlayOriginXPct');
+  if (ox) ox.value = Math.round(((cfg.emoteOverlayOriginX !== undefined ? cfg.emoteOverlayOriginX : 0.5)) * 100);
 }
 
 function cwCollect() {
@@ -2221,6 +2274,9 @@ function cwCollect() {
   // ignoredBots -> array
   const ib = document.getElementById('cw-ignoredBots').value.split(',').map(s=>s.trim()).filter(Boolean);
   cfg.ignoredBots = ib;
+  // origen X (%) -> 0..1
+  const ox = document.getElementById('cw-emoteOverlayOriginXPct');
+  if (ox) cfg.emoteOverlayOriginX = (parseFloat(ox.value) || 0) / 100;
   return cfg;
 }
 
@@ -2234,6 +2290,37 @@ function cwUpdateUrl() {
   // keep iframe if not set yet
   const f = document.getElementById('cw-preview');
   if (!f.src || !f.src.length) f.src = url;
+}
+
+function cwUpdateEmoteUrl() {
+  const obs = document.getElementById('cw-emote-obs').checked;
+  const host = cwLanIp || location.hostname || 'localhost';
+  let url = `http://${host}:${location.port}/emotes`;
+  if (obs) url += '?obs=true';
+  document.getElementById('cw-emote-url').value = url;
+  const f = document.getElementById('cw-emote-preview');
+  if (!f.src || !f.src.length) f.src = location.origin + '/emotes' + (obs ? '?obs=true' : '');
+}
+
+function cwLoadEmotePreview() {
+  const f = document.getElementById('cw-emote-preview');
+  const obs = document.getElementById('cw-emote-obs').checked;
+  f.src = location.origin + '/emotes' + (obs ? '?obs=true' : '');
+  f.onload = () => { cwEmotePreviewWin = f.contentWindow; cwPush(); };
+}
+
+function cwTestEmotes() {
+  cwPush();
+  if (cwEmotePreviewWin) cwEmotePreviewWin.postMessage({ type:'emotes-test' }, location.origin);
+}
+
+function cwCopyEmote() {
+  const inp = document.getElementById('cw-emote-url');
+  navigator.clipboard.writeText(inp.value).then(() => {
+    const btn = document.getElementById('cw-emote-copy-btn');
+    btn.textContent = '✅ Copiado';
+    setTimeout(() => btn.textContent = '📋 Copiar', 1500);
+  }).catch(() => { inp.select(); document.execCommand('copy'); });
 }
 
 async function cwInit() {
@@ -2250,7 +2337,9 @@ async function cwInit() {
   for (const t in cwThemes) sel.innerHTML += `<option value="${t}">${t.replace(/_/g,' ')}</option>`;
   cwFillFromConfig(cwCfg);
   cwUpdateUrl();
+  cwUpdateEmoteUrl();
   cwLoadPreview();
+  cwLoadEmotePreview();
   cwPush();
 }
 
@@ -2271,9 +2360,9 @@ function cwLoadPreview() {
 }
 
 function cwPush() {
-  if (!cwPreviewWin) return;
   const cfg = Object.assign({}, cwCfg, cwCollect());
-  cwPreviewWin.postMessage({ type:'chatwidget-config', config: cfg }, location.origin);
+  if (cwPreviewWin) cwPreviewWin.postMessage({ type:'chatwidget-config', config: cfg }, location.origin);
+  if (cwEmotePreviewWin) cwEmotePreviewWin.postMessage({ type:'chatwidget-config', config: cfg }, location.origin);
 }
 
 function cwUpdate() { cwPush(); }
@@ -2612,6 +2701,15 @@ function eventActionsLoadConfig() {
       if (toggle) toggle.checked = enabled[key] !== false;
       if (card) card.classList.toggle('disabled', enabled[key] === false);
     }
+    const s = d.settings || {};
+    const sd = d.settingsDefaults || {};
+    const g = (k) => (s[k] !== undefined ? s[k] : (sd[k] || 0));
+    const win = document.getElementById('ea-set-window');
+    if (win) win.value = Math.round(g('kicksAggWindowMs') / 1000);
+    const min = document.getElementById('ea-set-min');
+    if (min) min.value = g('kicksMinAmount');
+    const cd = document.getElementById('ea-set-cooldown');
+    if (cd) cd.value = Math.round(g('kicksCooldownMs') / 1000);
     const badge = document.getElementById('badge-event-actions');
     badge.className = 'badge badge-ok';
     badge.textContent = `● ${d.chattersCount || 0}`;
@@ -2685,9 +2783,14 @@ function eventActionsSaveConfig() {
     const el = document.getElementById('ea-prompt-' + key);
     if (el && el.value.trim()) miniprompts[key] = el.value.trim();
   }
+  const settings = {
+    kicksAggWindowMs: Math.max(0, Math.round(Number(document.getElementById('ea-set-window').value) || 0) * 1000),
+    kicksMinAmount: Math.max(0, Math.round(Number(document.getElementById('ea-set-min').value) || 0)),
+    kicksCooldownMs: Math.max(0, Math.round(Number(document.getElementById('ea-set-cooldown').value) || 0) * 1000)
+  };
   fetch('/api/event-actions/config', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ miniprompts })
+    body: JSON.stringify({ miniprompts, settings })
   }).then(r => r.json()).then(d => {
     if (d.ok) eventActionsLoadConfig();
     else alert('Error: ' + d.message);

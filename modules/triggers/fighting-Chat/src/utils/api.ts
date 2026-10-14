@@ -1,7 +1,9 @@
 import { CharacterConfig, FighterStats, BackgroundMode, ViewLayout } from '../types/fighter';
 
 export interface PlayerRecord {
-  kick_id: number | null;
+  // Numérico en Kick, string (UCI…) en YouTube. `ns` dice de qué plataforma viene.
+  kick_id: number | string | null;
+  ns?: 'kick' | 'yt';
   username: string;
   stats: FighterStats;
 }

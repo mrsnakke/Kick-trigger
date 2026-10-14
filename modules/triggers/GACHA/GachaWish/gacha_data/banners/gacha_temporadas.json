@@ -50,7 +50,7 @@
         {
           "name": "Phoebe",
           "rarity": "5_star",
-          "stock": 1
+          "stock": 0
         },
         {
           "name": "Chisa",
@@ -60,7 +60,7 @@
         {
           "name": "Astolfo",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 1
         },
         {
           "name": "Dorothy",
@@ -115,17 +115,17 @@
         {
           "name": "Power",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 1
         },
         {
           "name": "2B",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         },
         {
           "name": "Nezuko",
           "rarity": "5_star",
-          "stock": 3
+          "stock": 2
         },
         {
           "name": "Emilia",
@@ -140,12 +140,12 @@
         {
           "name": "Camellya",
           "rarity": "5_star",
-          "stock": 2
+          "stock": 0
         },
         {
           "name": "Ishtar",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         }
       ]
     },
@@ -173,7 +173,7 @@
         {
           "name": "Eris Greyrat",
           "rarity": "5_star",
-          "stock": 4
+          "stock": 3
         }
       ]
     },
@@ -192,12 +192,12 @@
         {
           "name": "Hahari Hanazono",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         },
         {
           "name": "Reze",
           "rarity": "5_star",
-          "stock": 5
+          "stock": 4
         },
         {
           "name": "klukai",

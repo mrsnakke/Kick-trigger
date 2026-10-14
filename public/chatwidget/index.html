@@ -19,8 +19,6 @@ body.solid-bg{background:#0d1117}
 #outer.dir-down #messages{justify-content:flex-start}
 #outer{max-width:100%}
 
-#canvas-physics{position:absolute;inset:0;pointer-events:none;z-index:30}
-
 /* ─── MESSAGE (flex-row = avatar left, flex-row-reverse = avatar right) ─── */
 .msg{display:flex;align-items:center;width:100%;margin:0;flex-shrink:0}
 .msg.exiting{opacity:0;transform:scale(.95);transition:opacity .3s,transform .3s}
@@ -116,7 +114,6 @@ body.solid-bg{background:#0d1117}
 <div id="alerts" class="bottom"></div>
 <div id="widget">
   <div id="outer">
-    <canvas id="canvas-physics"></canvas>
     <div id="messages"></div>
   </div>
 </div>
@@ -417,10 +414,6 @@ body.solid-bg{background:#0d1117}
     if(cfg.hideStreamerMessages && isStreamer) return;
     if(isBot(user,text))return;
 
-    // extract emote urls for physics
-    const emoteUrls=[];
-    if(p.emotes) p.emotes.forEach(em=>emoteUrls.push('https://files.kick.com/emotes/'+em.emote_id+'/fullsize'));
-
     const isRight = cfg.layoutMode==='right' ? true : cfg.layoutMode==='left' ? false : msgs.querySelectorAll('.msg').length % 2 === 0;
     const avatar = p.sender?.profile_picture || (cfg.avatarDefaultCustomUrl || 'https://api.dicebear.com/7.x/'+(cfg.avatarDefaultType||'bottts')+'/svg?seed='+encodeURIComponent(user));
     const color = p.sender?.identity?.username_color || uColor(user);
@@ -481,55 +474,11 @@ body.solid-bg{background:#0d1117}
       const f=msgs.querySelector('.msg'); if(f){f.classList.add('exiting');setTimeout(()=>f.remove(),320);} else break;
     }
     sndMsg();
-    if(cfg.emotePhysicsEnabled && emoteUrls.length) spawnPhysics(emoteUrls);
-    else if(cfg.emotePhysicsEnabled){ /* no emote: skip per Example */ }
   }
 
-  /* ─── PHYSICS (1:1 EmotePhysicsLayer) ─── */
-  const canvas = $('#canvas-physics');
-  const ctx = canvas.getContext('2d');
-  let particles=[];
-  const imgCache=new Map();
-  function getImg(url){if(imgCache.has(url))return imgCache.get(url);const i=new Image();i.crossOrigin='anonymous';i.src=url;imgCache.set(url,i);return i;}
-  function spawnPhysics(urls,countOverride,modeOverride){
-    const count=countOverride??cfg.emotePhysicsCount??6;
-    const mode=modeOverride??cfg.emotePhysicsMode??'bounce';
-    const size=cfg.emotePhysicsSize??42;
-    const w=canvas.width,h=canvas.height;
-    for(let i=0;i<count;i++){
-      const u=urls[Math.floor(Math.random()*urls.length)];
-      const img=getImg(u);
-      let x=w/2,y=h-size,vx=0,vy=0;
-      if(mode==='bounce'){x=Math.random()*(w-size*2)+size;y=h-20;vx=(Math.random()-.5)*12;vy=-(Math.random()*12+10);}
-      else if(mode==='rain'){x=Math.random()*(w-size);y=-size;vx=(Math.random()-.5)*4;vy=Math.random()*4+3;}
-      else if(mode==='fireworks'){x=w/2+(Math.random()-.5)*60;y=h*.5+(Math.random()-.5)*60;const a=Math.random()*Math.PI*2,s=Math.random()*12+6;vx=Math.cos(a)*s;vy=Math.sin(a)*s;}
-      particles.push({x,y,vx,vy,rot:Math.random()*Math.PI*2,vRot:(Math.random()-.5)*.18,size,img,life:0,maxLife:280+Math.random()*80,bounces:0,maxBounces:4+Math.floor(Math.random()*3)});
-    }
-  }
-  function resizeCanvas(){if(canvas.parentElement){canvas.width=canvas.parentElement.clientWidth;canvas.height=canvas.parentElement.clientHeight;}}
-  resizeCanvas();
-  const ro=new ResizeObserver(resizeCanvas);ro.observe(outer);
-  function physicsLoop(){
-    if(!cfg) return requestAnimationFrame(physicsLoop);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    const gravity=(cfg.emotePhysicsGravity??0.6)*0.55,friction=0.985,bounceRef=0.68,floor=canvas.height,wd=canvas.width;
-    const active=[];
-    for(const p of particles){
-      p.life++; if(p.life>p.maxLife)continue;
-      p.vy+=gravity;p.vx*=friction;p.vy*=friction;
-      p.x+=p.vx;p.y+=p.vy;p.rot+=p.vRot;
-      if(p.y+p.size>floor){p.y=floor-p.size;p.vy=-p.vy*bounceRef;p.bounces++;p.vx*=.85;p.vRot*=.8;if(Math.abs(p.vy)<1.2)p.vy=0;}
-      if(p.x<0){p.x=0;p.vx=-p.vx*bounceRef;}else if(p.x+p.size>wd){p.x=wd-p.size;p.vx=-p.vx*bounceRef;}
-      const fade=Math.max(0,(p.life-(p.maxLife-50))/50);
-      const alpha=Math.max(0,Math.min(1,1-fade));
-      ctx.save();ctx.globalAlpha=alpha;ctx.translate(p.x+p.size/2,p.y+p.size/2);ctx.rotate(p.rot);
-      if(p.img.complete&&p.img.naturalWidth>0)ctx.drawImage(p.img,-p.size/2,-p.size/2,p.size,p.size);
-      ctx.restore();active.push(p);
-    }
-    particles=active;
-    requestAnimationFrame(physicsLoop);
-  }
-  requestAnimationFrame(physicsLoop);
+  /* ─── PHYSICS: movida al overlay independiente /emotes (public/chatwidget/physics.js) ─── */
+  // El chat ya no dibuja emotes cayendo para no duplicarlos en OBS.
+  // Todo el sistema de física vive ahora en /emotes.
 
   /* ─── AUDIO (1:1 audio.ts) ─── */
   let audioCtx=null;
@@ -571,6 +520,7 @@ body.solid-bg{background:#0d1117}
 
   /* ─── ALERTS (1:1 AlertBanner) ─── */
   let alertQueue=[],alertBusy=false;
+  const kickBuf=new Map(), lastKickSound=new Map();
   const alertThemes={
     kick_green:{border:'#53fc18',glow:'0 0 28px rgba(83,252,24,.4)',badgeBg:'#53fc18',titleColor:'#53fc18',barColor:'#53fc18',bgGrad:'linear-gradient(90deg,rgba(0,0,0,.95),rgba(13,31,8,.9),rgba(0,0,0,.95))'},
     cyber_neon:{border:'#ec4899',glow:'0 0 28px rgba(236,72,153,.4)',badgeBg:'linear-gradient(90deg,#ec4899,#9333ea)',titleColor:'#f472b6',barColor:'linear-gradient(90deg,#ec4899,#a855f7)',bgGrad:'linear-gradient(90deg,rgba(88,28,135,.9),rgba(27,13,38,.95),rgba(0,0,0,.95))'},
@@ -616,7 +566,11 @@ body.solid-bg{background:#0d1117}
     if(!cfg.alertsEnabled)return;
     const a={type,username,description:description||'',title:title||''};
     if(!alertBusy){alertBusy=true;showAlert(a);}else alertQueue.push(a);
-    alertSoundCfg(type);
+    if(type==='kick_gift'){
+      // shortcut: 1 sonido por usuario cada 10s para no taladrar con spam de bits
+      const key=(username||'').toLowerCase(), now=Date.now();
+      if(now-(lastKickSound.get(key)||0)>=10000){lastKickSound.set(key,now);alertSoundCfg(type);}
+    } else alertSoundCfg(type);
   }
   function nextAlert(){if(!alertQueue.length){alertBusy=false;return;}alertBusy=true;showAlert(alertQueue.shift());}
 
@@ -656,8 +610,18 @@ body.solid-bg{background:#0d1117}
         } else if(et==='kicks.gifted'){
           if(!cfg.alertKickGifts)return;
           const u=p.sender?.username||'Alguien';
-          const g=p.gift?.name||'Regalo';
-          queueAlert('kick_gift',u,`Envió ${g}${p.gift?.amount?' ('+p.gift.amount+' Kicks)':''}`);
+          const name=p.gift?.name||'Kicks';
+          const amount=Number(p.gift?.amount)||0;
+          // Agrupa la ráfaga del mismo usuario en una sola alerta (evita 100 alertas por 100 bits).
+          const key=u.toLowerCase();
+          const b=kickBuf.get(key)||{total:0,count:0,timer:null,name};
+          b.total+=amount;b.count+=1;b.name=name;
+          if(b.timer)clearTimeout(b.timer);
+          b.timer=setTimeout(()=>{
+            kickBuf.delete(key);
+            queueAlert('kick_gift',u,`Envió ${b.total} ${b.name}${b.count>1?' en '+b.count+' aportes':''}`);
+          },1200);
+          kickBuf.set(key,b);
         } else if(et==='channel.raid'||(et&&et.includes('raid'))){
           if(!cfg.alertRaids)return;
           const u=p.host_username||p.username||'Canal amigo';

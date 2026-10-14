@@ -76,6 +76,22 @@ CF_DOMAIN=tudominio.ejemplo.com
 | `VTUBER_NAME` | `Grim` | Nombre del personaje |
 | `VTUBER_COMMAND` | `!grim` | Comando del chat |
 
+### Variables de entorno de los módulos YouTube y Twitch (todas opcionales)
+
+Solo hacen falta si querés los eventos de YouTube/Twitch. Ver
+[modulos/youtube.md](modulos/youtube.md) y [modulos/twitch.md](modulos/twitch.md).
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `STREAMERBOT_WS_HOST` | `127.0.0.1` | Host del WebSocket Server de Streamer.bot |
+| `STREAMERBOT_WS_PORT` | `8080` | Puerto del WebSocket Server |
+| `STREAMERBOT_WS_PASSWORD` | *(vacío)* | Si está seteada, autentica tras el `Hello` |
+| `STREAMERBOT_YT_BOT_CHANNEL_ID` | *(vacío)* | Canal de la cuenta bot de YouTube (anti-loop) |
+| `STREAMERBOT_TWITCH_BOT_ID` | *(vacío)* | Id de la cuenta bot de Twitch (anti-loop) |
+
+Los módulos no exponen ningún endpoint: **este proceso se conecta** al WebSocket Server de
+Streamer.bot. Si no lo encuentra, el backend igual arranca normal y lo reintenta cada 5s.
+
 ### Otras configuraciones relevantes
 
 - `VTS_HOST` (en `vtuber-data.json` / config): IP:puerto de VTube Studio (default `192.168.1.127:8002`).

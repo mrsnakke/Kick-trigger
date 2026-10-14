@@ -161,6 +161,33 @@ La clave: **asume que pueden llegarte eventos duplicados** (la dedup de webhooks
 
 Lista completa de eventos: [referencia/eventos.md](referencia/eventos.md).
 
+### Plataformas que entran al bus
+
+Hoy el bus recibe eventos de **tres** plataformas, y las externas entran por módulos aparte:
+
+| Plataforma | Quién los mete | Sobre |
+|---|---|---|
+| Kick | `modules/webhook.js` (core) | `POST /webhook/kick` (público, vía túnel) |
+| YouTube | `modules/triggers/youtube/` | WebSocket a `127.0.0.1:8080` (Streamer.bot) |
+| Twitch | `modules/triggers/twitch/` | WebSocket a `127.0.0.1:8080` (Streamer.bot) |
+
+El bus **no filtra por plataforma**: los normalizadores de
+[`modules/triggers/youtube/`](modulos/youtube.md) y
+[`modules/triggers/twitch/`](modulos/twitch.md) traducen cada evento al **mismo nombre y
+shape de Kick** y lo re-emiten. Por eso los triggers no distinguen el origen al escuchar
+`chat.message.sent`. Los dos módulos comparten el core `lib/streamerbot.js`.
+
+La única marca de procedencia es `_source` en el sobre:
+
+```
+{ payload, ts }                 ← de Kick (webhook.js no pone _source)
+{ payload, ts, _source: 'youtube' }   ← del módulo de YouTube
+{ payload, ts, _source: 'twitch' }    ← del módulo de Twitch
+```
+
+Un trigger que necesite saber de dónde vino mira `data._source`. Ejemplo: el módulo de
+peleas deriva de ahí el namespace de la ficha (`kick_` vs `yt_`).
+
 ## Persistencia (dónde guarda cada cosa — archivos JSON)
 
 | Archivo | Contenido | Lo escribe |

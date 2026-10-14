@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emote Overlay — OBS</title>
+<script src="/chatwidget/physics.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:transparent}
+  body.solid-bg{background:#0d1117}
+  #fx{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointer-events:none}
+  #hud{position:fixed;top:8px;left:8px;z-index:10;font:12px/1.5 monospace;color:#53fc18;
+       background:rgba(0,0,0,.6);border:1px solid #30363d;border-radius:6px;padding:6px 10px;display:none;white-space:pre}
+  #hud.on{display:block}
+  #conn{position:fixed;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#484f58;z-index:10}
+  #conn.on{background:#53fc18;box-shadow:0 0 8px #53fc18}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div id="conn"></div>
+<div id="hud"></div>
+
+<script>
+(function () {
+  'use strict'
+
+  var P = new URLSearchParams(window.location.search)
+  function pnum(key) { var v = P.get(key); if (v === null || v === '') return null; var n = parseFloat(v); return isNaN(n) ? null : n }
+  function pint(key) { var n = pnum(key); return n === null ? null : Math.round(n) }
+  function pbool(key) { var v = P.get(key); return v === null ? null : (v === 'true' || v === '1') }
+
+  if (P.get('obs') === 'true') document.body.classList.add('solid-bg')
+
+  var Q = {
+    mode: P.get('mode'),
+    size: pint('size'),
+    gravity: pnum('gravity'),
+    bounce: pnum('bounce'),
+    friction: pnum('friction'),
+    wind: pnum('wind'),
+    spin: pnum('spin'),
+    life: pnum('life'),
+    max: pint('max'),
+    shadow: pbool('shadow'),
+    dedupe: pbool('dedupe'),
+    ox: pnum('ox'),
+    oy: pnum('oy'),
+    spread: pnum('spread'),
+    launch: pnum('launch'),
+    test: P.get('test') === 'true' || P.get('test') === '1',
+    debug: P.get('debug') === 'true' || P.get('debug') === '1'
+  }
+
+  var canvas = document.getElementById('fx')
+  var conn = document.getElementById('conn')
+  var hud = document.getElementById('hud')
+  var ifDebug = Q.debug
+  if (ifDebug) hud.classList.add('on')
+
+  var layer = EmotePhysics.create(canvas, {})
+  var cfg = {}
+  var streamerSlug = ''
+  var emoteMap = new Map()
+  var es = null
+
+  var hudData = { msgs: 0, spawned: 0, skipped: 0 }
+
+  function pick() {
+    for (var i = 0; i < arguments.length; i++) {
+      if (arguments[i] !== undefined && arguments[i] !== null) return arguments[i]
+    }
+    return undefined
+  }
+
+  function physicsOptions() {
+    return {
+      mode: pick(Q.mode, cfg.emoteOverlayMode, 'rain'),
+      size: pick(Q.size, cfg.emoteOverlaySize, 96),
+      gravity: pick(Q.gravity, cfg.emoteOverlayGravity, 0.6),
+      bounce: pick(Q.bounce, cfg.emoteOverlayBounce, 0.62),
+      friction: pick(Q.friction, cfg.emoteOverlayFriction, 0.99),
+      wind: pick(Q.wind, cfg.emoteOverlayWind, 0),
+      spin: pick(Q.spin, cfg.emoteOverlaySpin, 1),
+      life: pick(Q.life, cfg.emoteOverlayLife, 6),
+      maxParticles: pick(Q.max, cfg.emoteOverlayMaxParticles, 24),
+      shadow: pick(Q.shadow, cfg.emoteOverlayShadow, true),
+      originX: pick(Q.ox, cfg.emoteOverlayOriginX, 0.5),
+      originY: pick(Q.oy, cfg.emoteOverlayOriginY, 1),
+      spread: pick(Q.spread, cfg.emoteOverlaySpread, 0.5),
+      launchPower: pick(Q.launch, cfg.emoteOverlayLaunchPower, 14)
+    }
+  }
+
+  function dedupeEnabled() { return pick(Q.dedupe, cfg.emoteOverlayDedupe, true) !== false }
+
+  function applyConfig(patch) {
+    cfg = Object.assign({}, cfg, patch || {})
+    layer.setOptions(physicsOptions())
+    if (cfg.emoteOverlayEnabled === false) layer.clear()
+    updateHud()
+  }
+
+  /* ─── Bots ─── */
+  function isBot(user, text) {
+    if (!cfg.botExclusionEnabled) return false
+    var n = (user || '').toLowerCase()
+    if ((cfg.ignoredBots || []).some(function (b) { return String(b).toLowerCase() === n })) return true
+    if (cfg.ignoreBotPrefixes) {
+      var s = (text || '').trim()
+      if (s.length > 1 && /^[!\/\$\.\?]/.test(s)) return true
+    }
+    return false
+  }
+
+  /* ─── Extracción de emotes (Kick + YouTube + 7TV del texto) ─── */
+  function extractEmotes(p) {
+    var found = []
+    var seen = Object.create(null)
+    var dedupe = dedupeEnabled()
+
+    function add(u) {
+      if (!u) return
+      if (u.indexOf('://') === -1) return
+      if (dedupe) {
+        if (seen[u]) return
+        seen[u] = 1
+      }
+      found.push(u)
+    }
+
+    // 1. emotes del payload del webhook (Kick trae emote_id, YouTube trae imageUrl)
+    if (Array.isArray(p.emotes)) {
+      for (var i = 0; i < p.emotes.length; i++) {
+        var em = p.emotes[i] || {}
+        var u = em.imageUrl || em.url || (em.emote_id ? 'https://files.kick.com/emotes/' + em.emote_id + '/fullsize' : null)
+        add(u)
+      }
+    }
+
+    var text = p.content || ''
+
+    // 2. tags [emote:id:name]
+    var re = /\[emote:(\d+):[^\]]+\]/g
+    var m
+    while ((m = re.exec(text))) add('https://files.kick.com/emotes/' + m[1] + '/fullsize')
+
+    // 3. nombres 7TV presentes en el texto
+    var toks = text.split(/\s+/)
+    for (var k = 0; k < toks.length; k++) {
+      var tok = toks[k]
+      if (!tok) continue
+      var match = emoteMap.get(tok) || emoteMap.get(tok.toLowerCase())
+      if (!match && tok.charAt(0) === ':' && tok.charAt(tok.length - 1) === ':') match = emoteMap.get(tok.slice(1, -1))
+      if (match && match.url) add(match.url)
+    }
+
+    return found
+  }
+
+  function spawnFromPayload(p) {
+    hudData.msgs++
+    if (cfg.emoteOverlayEnabled === false) return
+    if (cfg.hideStreamerMessages && streamerSlug) {
+      var slug = (p.sender && (p.sender.slug || p.sender.username)) || ''
+      if (String(slug).toLowerCase() === String(streamerSlug).toLowerCase()) { hudData.skipped++; updateHud(); return }
+    }
+    if (isBot(p.sender && p.sender.username, p.content)) { hudData.skipped++; updateHud(); return }
+    var urls = extractEmotes(p)
+    if (!urls.length) { hudData.skipped++; updateHud(); return }
+    var n = layer.spawn(urls)
+    hudData.spawned += n
+    updateHud()
+  }
+
+  var lastHud = 0
+  function updateHud() {
+    var now = Date.now()
+    if (now - lastHud < 200) return
+    lastHud = now
+    hud.textContent =
+      'emotes activos: ' + layer.count() + '\n' +
+      'mensajes: ' + hudData.msgs + '  spawn: ' + hudData.spawned + '  skip: ' + hudData.skipped + '\n' +
+      'modo: ' + layer.getOptions().mode + '  size: ' + layer.getOptions().size + '  max: ' + layer.getOptions().maxParticles
+  }
+
+  /* ─── Emotes de muestra (para probar sin chat) ─── */
+  function sampleEmotes() {
+    var out = []
+    emoteMap.forEach(function (e) { if (out.length < 6 && e.url) out.push(e.url) })
+    if (!out.length) {
+      var svg = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120">' +
+        '<rect width="120" height="120" rx="24" fill="#53fc18"/>' +
+        '<text x="60" y="78" font-size="64" font-family="sans-serif" font-weight="bold" text-anchor="middle" fill="#0d1117">E</text></svg>')
+      out.push(svg)
+    }
+    return out
+  }
+  function spawnTest(n) {
+    var s = sampleEmotes()
+    for (var i = 0; i < (n || 1); i++) {
+      setTimeout(function () { layer.spawn([s[Math.floor(Math.random() * s.length)]]) }, i * 220)
+    }
+  }
+
+  /* ─── 7TV ─── */
+  function load7tv() {
+    if (cfg.seventvEnabled === false) return Promise.resolve()
+    return fetch('/api/7tv/' + (cfg.seventvUserId || '01GJ7PS7DR000CQ2WDRACYQ5EH'))
+      .then(function (r) { return r.ok ? r.json() : null })
+      .then(function (d) {
+        if (d && d.emotes) for (var i = 0; i < d.emotes.length; i++) {
+          var e = d.emotes[i]
+          emoteMap.set(String(e.name).toLowerCase(), e)
+        }
+      })
+      .catch(function () {})
+  }
+
+  /* ─── SSE ─── */
+  function connect() {
+    if (es) try { es.close() } catch (e) {}
+    es = new EventSource('/api/events')
+    es.onopen = function () { conn.classList.add('on') }
+    es.onerror = function () { conn.classList.remove('on') }
+    es.onmessage = function (ev) {
+      try {
+        var d = JSON.parse(ev.data)
+        if (d.type === 'status' || d.type === 'auth') { streamerSlug = d.channelSlug || d.slug || streamerSlug; return }
+        if (d.type !== 'event') return
+        if (d.eventType === 'chat.message.sent') spawnFromPayload(d.payload || {})
+      } catch (err) { console.error('[EMOTES] onmessage:', err) }
+    }
+  }
+
+  /* ─── postMessage (dashboard) ─── */
+  window.addEventListener('message', function (ev) {
+    if (!ev.data) return
+    if (ev.data.type === 'chatwidget-config') applyConfig(ev.data.config)
+    else if (ev.data.type === 'emotes-test') spawnTest(6)
+    else if (ev.data.type === 'emotes-clear') layer.clear()
+  })
+
+  /* ─── Visibilidad: reconectar SSE si hace falta (el navegador ya frena la animación solo) ─── */
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && es && es.readyState === EventSource.CLOSED) connect()
+  })
+
+  /* ─── INIT ─── */
+  function init() {
+    fetch('/api/chatwidget/config')
+      .then(function (r) { return r.ok ? r.json() : null })
+      .then(function (d) { if (d && d.config) cfg = d.config })
+      .catch(function () {})
+      .then(load7tv)
+      .then(function () {
+        applyConfig({})
+        connect()
+        if (Q.test) spawnTest(10)
+        updateHud()
+      })
+  }
+  init()
+})()
+</script>
+</body>
+</html>

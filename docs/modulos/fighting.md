@@ -196,12 +196,33 @@ fuerte** (ataque ≈ nivel 30). No lo podés tumbar: gana por desgaste.
 | Endpoint | Método | Cuerpo / qué hace |
 | -------- | ------ | ----------------- |
 | `/api/kick/help` | GET | Instrucciones cortitas para responder en el chat |
-| `/api/kick/players/upsert` | POST | `{ kick_id, username }` — crea/actualiza jugador (id = `kick_<user_id>`) |
+| `/api/kick/players/upsert` | POST | `{ kick_id, username, ns }` — crea/actualiza jugador (llave = `<ns>_<kick_id>`) |
 | `/api/kick/players` | GET | Lista de jugadores + EXP de sesión restante (`battlesLeft`) |
-| `/api/kick/challenges` | POST | `{ from_kick_id, from_username, to_kick_id, to_username }` — comando `!retar` |
-| `/api/kick/challenges/:id/accept` | POST | `{ player_kick_id }` — comando `!aceptar` / `!si` |
-| `/api/kick/challenges/:id/decline` | POST | `{ player_kick_id }` — comando `!no` |
+| `/api/kick/challenges` | POST | `{ from_kick_id, from_username, from_ns, to_kick_id, to_username, to_ns }` — comando `!retar` |
+| `/api/kick/challenges/:id/accept` | POST | `{ player_kick_id, ns }` — comando `!aceptar` / `!si` |
+| `/api/kick/challenges/:id/decline` | POST | `{ player_kick_id, ns }` — comando `!no` |
 | `/api/kick/challenges` | GET | Estado actual de la cola |
+
+### Peleadores de YouTube (namespace `yt_`)
+
+El chat de YouTube ([módulo youtube](youtube.md)) también llega a este trigger, y usa **fichas
+separadas**: la llave de un jugador es `${ns}_${id}`, con `ns` en `kick` (default) o `yt`.
+
+- `kick_63964178` — jugador de Kick, llave idéntica a la de siempre.
+- `yt_UCI9-KG2xoyh5z-g41IL2jqf` — jugador de YouTube, con su propio nivel, EXP y récords.
+
+`kick_id` guarda el id **crudo** que manda la plataforma (número en Kick, string `UC…` en
+YouTube) y la ficha suma un campo `ns`. Las fichas viejas no tienen `ns`, así que caen en
+`kick` y no se mueven. El `ns` lo deriva el trigger de `data._source`, y como viaja por
+separado en cada lado del reto, **un retado puede estar en otra plataforma** que el retador.
+
+Dos consecuencias de la separación:
+
+- El **gachapón no reparte llaves** a peleadores de YouTube: el inventario del gacha está
+  indexado por id numérico de Kick. Es el comportamiento esperado de namespaces separados.
+- El módulo **no castea el id a número** en ningún punto. Hacerlo colapsaba a todos los
+  jugadores de YouTube en un mismo `kick_NaN`. Cubierto por
+  `modules/triggers/fighting-Chat/server/player-id.test.mjs`.
 
 ## Endpoints del módulo (montado en `/fighting`)
 

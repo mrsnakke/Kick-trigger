@@ -17,8 +17,8 @@ const PORT = Number(new URL(FIGHTING_URL).port) || 3001
 const MAX_SPAWN = 3
 
 // -- Estado en memoria (se resetea al reiniciar; igual que el fight server) --
-const seen = new Set()          // kick ids ya registrados esta sesión
-const userMap = new Map()       // username(minúsculas) -> { id, name }
+const seen = new Set()          // playerIds (`kick_…` / `yt_…`) ya registrados esta sesión
+const userMap = new Map()       // username(minúsculas) -> { id, name, ns }
 const repliedMsg = new Set()    // message ids ya respondidos (idempotencia)
 
 // Llaves del gachapón por pelear: conjunto del gacha (mismo proceso) + contador de sesión.
@@ -113,7 +113,12 @@ async function handleMessage(data) {
   const messageId = payload?.message_id
   if (!userId || !username || !content) return
 
-  userMap.set(username.toLowerCase(), { id: userId, name: username })
+  // Namespace de la ficha de pelea. El módulo youtube marca el sobre con _source, así que un
+  // canal de YouTube y uno de Kick con el mismo nombre nunca comparten ficha, nivel ni EXP.
+  const ns = data?._source === 'youtube' ? 'yt' : 'kick'
+  const pid = `${ns}_${userId}`
+
+  userMap.set(username.toLowerCase(), { id: userId, name: username, ns })
 
   // Ignorar mención al inicio: "@usuario: !si" → "!si"
   const stripped = content.trim().replace(/^@\S+\s*:?\s*/, '')
@@ -121,9 +126,9 @@ async function handleMessage(data) {
   const FIGHT_CMDS = ['!retar', '!aceptar', '!si', '!no', '!stats', '!invertir', '!pelea']
   if (!FIGHT_CMDS.includes(head)) {
     // Primer mensaje de un usuario → crear su ficha igual (le sirve a !retar @usuario)
-    if (!seen.has(String(userId))) {
-      seen.add(String(userId))
-      api('/api/kick/players/upsert', { method: 'POST', body: { kick_id: userId, username } }).catch(() => {})
+    if (!seen.has(pid)) {
+      seen.add(pid)
+      api('/api/kick/players/upsert', { method: 'POST', body: { kick_id: userId, username, ns } }).catch(() => {})
     }
     return
   }
@@ -131,7 +136,7 @@ async function handleMessage(data) {
   repliedMsg.add(messageId)
 
   // Comando de pelea: garantizar el personaje (nivel 0, con nombre e id) antes de actuar.
-  await api('/api/kick/players/upsert', { method: 'POST', body: { kick_id: userId, username } }).catch(() => {})
+  await api('/api/kick/players/upsert', { method: 'POST', body: { kick_id: userId, username, ns } }).catch(() => {})
 
   const reply = (text) => chat.sendAsBot(text, messageId).catch(() => {})
   try {
@@ -142,14 +147,14 @@ async function handleMessage(data) {
 
         // Reto al admin (GrimVTbot): se auto-acepta y la IA se burla del retador.
         if (target === GRIM_USERNAME.toLowerCase()) {
-          if (Number(userId) === GRIM_KICK_ID) return reply(`@${username} el admin no se reta a sí mismo 😅`)
+          if (ns === 'kick' && String(userId) === String(GRIM_KICK_ID)) return reply(`@${username} el admin no se reta a sí mismo 😅`)
           const c = await api('/api/kick/challenges', {
             method: 'POST',
-            body: { from_kick_id: userId, from_username: username, to_kick_id: GRIM_KICK_ID, to_username: GRIM_USERNAME },
+            body: { from_kick_id: userId, from_username: username, from_ns: ns, to_kick_id: GRIM_KICK_ID, to_username: GRIM_USERNAME, to_ns: 'kick' },
           })
           const res = await api(`/api/kick/challenges/${c.challenge.id}/accept`, {
             method: 'POST',
-            body: { player_kick_id: GRIM_KICK_ID },
+            body: { player_kick_id: GRIM_KICK_ID, ns: 'kick' },
           })
           announceTTS(`${username} retó a Grim. Grim acepta el duelo.`)
           reply(res.started
@@ -164,21 +169,21 @@ async function handleMessage(data) {
           try {
             const list = await api('/api/kick/players')
             const p = list.players?.find((r) => r.username?.toLowerCase() === target)
-            if (p) t = { id: String(p.kick_id), name: p.username }
+            if (p) t = { id: String(p.kick_id), name: p.username, ns: p.ns || 'kick' }
           } catch {}
           if (!t) return reply(`@${username} todavía no conozco a @${target}; que escriba primero en el chat`)
         }
-        if (t.id === userId) return reply(`@${username} no te podés retar a vos mismo 😄`)
+        if (t.id === String(userId) && t.ns === ns) return reply(`@${username} no te podés retar a vos mismo 😄`)
         await api('/api/kick/challenges', {
           method: 'POST',
-          body: { from_kick_id: userId, from_username: username, to_kick_id: t.id, to_username: t.name },
+          body: { from_kick_id: userId, from_username: username, from_ns: ns, to_kick_id: t.id, to_username: t.name, to_ns: t.ns },
         })
         // MrSnakeVT atado no puede rechazar: si su modelo está "atadas", el reto se auto-acepta.
-        if (Number(t.id) === SNAKE_KICK_ID && await vtuberAI().isHeld()) {
+        if (t.ns === 'kick' && Number(t.id) === SNAKE_KICK_ID && await vtuberAI().isHeld()) {
           const list = await api('/api/kick/challenges')
-          const mine = list.challenges.find((c) => c.to === `kick_${t.id}` && c.status === 'awaiting_accept')
+          const mine = list.challenges.find((c) => c.to === `${t.ns}_${t.id}` && c.status === 'awaiting_accept')
           if (mine) {
-            await api(`/api/kick/challenges/${mine.id}/accept`, { method: 'POST', body: { player_kick_id: t.id } })
+            await api(`/api/kick/challenges/${mine.id}/accept`, { method: 'POST', body: { player_kick_id: t.id, ns: t.ns } })
             announceTTS(`${username} retó a ${t.name}. ${t.name} está atado y no puede decir que no.`)
             return reply(`@${username} retó a @${t.name} 🥊 ¡pero ${t.name} está atado y no puede decir que no!`)
           }
@@ -189,22 +194,21 @@ async function handleMessage(data) {
       case '!aceptar':
       case '!si': {
         const list = await api('/api/kick/challenges')
-        const mine = list.challenges.find((c) => c.to === `kick_${userId}` && c.status === 'awaiting_accept')
+        const mine = list.challenges.find((c) => c.to === pid && c.status === 'awaiting_accept')
         if (!mine) return reply(`@${username} no tenés un reto pendiente`)
-        const res = await api(`/api/kick/challenges/${mine.id}/accept`, { method: 'POST', body: { player_kick_id: userId } })
+        const res = await api(`/api/kick/challenges/${mine.id}/accept`, { method: 'POST', body: { player_kick_id: userId, ns } })
         return reply(res.started ? `@${username} ¡duelo iniciado! 🥊` : `@${username} reto aceptado, en cola ⏳`)
       }
       case '!no': {
         const list = await api('/api/kick/challenges')
-        const mine = list.challenges.find((c) => c.to === `kick_${userId}` && c.status === 'awaiting_accept')
+        const mine = list.challenges.find((c) => c.to === pid && c.status === 'awaiting_accept')
         if (!mine) return reply(`@${username} no tenés un reto pendiente`)
-        await api(`/api/kick/challenges/${mine.id}/decline`, { method: 'POST', body: { player_kick_id: userId } })
+        await api(`/api/kick/challenges/${mine.id}/decline`, { method: 'POST', body: { player_kick_id: userId, ns } })
         return reply(`@${username} reto rechazado. Sin pique 🕊️`)
       }
       case '!stats': {
         const cfg = await api('/api/config')
         const list = await api('/api/kick/players')
-        const pid = `kick_${userId}`
         const p = cfg.players?.[pid]
         if (!p) return reply(`@${username} todavía no tenés ficha; escribí cualquier cosa y te creo una`)
         const st = p.stats || {}
@@ -221,13 +225,13 @@ async function handleMessage(data) {
         if (!stat) {
           return reply(`@${username} podés invertir en: ${STAT_KEYS.map((k) => STAT_LABELS[k]).join(' · ')}. Ej: !invertir ataque`)
         }
-        const res = await api('/api/allocate', { method: 'POST', body: { player: `kick_${userId}`, stat } })
+        const res = await api('/api/allocate', { method: 'POST', body: { player: pid, stat } })
         const val = res.stats?.allocated?.[stat] ?? 0
         return reply(`@${username} ✨ ${STAT_LABELS[stat]} +${val}`)
       }
       case '!pelea': {
         const list = await api('/api/kick/players')
-        const row = list.players?.find((r) => r.id === `kick_${userId}`)
+        const row = list.players?.find((r) => r.id === pid)
         const keysLeft = Math.max(0, KEY_CAP - (fightKeys.get(String(userId)) || 0))
         return reply(`@${username} ⚡ ${row?.battlesLeft ?? '?'}/300 de EXP hoy · 🎟️ ${keysLeft}/5 llaves diarias del gachapón`)
       }
@@ -268,7 +272,9 @@ function formatResult(r) {
 async function awardBattleKey(r, cfg) {
   if (Object.keys(gachaStore.state.characterData).length === 0) return null // gacha aún cargando
   const gachaId = (p) => {
-    const raw = String(p?.id || '').replace(/^kick_/, '')
+    // El gachapón está indexado por id numérico de Kick, así que un peleador de YouTube
+    // (id UCI…) no entra al sorteo: su namespace no existe en el inventario del gacha.
+    const raw = String(p?.id || '').replace(/^(kick|yt)_/, '')
     return /^\d+$/.test(raw) && (fightKeys.get(raw) || 0) < KEY_CAP ? raw : null
   }
   // El username sale de la ficha real (players.json), nunca del id, para no pisar el del gacha.
@@ -292,7 +298,7 @@ async function pollResults() {
     if (!r?.endedAt || r.endedAt <= lastResultAt) return
     lastResultAt = r.endedAt
     // Solo anunciamos peleas donde participa gente del chat (no la local-p1/local-p2).
-    if (!r.p1?.id.startsWith('kick_') && !r.p2?.id.startsWith('kick_')) return
+    if (!/^(kick|yt)_/.test(r.p1?.id || '') && !/^(kick|yt)_/.test(r.p2?.id || '')) return
     const msg = formatResult(r)
     if (msg) {
       const keyMsg = await awardBattleKey(r, cfg)

@@ -4,6 +4,7 @@ const eventBus = require('../../../lib/event-bus')
 const sse = require('../../sse')
 const chat = require('../../chat')
 const vtuber = require('../vtuber-ai')
+const { createKicksAggregator } = require('./kicks-agg')
 
 const CHATTERS_PATH = path.join(__dirname, 'chatters.json')
 const CONFIG_PATH = path.join(__dirname, 'event-actions-config.json')
@@ -25,13 +26,18 @@ const DEFAULT_MINIPROMPTS = {
   'channel.subscription.gifts': '[EVENTO: Suscripciones regaladas] @{username} ha regalado suscripciones a la comunidad. Agradece su generosidad.',
   'channel.reward.redemption.updated': '[EVENTO: Canje de recompensa] @{username} ha canjeado "{reward_title}" con puntos de canal. Reacciona con emoción.',
   'livestream.metadata.updated': '[EVENTO: Stream actualizado] Se cambió el título o categoría. Nuevo título: "{title}". Reacciona al cambio brevemente.',
-  'kicks.gifted': '[EVENTO: KICKS regalados] @{username} ha regalado KICKS en el canal. Agradécele su generosidad con entusiasmo.'
+  'kicks.gifted': '[EVENTO: KICKS regalados] @{username} regaló {amount} KICKS en {count} aporte(s). Agradécele su generosidad con entusiasmo en una sola frase.'
 }
+
+// Anti-spam de KICKS: agrupa por usuario, ignora gifts < kicksMinAmount y respeta cooldown por usuario.
+const DEFAULT_SETTINGS = { kicksAggWindowMs: 5000, kicksMinAmount: 5, kicksCooldownMs: 60000 }
 
 let chatters = new Set()
 let exceptions = new Set()
 let miniprompts = {}
 let enabled = {}
+let settings = { ...DEFAULT_SETTINGS }
+let kicksAggregator = null
 
 function loadChatters() {
   try {
@@ -63,19 +69,22 @@ function loadConfig() {
     if (parsed && typeof parsed.miniprompts === 'object') {
       miniprompts = parsed.miniprompts
       enabled = parsed.enabled || {}
+      settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) }
     } else {
       miniprompts = parsed
       enabled = {}
+      settings = { ...DEFAULT_SETTINGS }
     }
   } catch {
     miniprompts = { ...DEFAULT_MINIPROMPTS }
     enabled = {}
+    settings = { ...DEFAULT_SETTINGS }
     saveConfig()
   }
 }
 
 function saveConfig() {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify({ miniprompts, enabled }, null, 2), 'utf-8')
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify({ miniprompts, enabled, settings }, null, 2), 'utf-8')
 }
 
 function isKnownBot(username) {
@@ -171,9 +180,40 @@ function createEventHandler(eventType) {
   }
 }
 
+async function flushKicksGift({ username, total, count }) {
+  if (enabled['kicks.gifted'] === false) return
+  let prompt = miniprompts['kicks.gifted'] || DEFAULT_MINIPROMPTS['kicks.gifted']
+  prompt = prompt
+    .replace(/\{username\}/g, username)
+    .replace(/\{amount\}/g, total)
+    .replace(/\{count\}/g, count)
+  await vtuber.processMessage(username, prompt, true).catch(err => {
+    console.error('[EVENT-ACTIONS] Error calling vtuber.processMessage for kicks.gifted:', err.message)
+  })
+}
+
+function buildKicksAggregator() {
+  kicksAggregator = createKicksAggregator({
+    windowMs: settings.kicksAggWindowMs,
+    minAmount: settings.kicksMinAmount,
+    cooldownMs: settings.kicksCooldownMs,
+    onFlush: flushKicksGift
+  })
+}
+
+function onKicksGifted(data) {
+  if (enabled['kicks.gifted'] === false) return
+  const { payload } = data
+  const username = extractUsername(payload)
+  if (!username || username === 'unknown') return
+  const amount = Number(payload?.gift?.amount) || 0
+  kicksAggregator.push(username.toLowerCase(), amount, { username })
+}
+
 function init() {
   loadChatters()
   loadConfig()
+  buildKicksAggregator()
 
   eventBus.on('chat.message.sent', onChatMessage)
   eventBus.on('channel.followed', createEventHandler('channel.followed'))
@@ -182,7 +222,7 @@ function init() {
   eventBus.on('channel.subscription.gifts', createEventHandler('channel.subscription.gifts'))
   eventBus.on('channel.reward.redemption.updated', createEventHandler('channel.reward.redemption.updated'))
   eventBus.on('livestream.metadata.updated', createEventHandler('livestream.metadata.updated'))
-  eventBus.on('kicks.gifted', createEventHandler('kicks.gifted'))
+  eventBus.on('kicks.gifted', onKicksGifted)
 
   emitStatus()
   console.log('[EVENT-ACTIONS] Módulo cargado ✅')
@@ -195,12 +235,14 @@ function handleGetConfig(req, res) {
     exceptions: [...exceptions],
     miniprompts: miniprompts,
     enabled: enabled,
-    defaults: DEFAULT_MINIPROMPTS
+    settings: settings,
+    defaults: DEFAULT_MINIPROMPTS,
+    settingsDefaults: DEFAULT_SETTINGS
   })
 }
 
 function handleSaveConfig(req, res) {
-  const { miniprompts: newMiniprompts, enabled: newEnabled } = req.body
+  const { miniprompts: newMiniprompts, enabled: newEnabled, settings: newSettings } = req.body
   if (newMiniprompts && typeof newMiniprompts === 'object') {
     for (const [key, val] of Object.entries(newMiniprompts)) {
       if (typeof val === 'string' && val.trim()) {
@@ -212,6 +254,13 @@ function handleSaveConfig(req, res) {
     for (const [key, val] of Object.entries(newEnabled)) {
       enabled[key] = val === true
     }
+  }
+  if (newSettings && typeof newSettings === 'object') {
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      const n = Number(newSettings[key])
+      if (Number.isFinite(n) && n >= 0) settings[key] = n
+    }
+    buildKicksAggregator()
   }
   saveConfig()
   console.log('[EVENT-ACTIONS] Config guardada ✅')

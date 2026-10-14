@@ -12,13 +12,16 @@ import { fileURLToPath } from 'url';
 // endpoints de nuestro server:
 //
 //   GET  /api/kick/help                    → mensajes cortitos para responder
-//   POST /api/kick/players/upsert          → { kick_id, username } registra jugador
+//   POST /api/kick/players/upsert          → { kick_id, username, ns } registra jugador
 //   GET  /api/kick/players                 → lista de jugadores + combates restantes
-//   POST /api/kick/challenges              → { from_kick_id, from_username,
-//                                             to_kick_id, to_username } (comando !retar)
-//   POST /api/kick/challenges/:id/accept   → { player_kick_id } (comando !aceptar / !si)
-//   POST /api/kick/challenges/:id/decline  → { player_kick_id } (comando !no)
+//   POST /api/kick/challenges              → { from_kick_id, from_username, from_ns,
+//                                             to_kick_id, to_username, to_ns } (comando !retar)
+//   POST /api/kick/challenges/:id/accept   → { player_kick_id, ns } (comando !aceptar / !si)
+//   POST /api/kick/challenges/:id/decline  → { player_kick_id, ns } (comando !no)
 //   GET  /api/kick/challenges              → estado de la cola
+//
+// `ns` es 'kick' (default) o 'yt'. El id va crudo: número en Kick, string UCI… en YouTube.
+// El server arma la llave como `${ns}_${id}`, así que un retado puede estar en otra plataforma.
 //
 // Tu bot conecta aquí con un simple fetch. No toques nada más del server.
 // =============================================================
@@ -162,8 +165,10 @@ const ACCEPT_TTL_MS = 1 * 60 * 1000; // si el retado no responde en 1 min, el re
 export const sessionExp = new Map(); // playerId -> EXP total acumulada esta sesión (cap SESSION_EXP_CAP)
 let challenges = [];              // [{ id, from, to, status, createdAt, expiresAt }]
 
-export function playerIdOf(kickId) {
-  return `kick_${Number(kickId)}`;
+// El id crudo puede ser numérico (Kick) o un channel id de YouTube (string tipo UCI9-…),
+// así que NO se castea a Number: hacerlo colapsaba a todos los de YouTube en kick_NaN.
+export function playerIdOf(id, ns = 'kick') {
+  return `${ns}_${id}`;
 }
 
 export function getSessionExp() {
@@ -270,10 +275,12 @@ export function randomizeSprites(cfg) {
   return true;
 }
 
-function upsertPlayer(cfg, kickId, username, deps) {
+function upsertPlayer(cfg, kickId, username, deps, ns = 'kick') {
   cfg.players ??= {};
-  const kickIdNum = kickId != null ? Number(kickId) : null;
-  const playerId = kickIdNum != null ? playerIdOf(kickIdNum) : `local_${username || 'anon'}`;
+  // Id crudo: numérico en Kick, string (UCI9-…) en YouTube. No castear a Number.
+  const rawId = kickId == null ? null : String(kickId);
+  const isGrim = ns === 'kick' && rawId != null && rawId === String(GRIM_KICK_ID);
+  const playerId = rawId != null ? playerIdOf(rawId, ns) : `local_${username || 'anon'}`;
   if (!cfg.players[playerId]) {
     // Si creamos un kick user y ya existe un placeholder (kick_id null) con ese username,
     // lo descartamos para que nunca haya dos fichas del mismo nombre.
@@ -283,14 +290,16 @@ function upsertPlayer(cfg, kickId, username, deps) {
     );
     if (placeholder) delete cfg.players[placeholder[0]];
     cfg.players[playerId] = {
-      kick_id: kickIdNum,
+      // En Kick se sigue guardando número (compat con las fichas viejas); en YouTube, string.
+      kick_id: rawId == null ? null : ns === 'kick' ? Number(rawId) : rawId,
+      ns,
       username: username || playerId,
-      stats: kickIdNum === GRIM_KICK_ID ? grimAdminStats() : deps.defaultPlayerStats(),
+      stats: isGrim ? grimAdminStats() : deps.defaultPlayerStats(),
     };
     return cfg.players[playerId];
   }
   if (username) cfg.players[playerId].username = username;
-  if (kickIdNum === GRIM_KICK_ID) ensureGrim(cfg); // el admin se mantiene admin ante cualquier upsert
+  if (isGrim) ensureGrim(cfg); // el admin se mantiene admin ante cualquier upsert
   return cfg.players[playerId];
 }
 
@@ -317,13 +326,14 @@ export async function kickApiRoutes(req, res, deps) {
   // kick-bot: llámalo cuando veas un usuario nuevo en el chat para crearlo/subir su nombre.
   if (req.method === 'POST' && pathname === '/api/kick/players/upsert') {
     readBody(req)
-      .then(({ kick_id, username }) => {
+      .then(({ kick_id, username, ns }) => {
         if (kick_id == null) throw new Error('kick_id es obligatorio');
+        const platform = ns === 'yt' ? 'yt' : 'kick';
         const cfg = readConfig();
-        const player = upsertPlayer(cfg, kick_id, username, deps);
+        const player = upsertPlayer(cfg, kick_id, username, deps, platform);
         cfg.updatedAt = new Date().toISOString();
         writeConfig(cfg);
-        sendJson(res, 200, { ok: true, playerId: playerIdOf(kick_id), player });
+        sendJson(res, 200, { ok: true, playerId: playerIdOf(kick_id, platform), player });
       })
       .catch((err) => sendError(res, 400, err.message));
     return true;
@@ -334,6 +344,7 @@ export async function kickApiRoutes(req, res, deps) {
     const players = Object.entries(cfg.players || {}).map(([id, p]) => ({
       id,
       kick_id: p.kick_id ?? null,
+      ns: p.ns || 'kick',
       username: p.username,
       level: p.stats?.level ?? 0,
       wins: p.stats?.wins ?? 0,
@@ -347,16 +358,20 @@ export async function kickApiRoutes(req, res, deps) {
   // kick-bot: comando !retar @usuario
   if (req.method === 'POST' && pathname === '/api/kick/challenges') {
     readBody(req)
-      .then(({ from_kick_id, from_username, to_kick_id, to_username }) => {
+      .then(({ from_kick_id, from_username, to_kick_id, to_username, from_ns, to_ns }) => {
         if (from_kick_id == null || to_kick_id == null) {
           throw new Error('from_kick_id y to_kick_id son obligatorios');
         }
-        if (Number(from_kick_id) === Number(to_kick_id)) throw new Error('No te puedes retar a ti mismo');
+        // El retador y el retado pueden estar en plataformas distintas.
+        const fromPlatform = from_ns === 'yt' ? 'yt' : 'kick';
+        const toPlatform = to_ns === 'yt' ? 'yt' : 'kick';
+        const from = playerIdOf(from_kick_id, fromPlatform);
+        const to = playerIdOf(to_kick_id, toPlatform);
+        // Comparar las llaves completas: Number() colapsa los ids de YouTube a NaN.
+        if (from === to) throw new Error('No te puedes retar a ti mismo');
         const cfg = readConfig();
-        const from = playerIdOf(from_kick_id);
-        const to = playerIdOf(to_kick_id);
-        upsertPlayer(cfg, from_kick_id, from_username, deps);
-        upsertPlayer(cfg, to_kick_id, to_username, deps);
+        upsertPlayer(cfg, from_kick_id, from_username, deps, fromPlatform);
+        upsertPlayer(cfg, to_kick_id, to_username, deps, toPlatform);
 
         pruneExpired();
         const busy = challenges.some((c) => c.from === from || c.to === from || c.from === to || c.to === to);
@@ -384,11 +399,11 @@ export async function kickApiRoutes(req, res, deps) {
   if (req.method === 'POST' && acceptMatch) {
     const id = acceptMatch[1];
     readBody(req)
-      .then(({ player_kick_id }) => {
+      .then(({ player_kick_id, ns }) => {
         pruneExpired();
         const challenge = challenges.find((c) => c.id === id);
         if (!challenge) throw new Error('El reto no existe o expiró');
-        if (player_kick_id == null || playerIdOf(player_kick_id) !== challenge.to) {
+        if (player_kick_id == null || playerIdOf(player_kick_id, ns === 'yt' ? 'yt' : 'kick') !== challenge.to) {
           throw new Error('Solo la persona retada puede aceptar');
         }
         if (challenge.status !== 'awaiting_accept') throw new Error('Este reto ya no está aceptable');
@@ -405,10 +420,10 @@ export async function kickApiRoutes(req, res, deps) {
   if (req.method === 'POST' && declineMatch) {
     const id = declineMatch[1];
     readBody(req)
-      .then(({ player_kick_id }) => {
+      .then(({ player_kick_id, ns }) => {
         const challenge = challenges.find((c) => c.id === id);
         if (!challenge) throw new Error('El reto no existe o expiró');
-        if (player_kick_id == null || playerIdOf(player_kick_id) !== challenge.to) {
+        if (player_kick_id == null || playerIdOf(player_kick_id, ns === 'yt' ? 'yt' : 'kick') !== challenge.to) {
           throw new Error('Solo la persona retada puede rechazar');
         }
         challenges = challenges.filter((c) => c.id !== id);

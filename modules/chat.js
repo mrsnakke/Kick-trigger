@@ -40,12 +40,46 @@ async function send(req, res) {
   }
 }
 
+// Responde en la plataforma donde se pidió. `origin()` lo saca del contexto del evento
+// (ver lib/event-bus.js), así que los triggers no tienen que acordarse de nada.
+// Kick = comportamiento de siempre, YouTube = el puente de Streamer.bot.
 async function sendAsBot(content, replyTo) {
+  if (eventBus.origin() === 'youtube') return sendToYouTube(content, replyTo)
+  if (eventBus.origin() === 'twitch') return sendToTwitch(content)
   if (!state.botTokens) throw new Error('Bot no autenticado')
   if (!content || content.length > 500) throw new Error('Máx 500 caracteres')
   await auth.ensureValidBotToken()
   if (!state.broadcasterUserId) await auth.fetchChannelInfo()
   return sendToKick(state.botTokens, content, 'user', replyTo)
+}
+
+// YouTube va por el WebSocket de Streamer.bot, no por la API de Kick. El módulo se carga
+// con `require` normal (no al tope) porque el bus es lo que le pasa los mensajes, así que
+// no hay ciclo: youtube -> event-bus/sse, y nada de eso importa chat.
+async function sendToYouTube(content) {
+  const youtube = require('./triggers/youtube')
+  const r = await youtube.send(content)
+  if (r.status === 'ok') {
+    const mid = r.id || 'yt'
+    eventBus.emit('chat:sent', { content, message_id: mid })
+    sse.broadcast({ type: 'sent', content, message_id: mid })
+    return { data: { is_sent: true, message_id: mid } }
+  }
+  const err = new Error(r.error || 'Streamer.bot rechazó el SendMessage')
+  throw err
+}
+
+// Igual que YouTube pero por el puente de Twitch (lib/streamerbot.js con platform 'twitch').
+async function sendToTwitch(content) {
+  const twitch = require('./triggers/twitch')
+  const r = await twitch.send(content)
+  if (r.status === 'ok') {
+    const mid = r.id || 'tw'
+    eventBus.emit('chat:sent', { content, message_id: mid })
+    sse.broadcast({ type: 'sent', content, message_id: mid })
+    return { data: { is_sent: true, message_id: mid } }
+  }
+  throw new Error(r.error || 'Streamer.bot rechazó el SendMessage')
 }
 
 module.exports = { send, sendAsBot }

@@ -9,8 +9,9 @@ Detecta cuándo un usuario escribe por primera vez y reacciona a los eventos del
 | Archivo | Contenido |
 |---|---|
 | `index.js` | Lógica principal, handlers HTTP, integración con el bus |
+| `kicks-agg.js` | Agrupador anti-spam de KICKS por usuario (ventana + umbral + cooldown) |
 | `chatters.json` | Usuarios que ya han escrito (se crea automáticamente) |
-| `event-actions-config.json` | Miniprompts por evento (se crea automáticamente) |
+| `event-actions-config.json` | Miniprompts + `enabled` + `settings` (se crea automáticamente) |
 
 ## Funcionamiento
 
@@ -46,6 +47,18 @@ Variables disponibles por evento:
 - `{username}` — todos los eventos
 - `{reward_title}` — solo `channel.reward.redemption.updated`
 - `{title}` — solo `livestream.metadata.updated`
+- `{amount}` y `{count}` — solo `kicks.gifted` (total de KICKS y número de aportes agrupados)
+
+### Anti-spam de KICKS (`kicks.gifted`)
+
+Los KICKS/bits no se contestan uno por uno: `kicks-agg.js` los agrupa por usuario y la IA
+responde **una sola vez** por ráfaga. Configurable desde el dashboard (fila "Anti-spam KICKS"):
+
+| Setting | Default | Efecto |
+|---|---|---|
+| `kicksAggWindowMs` | `5000` | Ventana fija que agrupa los aportes del mismo usuario desde el primero |
+| `kicksMinAmount` | `5` | Aportes por debajo de este monto se ignoran (el spam de 1 bit no entra) |
+| `kicksCooldownMs` | `60000` | Tiempo mínimo entre respuestas de la IA para el mismo usuario |
 
 El botón **"Reiniciar Chatters"** del dashboard borra `chatters.json` en caliente.
 

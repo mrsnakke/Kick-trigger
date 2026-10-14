@@ -65,7 +65,7 @@ function runPS(script, { timeout = 30000 } = {}) {
 
 function speakPS(voiceIndex, outputIndex, text) {
   const script = `$v = New-Object -ComObject SAPI.SpVoice
-$v.Voice = $v.GetVoices().Item(${voiceIndex})
+$v.Voice = $v.GetVoices() | Where-Object { $_.GetDescription() -like '*Sabina*' } | Select-Object -First 1
 $v.AudioOutput = $v.GetAudioOutputs().Item(${outputIndex})
 $v.Speak('${text.replace(/'/g, "''")}')`
   return runPS(script, { timeout: 120000 })
@@ -80,7 +80,9 @@ function parseSegments(text) {
 }
 
 function speakSegmented(voiceIndex, outputIndex, segments) {
-  let lines = [`$v = New-Object -ComObject SAPI.SpVoice`, `$v.Voice = $v.GetVoices().Item(${voiceIndex})`, `$v.AudioOutput = $v.GetAudioOutputs().Item(${outputIndex})`]
+  // shortcut: todas las voces Online (Natural) fallan con 'Invalid HTTP status';
+  // mientras tanto FIX=Sabina (Desktop) para todo. Restaurar por nombre cuando reparen el proveedor.
+  let lines = [`$v = New-Object -ComObject SAPI.SpVoice`, `$v.Voice = $v.GetVoices() | Where-Object { $_.GetDescription() -like '*Sabina*' } | Select-Object -First 1`, `$v.AudioOutput = $v.GetAudioOutputs().Item(${outputIndex})`]
   for (const seg of segments) {
     lines.push(`$v.Rate = ${seg.rate}`)
     lines.push(`$v.Speak('${seg.text.replace(/'/g, "''")}')`)

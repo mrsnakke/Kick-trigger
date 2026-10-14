@@ -29,6 +29,8 @@ Diseñada para que un desarrollador nuevo pueda ponerse al día en poco tiempo.
 - [Core — auth, webhook, chat, tunnel, sse, events, forwarder, state, config](modulos/core.md)
 
 ### Módulos de reacción (`modules/triggers/`)
+- [YouTube — puente de eventos de YouTube vía Streamer.bot](modulos/youtube.md)
+- [Twitch — puente de eventos de Twitch vía Streamer.bot](modulos/twitch.md)
 - [TTS2 — texto a voz con SAPI](modulos/tts.md)
 - [VTuber AI — IA conversacional + VTube Studio (+ iA Vision)](modulos/vtuber-ai.md)
 - [Voice Chat — voz privada → Grim → TTS](modulos/voice-chat.md)

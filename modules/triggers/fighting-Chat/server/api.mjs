@@ -39,7 +39,7 @@ function defaultConfig() {
   };
 }
 
-// Limpia duplicados entre fichas: la clave canónica de un jugador real es `kick_<id>`; se
+// Limpia duplicados entre fichas: la clave canónica de un jugador real es `${ns}_${id}`; se
 // eliminan otras claves que apunten al mismo kick_id y los placeholders (kick_id null) cuyo
 // nombre coincide con el de un jugador real. Devuelve true si hubo cambios.
 function sanitizePlayers(cfg) {
@@ -52,7 +52,8 @@ function sanitizePlayers(cfg) {
       continue;
     }
     if (p.kick_id != null) {
-      const want = `kick_${Number(p.kick_id)}`;
+      // Las fichas viejas no tienen `ns` → 'kick', así que la llave no cambia para ellas.
+      const want = `${p.ns || 'kick'}_${p.kick_id}`;
       if (key !== want) {
         delete ps[key];
         changed = true;

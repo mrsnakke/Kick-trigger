@@ -24,6 +24,7 @@ de los **módulos** son routers montados bajo su sub-path.
 | `/api/chatwidget/config` | GET | Config del ChatWidget `{config, themes, defaults}` |
 | `/api/chatwidget/config` | POST | Guardar config del ChatWidget (merge) |
 | `/chatwidget` | GET | Chat Widget para OBS (HTML standalone) |
+| `/emotes` | GET | Emote Overlay para OBS (solo emotes, pantalla completa) |
 | `/api/shutdown` | POST | Detener servidor + túnel |
 
 ## TTS2 (montado en `/api/tts`)

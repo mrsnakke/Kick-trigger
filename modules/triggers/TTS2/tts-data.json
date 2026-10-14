@@ -16,8 +16,8 @@
     },
     "geostav": {
       "username": "Geostav",
-      "voice": "22",
-      "updatedAt": "2026-09-15T06:52:14.976Z"
+      "voice": "1",
+      "updatedAt": "2026-10-13T02:18:40.540Z"
     },
     "z3dow": {
       "username": "Z3dow",
@@ -68,6 +68,16 @@
       "username": "Yuan64",
       "voice": "1",
       "updatedAt": "2026-08-18T02:47:32.163Z"
+    },
+    "0geostav": {
+      "username": "0Geostav",
+      "voice": "22",
+      "updatedAt": "2026-10-01T03:32:11.460Z"
+    },
+    "wilhernandez-d7z": {
+      "username": "WilHernandez-d7z",
+      "voice": "1",
+      "updatedAt": "2026-10-01T03:32:19.342Z"
     }
   }
 }

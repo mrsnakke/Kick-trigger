@@ -58,6 +58,8 @@ const fighting = require('./modules/triggers/fighting')
 const sevenTv = require('./modules/7tv')
 const profile = require('./modules/profile')
 const chatwidgetConfig = require('./modules/chatwidget-config')
+const youtube = require('./modules/triggers/youtube')
+const twitch = require('./modules/triggers/twitch')
 
 const app = express()
 const server = http.createServer(app)
@@ -101,6 +103,7 @@ app.get('/api/profile/:username', profile.handler)
 
 // -- ChatWidget --
 app.use('/chatwidget', express.static(path.join(__dirname, 'public/chatwidget')))
+app.get('/emotes', (_req, res) => res.sendFile(path.join(__dirname, 'public/chatwidget/emotes.html')))
 app.get('/api/chatwidget/config', chatwidgetConfig.handleGet)
 app.post('/api/chatwidget/config', express.json(), chatwidgetConfig.handlePost)
 
@@ -307,6 +310,10 @@ server.listen(config.PORT, async () => {
 
   // Iniciar módulo Strinova
   strinova.init()
+
+  // Puentes de YouTube y Twitch (WebSocket de Streamer.bot). Sin router: no exponen endpoints.
+  youtube.init()
+  twitch.init()
 
   // Iniciar módulo Music
   setTimeout(() => music.init().catch(e => console.error('[MUSIC] Error init:', e.message)), 5000)

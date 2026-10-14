@@ -29,7 +29,7 @@ function runPS(script, { timeout = 30000, maxBuffer } = {}) {
 
 function speakPS(voiceIndex, outputIndex, text) {
   const s = `$v = New-Object -ComObject SAPI.SpVoice
-$v.Voice = $v.GetVoices().Item(${voiceIndex})
+$v.Voice = $v.GetVoices() | Where-Object { $_.GetDescription() -like '*Sabina*' } | Select-Object -First 1
 $v.AudioOutput = $v.GetAudioOutputs().Item(${outputIndex})
 $v.Speak('${text.replace(/'/g, "''")}')`;
   return runPS(s, { timeout: 120000 });
